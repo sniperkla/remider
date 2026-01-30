@@ -38,6 +38,7 @@ export default function Home() {
   const [manualType, setManualType] = useState("expense");
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -281,107 +282,143 @@ export default function Home() {
   };
 
   const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
     setIsProcessingImage(true);
-    setScanProgress(0);
+    setBatchProgress({ current: 0, total: files.length });
 
-    try {
-      const result = await Tesseract.recognize(file, "tha+eng", {
-        logger: (m) => {
-          if (m.status === "recognizing text") {
-            setScanProgress(Math.round(m.progress * 100));
-          }
-        },
-      });
+    for (let i = 0; i < files.length; i++) {
+      setBatchProgress(prev => ({ ...prev, current: i + 1 }));
+      setScanProgress(0);
+      
+      try {
+        const result = await Tesseract.recognize(files[i], "tha+eng", {
+          logger: (m) => {
+            if (m.status === "recognizing text") {
+              setScanProgress(Math.round(m.progress * 100));
+            }
+          },
+        });
 
-      const text = result.data.text;
-      console.log("OCR Result:", text);
-      processOcrText(text);
-    } catch (error) {
-      console.error("OCR Error:", error);
-      alert("ไม่สามารถอ่านข้อมูลจากภาพได้");
-    } finally {
-      setIsProcessingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+        const text = result.data.text;
+        console.log(`OCR Result (File ${i + 1}):`, text);
+        processOcrText(text);
+      } catch (error) {
+        console.error(`OCR Error (File ${i + 1}):`, error);
+      }
     }
+
+    setIsProcessingImage(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const processOcrText = (text) => {
-    // 1. Clean and normalize text
-    const cleanedText = text.replace(/,/g, "").replace(/\n/g, " ");
+    // 1. Normalize text (keep decimals and basic structure)
+    let cleanedText = text.replace(/,/g, ""); 
+    const lowerText = cleanedText.toLowerCase();
     
-    // 2. Look for amounts (Common patterns in Thai slips)
-    // Pattern: Number followed by .xx or just a number near terms like "จำนวนเงิน" or "Amount"
-    const amountRegex = /([0-9]+\.[0-9]{2}|[0-9]+)/g;
-    const matches = cleanedText.match(amountRegex);
+    console.log("Processing cleaned text:", cleanedText);
+
+    // 2. Filter out common distractions (Dates, Times, long Ref IDs)
+    // Remove times: HH:mm:ss or HH:mm
+    cleanedText = cleanedText.replace(/\d{2}:\d{2}(:\d{2})?/g, " [TIME] ");
+    // Remove dates: DD/MM/YY, DD-MM-YYYY, etc.
+    cleanedText = cleanedText.replace(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/g, " [DATE] ");
+    // Remove long numbers (Ref IDs / Account numbers) - usually 10+ digits with no dot
+    cleanedText = cleanedText.replace(/\b\d{10,}\b/g, " [REF] ");
+
+    // 3. Smart Amount Detection
+    // Priority 1: Numbers with 2 decimals that follow "Amount" or Thai equivalent
+    const amountKeywords = [
+      // Bank Slips
+      "จำนวนเงิน", "ยอดโอน", "ยอดเงิน", "จ่ายแล้ว", "สำเร็จ",
+      // Retail / 7-11 / Receipts
+      "ราคารวม", "รวมทั้งสิ้น", "รวมเงิน", "ยอดรวม", "เงินสด", "ยอดชำระ", "ชำระเงิน",
+      // English / International
+      "amount", "total", "net amount", "grand total", "paid", "transfer", "total due", "balance due", "subtotal", "vat", "tax"
+    ];
     
-    if (!matches) {
-      alert("ไม่พบจำนวนเงินในภาพ");
-      return;
+    let finalAmount = 0;
+    let found = false;
+
+    // Search for number near keywords
+    for (const kw of amountKeywords) {
+      const idx = cleanedText.toLowerCase().indexOf(kw);
+      if (idx !== -1) {
+        // Look at the text shortly after the keyword
+        const windowText = cleanedText.substring(idx, idx + 60);
+        // Look for number with decimal first (most accurate for amounts)
+        const decimalMatch = windowText.match(/(\d+\.\d{2})/);
+        if (decimalMatch) {
+          finalAmount = parseFloat(decimalMatch[0]);
+          found = true;
+          break;
+        }
+        // Then look for any number
+        const numberMatch = windowText.match(/(\d+(\.\d+)?)/);
+        if (numberMatch) {
+          finalAmount = parseFloat(numberMatch[0]);
+          found = true;
+          break;
+        }
+      }
     }
 
-    // Usually the largest number in a slip is the amount, 
-    // but often bank slips have "จำนวนเงิน" before the actual amount.
-    // Let's look for proximity to keywords
-    const keywords = ["จำนวนเงิน", "ยอดโอน", "amount", "total", "net"];
-    let finalAmount = 0;
-    
-    // Simple logic: Find largest number that isn't a date or account number (heuristic)
-    const candidates = matches
-      .map(m => parseFloat(m))
-      .filter(num => num > 0 && num < 10000000); // Filter out crazy large numbers
-    
-    if (candidates.length > 0) {
-      // For bank slips, usually the amount is one of the larger numbers
-      // A common pattern is finding keywords then taking the next number
-      let foundViaKeyword = false;
-      for (const kw of keywords) {
-        if (cleanedText.toLowerCase().includes(kw)) {
-          // Look for amount after this keyword
-          const index = cleanedText.toLowerCase().indexOf(kw);
-          const afterKw = cleanedText.substring(index, index + 50);
-          const localMatch = afterKw.match(/([0-9]+\.[0-9]{2}|[0-9]+)/);
-          if (localMatch) {
-            finalAmount = parseFloat(localMatch[0]);
-            foundViaKeyword = true;
-            break;
+    // Priority 2: If no keyword match, look for the most "amount-like" number
+    if (!found) {
+      // Find all numbers with exactly 2 decimal places (Very common for bills)
+      const decimalMatches = cleanedText.match(/(\d+\.\d{2})/g);
+      if (decimalMatches) {
+        // Take the largest one with decimals (usually the total)
+        finalAmount = Math.max(...decimalMatches.map(m => parseFloat(m)));
+        found = true;
+      } else {
+        // Last resort: find any number and guess
+        const allNumbers = cleanedText.match(/(\d+(\.\d+)?)/g);
+        if (allNumbers) {
+          const skipYears = [2023, 2024, 2025, 2566, 2567, 2568];
+          const candidates = allNumbers
+            .map(m => parseFloat(m))
+            .filter(n => n > 0 && n < 5000000 && !skipYears.includes(n));
+          
+          if (candidates.length > 0) {
+            finalAmount = Math.max(...candidates);
+            found = true;
           }
         }
       }
-      
-      if (!foundViaKeyword) {
-        finalAmount = Math.max(...candidates);
-      }
     }
 
-    if (finalAmount > 0) {
-      // Determine type (Most slips are expenses unless it's a "receive" slip)
+    if (found && finalAmount > 0) {
+      // 4. Determine Type (Default to expense unless "receiver" keywords present)
       let type = "expense";
-      if (cleanedText.includes("รับเข้า") || cleanedText.includes("เงินเข้า") || cleanedText.includes("Income")) {
+      const incomeTriggers = ["รับเงิน", "เงินเข้า", "โอนเข้า", "receiver", "income", "credit"];
+      if (incomeTriggers.some(kw => lowerText.includes(kw))) {
         type = "income";
       }
 
-      // Detection for category based on previous logic
+      // 5. Category detection
       let category = "อื่นๆ";
-      const catMap = {
-        "อาหาร": ["กิน", "ข้าว", "น้ำ", "กาแฟ", "grabfood", "lineman", "foodpanda"],
-        "การเดินทาง": ["ปั๊ม", "น้ำมัน", "ค่ารถ", "taxi", "grab"],
-        "ของใช้": ["7-11", "เซเว่น", "shopee", "lazada", "ห้าง"],
-        "การเงิน": ["โอน", "ค่าธรรมเนียม", "ธนาคาร"]
+      const catKeywords = {
+        "อาหาร": ["cafe", "coffee", "restaurant", "food", "ข้าว", "น้ำ", "กาแฟ", "grabfood", "lineman", "foodpanda", "kfc", "mcdonald", "starbucks"],
+        "เดินทาง": ["taxi", "grab", "bolt", "ptt", "shell", "bangchak", "น้ำมัน", "ค่ารถ", "bts", "mrt", "ทางด่วน"],
+        "ที่พัก": ["ค่าน้ำ", "ค่าไฟ", "ค่าเช่า", "rent", "electricity", "water bill", "pea", "mea", "mwa", "pwa", "คอนโด", "หอพัก"],
+        "ของใช้": ["7-11", "cp all", "shopee", "lazada", "ห้าง", "เซเว่น", "lotus", "big c", "tops", "makro", "watsons"],
+        "การเงิน": ["fee", "ค่าธรรมเนียม", "ดอกเบี้ย", "insurance", "ประกัน", "ภาษี", "tax"],
+        "สื่อสาร": ["ais", "true", "dtac", "ค่าโทร", "อินเตอร์เน็ต", "wifi", "internet", "netflix", "youtube", "spotify"]
       };
 
-      for (const [cat, keywords] of Object.entries(catMap)) {
-        if (keywords.some(kw => cleanedText.toLowerCase().includes(kw))) {
+      for (const [cat, words] of Object.entries(catKeywords)) {
+        if (words.some(w => lowerText.includes(w))) {
           category = cat;
           break;
         }
       }
 
-      addTransaction(finalAmount, type, "สแกนจากสลิป", category);
+      addTransaction(finalAmount, type, "สแกนจากสลิป/บิล", category);
     } else {
-      alert("ไม่พบจำนวนเงินที่ชัดเจน");
+      alert("ไม่สามารถระบุจำนวนเงินได้ กรุณาลองปรับมุมกล้องหรือใส่เองครับ");
     }
   };
 
@@ -577,6 +614,7 @@ export default function Home() {
         <input 
           type="file" 
           accept="image/*" 
+          multiple
           ref={fileInputRef} 
           onChange={handleImageUpload} 
           style={{ display: 'none' }} 
@@ -590,7 +628,8 @@ export default function Home() {
           {isProcessingImage ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <Loader2 className="animate-spin" size={20} />
-              <span style={{ fontSize: '8px', position: 'absolute', bottom: '5px' }}>{scanProgress}%</span>
+              <span style={{ fontSize: '10px', marginTop: '2px' }}>{batchProgress.current}/{batchProgress.total}</span>
+              <span style={{ fontSize: '8px', opacity: 0.7 }}>{scanProgress}%</span>
             </div>
           ) : (
             <Camera size={24} />
