@@ -14,8 +14,11 @@ import {
   BarChart3,
   Settings,
   LogOut,
+  Camera,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Tesseract from "tesseract.js";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -33,8 +36,11 @@ export default function Home() {
   const [manualAmount, setManualAmount] = useState("");
   const [manualDesc, setManualDesc] = useState("");
   const [manualType, setManualType] = useState("expense");
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
 
   const recognitionRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   // Load data from localStorage (In real app, we'd use the API)
   useEffect(() => {
@@ -94,44 +100,148 @@ export default function Home() {
   };
 
   const processVoiceCommand = (text) => {
+    // 1. Identify Amount (Smarter extraction with Thai word support)
     const cleanedText = text.replace(/,/g, "");
-    const amountMatch = cleanedText.match(/\d+(\.\d+)?/g);
-    if (!amountMatch) return;
-
-    const amount = parseFloat(amountMatch[0]);
-    let type = "expense";
     
-    const incomeKeywords = ["ได้", "เข้า", "บวก", "ขาย", "รายได้", "เงินเดือน", "คืน"];
-    const expenseKeywords = ["จ่าย", "ซื้อ", "เสีย", "ลบ", "ออก", "ค่า"];
-    const isIncome = incomeKeywords.some((kw) => text.includes(kw));
-    const isExpense = expenseKeywords.some((kw) => text.includes(kw));
+    // Support Thai number words
+    const thaiMultipliers = {
+      "ล้าน": 1000000,
+      "แสน": 100000,
+      "หมื่น": 10000,
+      "พัน": 1000,
+      "ร้อย": 100
+    };
 
+    let amount = 0;
+    const amountMatch = cleanedText.match(/\d+(\.\d+)?/g);
+    
+    if (amountMatch) {
+      amount = parseFloat(amountMatch[0]);
+      
+      // Check for multipliers right after the number
+      for (const [word, multiplier] of Object.entries(thaiMultipliers)) {
+        if (cleanedText.includes(`${amountMatch[0]} ${word}`) || cleanedText.includes(`${amountMatch[0]}${word}`)) {
+          amount = amount * multiplier;
+          break;
+        }
+      }
+    } else {
+      // Check for words without digits (e.g., "หนึ่งล้าน")
+      // This is a simplified version, can be expanded
+      return; 
+    }
+
+    if (amount === 0) return;
+    
+    // 2. Identify Transaction Type (Income vs Expense)
+    const incomeKeywords = [
+      // Thai - General
+      "ได้", "เข้า", "บวก", "ขาย", "รายได้", "รับ", "โอนเข้า", "มาให้", "ให้มา", "ตกมา", "หยิบมา", "เจอ", "พบ", "เก็บได้",
+      // Thai - Salary/Work
+      "เงินเดือน", "เบิก", "ค่าจ้าง", "ค่าแรง", "โอที", "เบี้ยเลี้ยง", "คอมมิชชั่น", "ค่าคอม", "โบนัส", "เงินรางวัล",
+      // Thai - Gifts/Luck
+      "ถูกหวย", "ถูกรางวัล", "รางวัล", "อั่งเปา", "ของขวัญ", "เงินช่วย", "เงินอุดหนุน", "ทุน", "เงินทุน",
+      // Thai - Investment/Finance
+      "กำไร", "ปันผล", "ดอกเบี้ย", "ผลตอบแทน", "เงินปันผล", "ขายหุ้น", "ขายกองทุน",
+      // Thai - Borrow/Return
+      "กู้", "ยืมมา", "คืน", "ได้คืน", "เงินคืน", "รับคืน", "โอนคืน", "ทอน", "เงินทอน",
+      // Thai - Other
+      "โอนมา", "ส่งมา", "ฝากมา", "เหลือ", "ประหยัด", "ลดราคา", "ส่วนลด",
+      // English - General
+      "get", "got", "received", "receive", "income", "plus", "add", "deposit", "credited",
+      // English - Salary/Work
+      "salary", "wage", "bonus", "commission", "overtime", "allowance", "paycheck", "payroll",
+      // English - Gifts/Luck
+      "win", "won", "prize", "reward", "gift", "lottery", "jackpot", "lucky",
+      // English - Investment/Finance
+      "profit", "dividend", "interest", "return", "yield", "gain", "capital gain",
+      // English - Borrow/Return
+      "borrow", "borrowed", "refund", "cashback", "rebate", "reimbursement", "returned",
+      // English - Other
+      "earn", "earned", "collect", "save", "saved", "discount"
+    ];
+    const expenseKeywords = [
+      // Thai - General
+      "จ่าย", "ซื้อ", "เสีย", "ลบ", "ออก", "ค่า", "หมด", "ไป", "โอนออก", "โอนไป", "ส่งไป",
+      // Thai - Payment
+      "ชำระ", "จ่ายค่า", "จ่ายเงิน", "จ่ายบิล", "เสียค่า", "เสียเงิน", "หักเงิน",
+      // Thai - Shopping
+      "ช้อป", "ช้อปปิ้ง", "สั่งซื้อ", "กดซื้อ", "เหมา", "ตุน",
+      // Thai - Top up/Add
+      "เติม", "เติมเงิน", "เติมน้ำมัน", "เติมเครดิต", "ท็อปอัพ",
+      // Thai - Loss
+      "หาย", "สูญ", "เสียหาย", "โดนโกง", "โดนขโมย",
+      // Thai - Donation/Charity
+      "ทำบุญ", "บริจาค", "ใส่บาตร", "ถวาย", "ให้ทาน",
+      // Thai - Debt/Installment
+      "ผ่อน", "งวด", "หนี้", "ใช้หนี้", "คืนเงิน", "ชำระหนี้", "ติดหนี้",
+      // Thai - Tax/Fine
+      "ภาษี", "ปรับ", "ค่าปรับ", "โดนปรับ", "เสียภาษี",
+      // Thai - Bills
+      "ค่าน้ำ", "ค่าไฟ", "ค่าเน็ต", "ค่าโทร", "ค่าเช่า", "ค่าประกัน", "ค่าบริการ",
+      // English - General
+      "pay", "paid", "buy", "bought", "purchase", "spent", "spend", "loss", "minus", "out", "cost",
+      // English - Payment
+      "bill", "fee", "charge", "debit", "debited", "checkout", "invoice",
+      // English - Shopping
+      "shop", "shopping", "order", "ordered",
+      // English - Top up
+      "topup", "top up", "reload", "recharge",
+      // English - Loss
+      "lost", "lose", "stolen", "scam", "scammed",
+      // English - Donation
+      "donate", "donated", "donation", "charity", "tip", "tipped",
+      // English - Debt/Installment
+      "loan", "installment", "debt", "repay", "repayment", "mortgage",
+      // English - Tax/Fine
+      "tax", "fine", "penalty", "surcharge",
+      // English - Subscription
+      "subscription", "subscribe", "membership", "premium", "renewal",
+      // English - Other
+      "expense", "withdrawal", "transfer"
+    ];
+    
+    const lowerText = text.toLowerCase();
+    const isIncome = incomeKeywords.some((kw) => lowerText.includes(kw));
+    const isExpense = expenseKeywords.some((kw) => lowerText.includes(kw));
+
+    let type = "expense"; // Default to expense
     if (isIncome && !isExpense) type = "income";
 
+    // 3. Identify Category (Detailed mapping for both languages)
     let category = "อื่นๆ";
     const catMap = {
-      "อาหาร": ["กิน", "ข้าว", "น้ำ", "กาแฟ", "ขนม", "มื้อ"],
-      "การเดินทาง": ["รถ", "น้ำมัน", "แท็กซี่", "bts", "mrt", "วิน"],
-      "ของใช้": ["ซื้อของ", "เซเว่น", "ซุปเปอร์", "ห้าง"],
-      "บันเทิง": ["หนัง", "เกม", "เที่ยว"],
-      "ที่พัก": ["ค่าเช่า", "น้ำไฟ", "ห้อง"],
-      "โอน/ถอน": ["โอน", "ถอน", "ตู้"],
-      "รายได้": ["เงินเดือน", "โบนัส", "ขายของ"]
+      "อาหาร": ["กิน", "ข้าว", "น้ำ", "กาแฟ", "ขนม", "มื้อ", "อาหาร", "หิว", "สั่ง", "ชา", "ต้ม", "ผัด", "แกง", "ทอด", "eat", "food", "rice", "water", "coffee", "drink", "snack", "meal", "dinner", "lunch", "breakfast", "cafe", "starbucks", "grabfood", "lineman", "foodpanda"],
+      "เดินทาง": ["รถ", "น้ำมัน", "แท็กซี่", "วิน", "มา", "ไป", "โบลท์", "กรับ", "ค่ารถ", "เรือ", "เครื่องบิน", "ตั๋ว", "parking", "car", "gas", "petrol", "taxi", "bts", "mrt", "bus", "train", "flight", "fare", "grab", "bolt"],
+      "ของใช้": ["ซื้อของ", "เซเว่น", "ซุปเปอร์", "ห้าง", "เสื้อ", "กางเกง", "ของใช้", "ช้อป", "แอป", "ของกินของใช้", "buy", "shop", "mall", "market", "7-11", "supermarket", "cloth", "item", "stuff", "shopee", "lazada", "tiktok"],
+      "บันเทิง": ["หนัง", "เกม", "เที่ยว", "ปาร์ตี้", "ดูหนัง", "เล่นเกม", "ฟังเพลง", "คอนเสิร์ต", "movie", "game", "travel", "trip", "leisure", "party", "netflix", "spotify", "youtube"],
+      "ที่พัก": ["ค่าเช่า", "น้ำไฟ", "ห้อง", "บ้าน", "เน็ต", "ไวไฟ", "บิล", "คอนโด", "หอพัก", "rent", "room", "water", "electric", "bill", "wifi", "internet", "house", "condo"],
+      "การเงิน": ["โอน", "ถอน", "ตู้", "ธนาคาร", "ค่าธรรมเนียม", "ดอกเบี้ย", "เงินกู้", "transfer", "atm", "withdraw", "bank", "fee", "interest", "loan"],
+      "สุขภาพ": ["โรงพยาบาล", "ยา", "หาหมอ", "ยิม", "คลินิก", "ประกัน", "ฟิตเนส", "หน้า", "สปา", "hospital", "drug", "medicine", "doctor", "gym", "fitness", "insurance", "skincare"],
+      "รายได้": ["เงินเดือน", "โบนัส", "ขายของ", "กำไร", "คอมมิชชั่น", "ทิป", "ปันผล", "ถูกหวย", "รางวัล", "salary", "bonus", "sell", "earn", "profit", "commission", "tip", "dividend"]
     };
 
     for (const [cat, keywords] of Object.entries(catMap)) {
-      if (keywords.some(kw => text.includes(kw))) {
+      if (keywords.some(kw => lowerText.includes(kw))) {
         category = cat;
         break;
       }
     }
 
+    // 4. Construct Description (Clean up the text)
     const originalNumberMatch = text.match(/[\d,.]+/);
     let description = text;
     if (originalNumberMatch) {
       description = description.replace(originalNumberMatch[0], "");
     }
-    description = description.replace("บาท", "").replace("วันนี้", "").trim();
+    
+    // Remove common filter words
+    const filterWords = ["บาท", "วันนี้", "เมื่อกี้", "เมื่อวาน", "baht", "today", "yesterday", "this"];
+    filterWords.forEach(word => {
+      description = description.replace(word, "");
+    });
+    
+    description = description.trim();
     if (!description) description = type === "income" ? "รายรับ" : "รายจ่าย";
 
     addTransaction(amount, type, description, category);
@@ -168,6 +278,111 @@ export default function Home() {
     setManualDesc("");
     setManualType("expense");
     setShowManualEntry(false);
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsProcessingImage(true);
+    setScanProgress(0);
+
+    try {
+      const result = await Tesseract.recognize(file, "tha+eng", {
+        logger: (m) => {
+          if (m.status === "recognizing text") {
+            setScanProgress(Math.round(m.progress * 100));
+          }
+        },
+      });
+
+      const text = result.data.text;
+      console.log("OCR Result:", text);
+      processOcrText(text);
+    } catch (error) {
+      console.error("OCR Error:", error);
+      alert("ไม่สามารถอ่านข้อมูลจากภาพได้");
+    } finally {
+      setIsProcessingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const processOcrText = (text) => {
+    // 1. Clean and normalize text
+    const cleanedText = text.replace(/,/g, "").replace(/\n/g, " ");
+    
+    // 2. Look for amounts (Common patterns in Thai slips)
+    // Pattern: Number followed by .xx or just a number near terms like "จำนวนเงิน" or "Amount"
+    const amountRegex = /([0-9]+\.[0-9]{2}|[0-9]+)/g;
+    const matches = cleanedText.match(amountRegex);
+    
+    if (!matches) {
+      alert("ไม่พบจำนวนเงินในภาพ");
+      return;
+    }
+
+    // Usually the largest number in a slip is the amount, 
+    // but often bank slips have "จำนวนเงิน" before the actual amount.
+    // Let's look for proximity to keywords
+    const keywords = ["จำนวนเงิน", "ยอดโอน", "amount", "total", "net"];
+    let finalAmount = 0;
+    
+    // Simple logic: Find largest number that isn't a date or account number (heuristic)
+    const candidates = matches
+      .map(m => parseFloat(m))
+      .filter(num => num > 0 && num < 10000000); // Filter out crazy large numbers
+    
+    if (candidates.length > 0) {
+      // For bank slips, usually the amount is one of the larger numbers
+      // A common pattern is finding keywords then taking the next number
+      let foundViaKeyword = false;
+      for (const kw of keywords) {
+        if (cleanedText.toLowerCase().includes(kw)) {
+          // Look for amount after this keyword
+          const index = cleanedText.toLowerCase().indexOf(kw);
+          const afterKw = cleanedText.substring(index, index + 50);
+          const localMatch = afterKw.match(/([0-9]+\.[0-9]{2}|[0-9]+)/);
+          if (localMatch) {
+            finalAmount = parseFloat(localMatch[0]);
+            foundViaKeyword = true;
+            break;
+          }
+        }
+      }
+      
+      if (!foundViaKeyword) {
+        finalAmount = Math.max(...candidates);
+      }
+    }
+
+    if (finalAmount > 0) {
+      // Determine type (Most slips are expenses unless it's a "receive" slip)
+      let type = "expense";
+      if (cleanedText.includes("รับเข้า") || cleanedText.includes("เงินเข้า") || cleanedText.includes("Income")) {
+        type = "income";
+      }
+
+      // Detection for category based on previous logic
+      let category = "อื่นๆ";
+      const catMap = {
+        "อาหาร": ["กิน", "ข้าว", "น้ำ", "กาแฟ", "grabfood", "lineman", "foodpanda"],
+        "การเดินทาง": ["ปั๊ม", "น้ำมัน", "ค่ารถ", "taxi", "grab"],
+        "ของใช้": ["7-11", "เซเว่น", "shopee", "lazada", "ห้าง"],
+        "การเงิน": ["โอน", "ค่าธรรมเนียม", "ธนาคาร"]
+      };
+
+      for (const [cat, keywords] of Object.entries(catMap)) {
+        if (keywords.some(kw => cleanedText.toLowerCase().includes(kw))) {
+          category = cat;
+          break;
+        }
+      }
+
+      addTransaction(finalAmount, type, "สแกนจากสลิป", category);
+    } else {
+      alert("ไม่พบจำนวนเงินที่ชัดเจน");
+    }
   };
 
   const deleteTransaction = (id) => {
@@ -359,8 +574,27 @@ export default function Home() {
         </AnimatePresence>
 
       <div className="mic-button-container" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-        <button onClick={() => setShowManualEntry(true)} className="btn-outline" style={{ borderRadius: '50%', width: '56px', height: '56px' }}>
-          <Wallet size={24} />
+        <input 
+          type="file" 
+          accept="image/*" 
+          ref={fileInputRef} 
+          onChange={handleImageUpload} 
+          style={{ display: 'none' }} 
+        />
+        <button 
+          onClick={() => fileInputRef.current.click()} 
+          className="btn-outline" 
+          style={{ borderRadius: '50%', width: '56px', height: '56px', position: 'relative' }}
+          disabled={isProcessingImage}
+        >
+          {isProcessingImage ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <Loader2 className="animate-spin" size={20} />
+              <span style={{ fontSize: '8px', position: 'absolute', bottom: '5px' }}>{scanProgress}%</span>
+            </div>
+          ) : (
+            <Camera size={24} />
+          )}
         </button>
         <div style={{ position: 'relative' }}>
             <button className={`mic-button ${isListening ? 'active' : ''}`} onClick={toggleListening}>
