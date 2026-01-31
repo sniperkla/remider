@@ -220,6 +220,9 @@ export default function Home() {
   const [interimTranscript, setInterimTranscript] = useState(""); // For showing partial speech
   const lastProcessedTextRef = useRef(""); // Track last text to avoid mobile duplicates
   const lastProcessTimeRef = useRef(0); // Cooldown for processing
+  const lastRestartTimeRef = useRef(0); // Cooldown for restarts to avoid loops
+  const restartCountRef = useRef(0); // Count rapid restarts
+
 
 
   const [isLoading, setIsLoading] = useState(false);
@@ -297,10 +300,31 @@ export default function Home() {
         
         // Auto-restart if voice is still meant to be active (e.g., didn't manually turn off)
         if (isVoiceActiveRef.current) {
-          try {
-            recognitionRef.current.start();
-          } catch (e) {
-            // Already started, ignore
+          const now = Date.now();
+          // If it restarted too fast (less than 2s), increment count
+          if (now - lastRestartTimeRef.current < 2000) {
+            restartCountRef.current++;
+          } else {
+            restartCountRef.current = 0;
+          }
+
+          // Safety break: if it loops more than 5 times rapidly, stop auto-restart
+          if (restartCountRef.current < 5) {
+            lastRestartTimeRef.current = now;
+            // Delay restart slightly for stability
+            setTimeout(() => {
+              if (isVoiceActiveRef.current) {
+                try {
+                  recognitionRef.current.start();
+                } catch (e) {
+                  // Ignore
+                }
+              }
+            }, 300);
+          } else {
+            console.log("Mic loop detected - disabling auto-restart");
+            isVoiceActiveRef.current = false;
+            setAiMessage(lang === 'th' ? "เรมี่ขอพักก่อนนะ ไมค์เหมือนจะมีปัญหานิดหน่อยค่ะ 🎀" : "Mic seems unstable, taking a break! 🎀");
           }
         }
       };
