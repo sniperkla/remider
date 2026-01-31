@@ -291,6 +291,8 @@ function HomeContent() {
   const [visibleCount, setVisibleCount] = useState(10);
   const [activeTab, setActiveTab] = useState("transactions"); // transactions or debts
   
+  const processedFilesRef = useRef(new Set()); // Prevent double-processing
+  
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [showHelp, setShowHelp] = useState(false);
@@ -351,10 +353,11 @@ function HomeContent() {
       const handle = await window.showDirectoryPicker();
       setFolderHandle(handle);
       await storeHandle("billingFolder", handle);
-      const now = Date.now();
-      setLastAutoScan(now);
-      localStorage.setItem("lastAutoScan", now.toString());
-      scanFolderTransactions(handle, now);
+      // Look back 1 hour on first link so we don't miss recent transfers
+      const startFrom = Date.now() - (60 * 60 * 1000); 
+      setLastAutoScan(startFrom);
+      localStorage.setItem("lastAutoScan", startFrom.toString());
+      scanFolderTransactions(handle, startFrom);
     } catch (err) {
       console.warn("Folder access denied or cancelled", err);
     }
@@ -365,20 +368,30 @@ function HomeContent() {
     await storeHandle("billingFolder", null);
   };
 
-  const scanFolderTransactions = async (handle = folderHandleRef.current, since = lastAutoScanRef.current) => {
+  const scanFolderTransactions = async (handle = folderHandleRef.current, since = lastAutoScanRef.current, forceAll = false) => {
     if (!handle || isAutoScanningRef.current) return;
     
     setIsAutoScanning(true);
     let newItemsCount = 0;
     try {
-      // Check permission (silent check first)
       const options = { mode: 'read' };
-      if ((await handle.queryPermission(options)) !== 'granted') {
-        // We can't auto-prompt for permission in background
-        // But if it was granted once in session, it usually stays
-        setIsAutoScanning(false);
-        return;
+      const currentPerm = await handle.queryPermission(options);
+      
+      if (currentPerm !== 'granted') {
+        console.log("📂 Folder scan paused: Permission required.");
+        // Only request on manual "force" or "scan now", not on background interval
+        if (typeof window !== 'undefined' && (forceAll || since === 0)) {
+           if ((await handle.requestPermission(options)) !== 'granted') {
+             setIsAutoScanning(false);
+             return;
+           }
+        } else {
+          setIsAutoScanning(false);
+          return;
+        }
       }
+
+      console.log(`📡 Scan starting: Checking files since ${new Date(since).toLocaleTimeString()}`);
 
       for await (const entry of handle.values()) {
         if (entry.kind !== 'file') continue;
@@ -386,26 +399,41 @@ function HomeContent() {
         if (!isImage) continue;
         
         const file = await entry.getFile();
-        if (file.lastModified > since) {
-          console.log(`Auto-detected new file: ${entry.name}`);
+        const fileKey = `${entry.name}-${file.lastModified}-${file.size}`;
+
+        // SAFETY: Only process if lastModified is NEWER than our last scan
+        if (forceAll || (file.lastModified >= since && !processedFilesRef.current.has(fileKey))) {
+          console.log(`🎯 New file detected: ${entry.name}`);
+          if (!forceAll) processedFilesRef.current.add(fileKey);
+          
+          await new Promise(r => setTimeout(r, forceAll ? 10 : 1500));
+
           try {
             const result = await Tesseract.recognize(file, "tha+eng");
-            processOcrText(result.data.text);
-            newItemsCount++;
+            const ocrText = result.data.text;
+            if (ocrText.trim()) {
+              console.log(`✅ OCR Success for ${entry.name}`);
+              processOcrText(ocrText);
+              newItemsCount++;
+            }
           } catch (ocrErr) {
-            console.error("OCR Error for auto-file:", entry.name, ocrErr);
+            console.error("❌ OCR Error:", entry.name, ocrErr);
           }
         }
       }
       
-      const now = Date.now();
-      setLastAutoScan(now);
-      localStorage.setItem("lastAutoScan", now.toString());
+      // SAFETY: Move marker forward to NOW, but subtract 30s buffer to catch overlapping writes
+      const nextScanTime = Date.now() - 30000;
+      setLastAutoScan(nextScanTime);
+      localStorage.setItem("lastAutoScan", nextScanTime.toString());
+      
       if (newItemsCount > 0) {
         setAiMessage(t.scanned_new_files(newItemsCount));
+      } else {
+        console.log("📂 Scan completed: No new bills found.");
       }
     } catch (err) {
-      console.error("Folder scan failed:", err);
+      console.error("❌ Folder scan failed:", err);
     }
     setIsAutoScanning(false);
   };
@@ -2433,6 +2461,19 @@ function HomeContent() {
                           {t.disconnect}
                         </button>
                       </div>
+                      
+                      {/* TEST FORCE BUTTON */}
+                      <button 
+                         onClick={() => {
+                           if (confirm(lang === 'th' ? "คำเตือน: การสแกนทั้งหมดอาจทำให้รายการซ้ำได้ ใช้สำหรับทดสอบเท่านั้น ตกลงไหมคะ?" : "Warning: Force reading all files may cause duplicates. Use for testing only. Proceed?")) {
+                             scanFolderTransactions(folderHandle, 0, true);
+                           }
+                         }}
+                         disabled={isAutoScanning}
+                         style={{ width: '100%', padding: '8px', borderRadius: '8px', background: 'rgba(255,165,0,0.1)', color: '#f59e0b', border: '1px dashed #f59e0b', fontSize: '11px', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}
+                      >
+                         ⚠️ {t.force_scan}
+                      </button>
                     </div>
                   )}
                 </div>
