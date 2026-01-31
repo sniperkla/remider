@@ -29,6 +29,9 @@ export async function GET() {
     return NextResponse.json({
       balance: profile.balance,
       budget: profile.budget,
+      monthlyBudget: profile.monthlyBudget,
+      defaultWallet: profile.defaultWallet,
+      nickname: profile.nickname,
       transactions: transactions
     });
   } catch (error) {
@@ -50,11 +53,14 @@ export async function POST(request) {
 
     await dbConnect();
     const userId = session.user.email;
-    const { budget, balance } = await request.json();
+    const { budget, balance, monthlyBudget, defaultWallet, nickname } = await request.json();
 
     const updateData = {};
     if (budget !== undefined) updateData.budget = budget;
     if (balance !== undefined) updateData.balance = balance;
+    if (monthlyBudget !== undefined) updateData.monthlyBudget = monthlyBudget;
+    if (defaultWallet !== undefined) updateData.defaultWallet = defaultWallet;
+    if (nickname !== undefined) updateData.nickname = nickname;
 
     const profile = await UserProfile.findOneAndUpdate(
       { userId },

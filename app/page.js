@@ -20,6 +20,7 @@ import {
   TrendingDown,
   TrendingUp,
   Edit2,
+  Edit3,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Tesseract from "tesseract.js";
@@ -98,6 +99,78 @@ const detectCategory = (text) => {
 
   return bestCategory;
 };
+
+const parseThaiNumber = (str) => {
+  if (!str) return 0;
+  // Heal numbers like "1, 520" or "1,520" by removing comma and optional space between digits
+  const healedStr = str.replace(/(\d)\s*,\s*(\d)/g, "$1$2");
+  const cleanStr = healedStr.replace(/,/g, "").trim();
+  if (/^\d+(\.\d+)?$/.test(cleanStr)) return parseFloat(cleanStr);
+
+  const thaiDigits = {
+    "ศูนย์": 0, "หนึ่ง": 1, "เอ็ด": 1, "สอง": 2, "ยี่": 2, "สาม": 3,
+    "สี่": 4, "ห้า": 5, "หก": 6, "เจ็ด": 7, "แปด": 8, "เก้า": 9, "สิบ": 10
+  };
+  const thaiMults = {
+    "ล้าน": 1000000, "แสน": 100000, "หมื่น": 10000, "พัน": 1000, "ร้อย": 100, "สิบ": 10
+  };
+
+  let total = 0;
+  let remaining = cleanStr;
+
+  // 1. Handle MIXED patterns like "1 พัน" or "5 แสน"
+  for (const [multWord, multValue] of Object.entries(thaiMults)) {
+    const regex = new RegExp(`(\\d+)\\s*${multWord}`, 'g');
+    remaining = remaining.replace(regex, (match, num) => {
+      total += parseFloat(num) * multValue;
+      return " ";
+    });
+  }
+
+  // 2. Handle WORD patterns like "หนึ่งแสน" or "สี่สิบ"
+  for (const [multWord, multValue] of Object.entries(thaiMults)) {
+    const idx = remaining.indexOf(multWord);
+    if (idx !== -1) {
+      const before = remaining.substring(Math.max(0, idx - 10), idx).trim();
+      let digitValue = 1;
+      let foundDigit = false;
+      let lastMatchIdx = -1;
+      let matchedWord = "";
+
+      for (const [dw, dv] of Object.entries(thaiDigits)) {
+        const dIdx = before.lastIndexOf(dw);
+        if (dIdx !== -1 && dIdx > lastMatchIdx) {
+          lastMatchIdx = dIdx;
+          digitValue = dv;
+          foundDigit = true;
+          matchedWord = dw;
+        }
+      }
+
+      total += digitValue * multValue;
+      remaining = remaining.replace(multWord, " ");
+      if (foundDigit) remaining = remaining.replace(matchedWord, " ");
+    }
+  }
+
+  // 3. Handle standalone digits and pure numbers
+  const leftoverNums = remaining.match(/\d+(\.\d+)?/g);
+  if (leftoverNums) {
+    leftoverNums.forEach(n => {
+      total += parseFloat(n);
+      remaining = remaining.replace(n, " ");
+    });
+  }
+
+  for (const [dw, dv] of Object.entries(thaiDigits)) {
+    if (remaining.includes(dw)) {
+      total += dv;
+      remaining = remaining.replace(dw, " ");
+    }
+  }
+
+  return total;
+};
 // --- End Smart Categorization ---
 
 export default function Home() {
@@ -105,6 +178,9 @@ export default function Home() {
 
   const [balance, setBalance] = useState({ bank: 0, cash: 0 });
   const [budget, setBudget] = useState(1000);
+  const [monthlyBudget, setMonthlyBudget] = useState(30000);
+  const [defaultWallet, setDefaultWallet] = useState("bank");
+  const [nickname, setNickname] = useState("");
   const [transactions, setTransactions] = useState([]);
   const [activeWallet, setActiveWallet] = useState("bank"); // Default wallet for manual entry
   const [viewMode, setViewMode] = useState("daily"); // daily or monthly
@@ -117,6 +193,7 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [lang, setLang] = useState("th"); // 'th' or 'en'
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [confirmModal, setConfirmModal] = useState({ show: false, title: "", onConfirm: null });
   const t = translations[lang];
   
   const [manualAmount, setManualAmount] = useState("");
@@ -139,6 +216,7 @@ export default function Home() {
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
   const isVoiceActiveRef = useRef(false); // Track if voice should be actively listening
+  const silenceTimeoutRef = useRef(null);
   const [interimTranscript, setInterimTranscript] = useState(""); // For showing partial speech
 
   const [isLoading, setIsLoading] = useState(false);
@@ -153,6 +231,12 @@ export default function Home() {
             const data = await res.json();
             if (data.balance) setBalance(data.balance);
             if (data.budget) setBudget(data.budget);
+            if (data.monthlyBudget) setMonthlyBudget(data.monthlyBudget);
+            if (data.defaultWallet) {
+              setDefaultWallet(data.defaultWallet);
+              setActiveWallet(data.defaultWallet);
+            }
+            if (data.nickname) setNickname(data.nickname);
             if (data.transactions) setTransactions(data.transactions);
           }
         } catch (error) {
@@ -185,17 +269,29 @@ export default function Home() {
       // Track processed results to prevent duplicates on mobile
       const lastSessionIndexRef = { current: -1 };
 
+      // Function to reset silence timer
+      const resetSilenceTimer = () => {
+        if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+        silenceTimeoutRef.current = setTimeout(() => {
+          console.log("Auto-stopping mic due to 5s of silence");
+          isVoiceActiveRef.current = false;
+          if (recognitionRef.current) recognitionRef.current.stop();
+          setAiMessage(lang === 'th' ? "เรมี่ขอหยุดฟังก่อนนะคะ เดี๋ยวพี่จะเหนื่อย (ปิดไมค์อัตโนมัติ) 🎀✨" : "I'll stop listening for now to save power! (Auto-off) 🎀✨");
+        }, 5000);
+      };
+
       recognitionRef.current.onstart = () => {
         setIsListening(true);
         isVoiceActiveRef.current = true;
-        // Don't reset lastSessionIndexRef here if we want to ignore results from previous 
-        // short sessions that might still be in the buffer, but usually start is fresh.
         lastSessionIndexRef.current = -1;
+        resetSilenceTimer();
       };
       
       recognitionRef.current.onend = () => {
         setIsListening(false);
         setInterimTranscript("");
+        if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+        
         // Auto-restart if voice is still meant to be active (e.g., didn't manually turn off)
         if (isVoiceActiveRef.current) {
           try {
@@ -207,17 +303,25 @@ export default function Home() {
       };
       
       recognitionRef.current.onresult = (event) => {
-        let finalTranscript = "";
+        resetSilenceTimer();
         let interimText = "";
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
           if (result.isFinal) {
-            // Check if we've already processed this specific result index
+            // Check if we've already processed this specific result index in this session
             if (i > lastSessionIndexRef.current) {
-              finalTranscript += result[0].transcript;
               lastSessionIndexRef.current = i;
-              console.log("Processing final result at index:", i, result[0].transcript);
+              const text = result[0].transcript.trim();
+              
+              if (text) {
+                console.log("Processing final result at index:", i, text);
+                setTranscript(text);
+                setInterimTranscript("");
+                if (processVoiceRef.current) {
+                  processVoiceRef.current(text);
+                }
+              }
             }
           } else {
             interimText += result[0].transcript;
@@ -228,31 +332,23 @@ export default function Home() {
         if (interimText) {
           setInterimTranscript(interimText);
         }
-        
-        // Process final result
-        if (finalTranscript.trim()) {
-          setTranscript(finalTranscript);
-          setInterimTranscript("");
-          if (processVoiceRef.current) {
-            processVoiceRef.current(finalTranscript);
-          }
-        }
       };
-
       recognitionRef.current.onerror = (event) => {
         console.error("Speech recognition error", event.error);
-        // Don't stop on 'no-speech' error, just keep listening
         if (event.error === 'no-speech' || event.error === 'aborted') {
-          // These are normal, just continue
           return;
         }
-        // Only turn off for serious errors
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           isVoiceActiveRef.current = false;
           setIsListening(false);
+          if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
         }
       };
     }
+
+    return () => {
+      if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+    };
   }, []);
 
   // Update speech recognition language when app language changes
@@ -283,12 +379,23 @@ export default function Home() {
   function processVoiceCommand(text) {
     if (!text || !text.trim()) return;
     
-    // Duplicate prevention: Ignore same text if processed within last 500ms
+    // Strengthen Duplicate prevention for Mobile:
+    // 1. Ignore if same as last text within 3 seconds
+    // 2. Ignore if new text is a substring of last processed text within 2.5 seconds
     const nowTime = Date.now();
-    if (text === lastProcessedRef.current.text && (nowTime - lastProcessedRef.current.time) < 500) {
-      console.log("Ignoring duplicate voice command:", text);
+    const timeDiff = nowTime - lastProcessedRef.current.time;
+    const lastText = lastProcessedRef.current.text;
+    
+    if (text === lastText && timeDiff < 3000) {
+      console.log("Ignoring exact duplicate:", text);
       return;
     }
+    
+    if (lastText.includes(text) && text.length > 2 && timeDiff < 2500) {
+      console.log("Ignoring cached / partial duplicate:", text);
+      return;
+    }
+
     lastProcessedRef.current = { text, time: nowTime };
 
     const voiceTextLower = text.toLowerCase();
@@ -318,8 +425,9 @@ export default function Home() {
       const filtered = transactions.filter(t => new Date(t.date) >= startDate);
       const income = filtered.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
       const expense = filtered.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+      const net = income - expense;
 
-      setAiMessage(t.voice_summary(periodLabel, income.toLocaleString(), expense.toLocaleString()));
+      setAiMessage(t.voice_summary(periodLabel, income.toLocaleString(), expense.toLocaleString(), net.toLocaleString()));
       return;
     }
 
@@ -332,37 +440,18 @@ export default function Home() {
       return;
     }
 
-    // 3. Identify Amount (Smarter extraction with Thai word support)
-    const cleanedText = text.replace(/,/g, "");
-    
-    // Support Thai number words
-    const thaiMultipliers = {
-      "ล้าน": 1000000,
-      "แสน": 100000,
-      "หมื่น": 10000,
-      "พัน": 1000,
-      "ร้อย": 100
-    };
-
-    let amount = 0;
-    const amountMatch = cleanedText.match(/\d+(\.\d+)?/g);
-    
-    if (amountMatch) {
-      amount = parseFloat(amountMatch[0]);
-      
-      // Check for multipliers right after the number
-      for (const [word, multiplier] of Object.entries(thaiMultipliers)) {
-        if (cleanedText.includes(`${amountMatch[0]} ${word}`) || cleanedText.includes(`${amountMatch[0]}${word}`)) {
-          amount = amount * multiplier;
-          break;
-        }
-      }
-    } else {
-      // If no numbers were found and it wasn't a non-numeric command (summary/inquiry), we can't record a transaction
-      return; 
-    }
-
+    // 3. Identify Amount (Robust Thai support)
+    const amount = parseThaiNumber(text);
     if (amount === 0) return;
+    
+    // Pattern to clean up description by removing amount-related parts
+    let cleanedText = text;
+    // Remove digits and common Thai units
+    cleanedText = cleanedText.replace(/\d+[\d,.]*/g, "");
+    ["ล้าน", "แสน", "หมื่น", "พัน", "ร้อย", "สิบ", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า", "บาท", "baht"].forEach(w => {
+       cleanedText = cleanedText.replace(new RegExp(w, 'g'), "");
+    });
+    cleanedText = cleanedText.trim();
     
     // 4. Detect Target Wallet from Context
     let wallet = activeWallet;
@@ -429,87 +518,7 @@ export default function Home() {
         let cashAmount = 0;
         
         // Helper function to parse Thai amount text
-        const parseThaiAmount = (segment) => {
-          // Thai digit words mapping
-          const thaiDigits = {
-            "หนึ่ง": 1, "เอ็ด": 1,
-            "สอง": 2, "ยี่": 2,
-            "สาม": 3,
-            "สี่": 4,
-            "ห้า": 5,
-            "หก": 6,
-            "เจ็ด": 7,
-            "แปด": 8,
-            "เก้า": 9,
-            "สิบ": 10
-          };
-          
-          const thaiMults = {
-            "ล้าน": 1000000, 
-            "แสน": 100000, 
-            "หมื่น": 10000, 
-            "พัน": 1000, 
-            "ร้อย": 100
-          };
-          
-          // First try to find numeric amount (5000, 7000, etc.)
-          const numMatch = segment.match(/(\d+[\d,.]*)/);
-          if (numMatch) {
-            let amt = parseFloat(numMatch[1].replace(/,/g, ""));
-            // Only multiply if the multiplier word appears IMMEDIATELY after the number
-            const afterNum = segment.substring(segment.indexOf(numMatch[1]) + numMatch[1].length);
-            for (const [word, mult] of Object.entries(thaiMults)) {
-              // Check if multiplier is within 3 characters after the number
-              const multPos = afterNum.indexOf(word);
-              if (multPos !== -1 && multPos <= 3) {
-                amt = amt * mult;
-                break;
-              }
-            }
-            // If amt is still small (1-10) and doesn't have a multiplier near it,
-            // this might be a standalone digit word that shouldn't be used as amount
-            if (amt >= 100 || (amt < 100 && segment.match(/(\d+[\d,.]*)\s*(บาท|baht)/i))) {
-              return amt;
-            }
-          }
-          
-          // Parse Thai word numbers (e.g., "ห้าพัน" = 5000, "เจ็ดพัน" = 7000)
-          // Pattern: Look for digit word + multiplier combinations
-          let total = 0;
-          
-          // Try each multiplier from largest to smallest
-          for (const [multWord, multValue] of Object.entries(thaiMults)) {
-            const multIdx = segment.indexOf(multWord);
-            if (multIdx !== -1) {
-              // Look for a Thai digit word immediately before the multiplier
-              const beforeMult = segment.substring(Math.max(0, multIdx - 10), multIdx);
-              let digitValue = 1; // Default to 1 if no digit found (e.g., "พัน" alone = 1000)
-              
-              // Check each Thai digit word - find the one closest to the multiplier
-              let closestDigitPos = -1;
-              for (const [digitWord, digitVal] of Object.entries(thaiDigits)) {
-                const digitPos = beforeMult.lastIndexOf(digitWord);
-                if (digitPos !== -1 && digitPos > closestDigitPos) {
-                  closestDigitPos = digitPos;
-                  digitValue = digitVal;
-                }
-              }
-              
-              total += digitValue * multValue;
-            }
-          }
-          
-          // If still no amount found, check for standalone digit words (rare case)
-          if (total === 0) {
-            for (const [digitWord, digitVal] of Object.entries(thaiDigits)) {
-              if (segment.includes(digitWord)) {
-                return digitVal;
-              }
-            }
-          }
-          
-          return total > 0 ? total : 0;
-        };
+        const parseThaiAmount = (segment) => parseThaiNumber(segment);
         
         // Split by common connectors and find amounts for each wallet
         const segments = text.split(/และ|และก็|กับ|,|and/i);
@@ -642,53 +651,14 @@ export default function Home() {
     
     // 2. CHECK FOR MULTI-TRANSACTION (e.g., "ซื้อกาแฟ 50 และ ข้าว 80")
     // Split by connectors and check if multiple segments have amounts
-    const connectorPattern = /\s*(?:และ|และก็|กับ|,|and)\s*/gi;
+    const connectorPattern = /\s*(?:และ|และก็|กับ|and)\s*|,\s*(?!\d)/gi;
     const segments = text.split(connectorPattern).filter(s => s.trim());
     
     console.log("=== MULTI-TRANSACTION CHECK ===");
     console.log("Segments:", segments);
     
     // Helper function to parse Thai numbers
-    const parseThaiNumber = (str) => {
-      const thaiDigits = {
-        "หนึ่ง": 1, "เอ็ด": 1, "สอง": 2, "ยี่": 2, "สาม": 3,
-        "สี่": 4, "ห้า": 5, "หก": 6, "เจ็ด": 7, "แปด": 8, "เก้า": 9, "สิบ": 10
-      };
-      const thaiMults = { "ล้าน": 1000000, "แสน": 100000, "หมื่น": 10000, "พัน": 1000, "ร้อย": 100 };
-      
-      // First check for numeric amount
-      const numMatch = str.match(/(\d+[\d,.]*)/);
-      if (numMatch) {
-        let amt = parseFloat(numMatch[1].replace(/,/g, ""));
-        // Check for Thai multiplier right after the number
-        const afterNum = str.substring(str.indexOf(numMatch[1]) + numMatch[1].length);
-        for (const [word, mult] of Object.entries(thaiMults)) {
-          if (afterNum.substring(0, 5).includes(word)) {
-            amt *= mult;
-            break;
-          }
-        }
-        return amt;
-      }
-      
-      // Try Thai word numbers
-      let total = 0;
-      for (const [multWord, multValue] of Object.entries(thaiMults)) {
-        const multIdx = str.indexOf(multWord);
-        if (multIdx !== -1) {
-          const beforeMult = str.substring(Math.max(0, multIdx - 10), multIdx);
-          let digitValue = 1;
-          for (const [digitWord, digitVal] of Object.entries(thaiDigits)) {
-            if (beforeMult.includes(digitWord)) {
-              digitValue = digitVal;
-              break;
-            }
-          }
-          total += digitValue * multValue;
-        }
-      }
-      return total;
-    };
+    const parseThaiNumberInContext = (str) => parseThaiNumber(str);
     
     // Helper function to detect transaction type for a segment
     const detectSegmentType = (segText) => {
@@ -709,7 +679,7 @@ export default function Home() {
     // Parse amounts for each segment
     const parsedSegments = segments.map(seg => ({
       text: seg.trim(),
-      amount: parseThaiNumber(seg),
+      amount: parseThaiNumberInContext(seg),
       type: detectSegmentType(seg),
       category: detectSegmentCategory(seg)
     })).filter(s => s.amount > 0);
@@ -911,7 +881,11 @@ export default function Home() {
     e.preventDefault();
     const amount = parseFloat(manualAmount);
     if (isNaN(amount) || amount <= 0) {
-      alert(t.invalid_amount);
+      setConfirmModal({
+        show: true,
+        title: t.invalid_amount,
+        isAlert: true
+      });
       return;
     }
 
@@ -1050,12 +1024,24 @@ export default function Home() {
 
       if (isIncome && !isExpense) type = "income";
 
-      // 5. Category detection (Smart unified detection)
-      const category = detectCategory(ocrTextLower);
+      // 6. Wallet detection
+      let wallet = defaultWallet; // Default fallback from settings
+      const cashTriggers = ["เงินสด", "cash", "receipt", "ใบเสร็จ"];
+      const bankTriggers = ["โอน", "transfer", "slip", "ธนาคาร", "สลิป", "success", "สำเร็จ"];
+      
+      const hasCash = cashTriggers.some(kw => ocrTextLower.includes(kw));
+      const hasBank = bankTriggers.some(kw => ocrTextLower.includes(kw));
 
-      addTransaction(finalAmount, type, t.ocr_description, category);
+      if (hasCash && !hasBank) wallet = "cash";
+      else if (hasBank) wallet = "bank";
+
+      addTransaction(finalAmount, type, t.ocr_description, category, wallet);
     } else {
-      alert(t.ocr_failed);
+      setConfirmModal({
+        show: true,
+        title: t.ocr_failed,
+        isAlert: true
+      });
     }
   };
 
@@ -1135,11 +1121,28 @@ export default function Home() {
     }
   };
 
-  const clearAppData = () => {
-    if (window.confirm("คุณต้องการรีเซ็ตข้อมูลทั้งหมดใช่หรือไม่?")) {
-      setBalance({ bank: 0, cash: 0 });
-      setTransactions([]);
+  const saveSettings = async () => {
+    try {
+      await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ budget, monthlyBudget, defaultWallet, nickname })
+      });
+    } catch (error) {
+      console.error("Failed to save settings");
     }
+  };
+
+  const clearAppData = () => {
+    setBalance({ bank: 0, cash: 0 });
+    setTransactions([]);
+    
+    // Also sync to DB
+    fetch('/api/data', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transactions: [], balance: { bank: 0, cash: 0 } })
+    });
   };
 
   const exportToCSV = () => {
@@ -1213,7 +1216,7 @@ export default function Home() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img src={session.user.image} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--primary)' }} />
           <div>
-            <h1 style={{ fontSize: "1.2rem" }}>{t.greeting}, {session.user.name.split(' ')[0]}</h1>
+            <h1 style={{ fontSize: "1.2rem" }}>{t.greeting}, {nickname || session.user.name.split(' ')[0]}</h1>
             <p className="text-sm">{new Date().toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { weekday: "long", day: "numeric" })}</p>
           </div>
         </div>
@@ -1258,6 +1261,30 @@ export default function Home() {
           <button onClick={() => setShowHelp(!showHelp)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
             <HelpCircle size={22} />
           </button>
+          <button 
+            onClick={() => {
+              setEditingTransaction(null);
+              setManualAmount("");
+              setManualDesc("");
+              setActiveWallet(defaultWallet);
+              setShowManualEntry(true);
+            }} 
+            style={{ 
+              background: "rgba(255, 255, 255, 0.05)", 
+              border: "1px solid var(--glass-border)", 
+              color: "white", 
+              padding: "8px 12px",
+              borderRadius: "12px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: "6px"
+            }}
+          >
+            <Edit3 size={16} /> {t.add_manual}
+          </button>
           <button onClick={() => signOut()} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
             <LogOut size={22} />
           </button>
@@ -1266,16 +1293,132 @@ export default function Home() {
 
       <AnimatePresence>
         {showSettings && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="glass-card" style={{ marginBottom: '1rem', border: '1px solid var(--text-muted)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3>ตั้งค่างบประมาณ</h3>
-              <button onClick={() => setShowSettings(false)} style={{ background: 'none', border: 'none', color: 'white' }}>&times;</button>
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <input type="number" value={budget} onChange={(e) => setBudget(parseFloat(e.target.value) || 0)} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '0.75rem', borderRadius: '12px', color: 'white' }} />
-              <button onClick={() => setShowSettings(false)} className="btn-primary">ตกลง</button>
-            </div>
-            <button onClick={clearAppData} className="text-sm" style={{ marginTop: '1rem', color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}>ลบข้อมูลทั้งหมด</button>
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="modal-overlay"
+            onClick={() => { saveSettings(); setShowSettings(false); }}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="modal-content"
+              style={{ maxHeight: '85vh', overflowY: 'auto', padding: '1.5rem' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 700 }}>{t.settings}</h2>
+                <button onClick={() => { saveSettings(); setShowSettings(false); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                   <Trash2 size={24} style={{ transform: 'rotate(45deg)' }} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* 1. Nickname */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {lang === 'th' ? "ชื่อเล่นของคุณ" : "Your Nickname"}
+                  </label>
+                  <input 
+                    type="text" 
+                    value={nickname} 
+                    placeholder={session.user.name.split(' ')[0]}
+                    onChange={(e) => setNickname(e.target.value)} 
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '0.75rem', borderRadius: '12px', color: 'white' }} 
+                  />
+                </div>
+
+                {/* 2. Language Toggle */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {t.language}
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button onClick={() => setLang('th')} style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', border: 'none', background: lang === 'th' ? 'var(--primary)' : 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600 }}>ภาษาไทย</button>
+                    <button onClick={() => setLang('en')} style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', border: 'none', background: lang === 'en' ? 'var(--primary)' : 'rgba(255,255,255,0.05)', color: 'white', fontWeight: 600 }}>English</button>
+                  </div>
+                </div>
+
+                {/* 3. Daily Budget */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {lang === 'th' ? "งบประมาณรายวัน (฿)" : "Daily Budget (฿)"}
+                  </label>
+                  <input 
+                    type="number" 
+                    value={budget} 
+                    onChange={(e) => setBudget(parseFloat(e.target.value) || 0)} 
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '0.75rem', borderRadius: '12px', color: 'white' }} 
+                  />
+                </div>
+
+                {/* 4. Monthly Budget */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {lang === 'th' ? "งบประมาณรายเดือน (฿)" : "Monthly Budget (฿)"}
+                  </label>
+                  <input 
+                    type="number" 
+                    value={monthlyBudget} 
+                    onChange={(e) => setMonthlyBudget(parseFloat(e.target.value) || 0)} 
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--glass-border)', padding: '0.75rem', borderRadius: '12px', color: 'white' }} 
+                  />
+                </div>
+
+                {/* 5. Default Wallet */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {lang === 'th' ? "กระเป๋าเงินเริ่มต้น" : "Default Wallet"}
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button onClick={() => setDefaultWallet('bank')} style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', border: 'none', background: defaultWallet === 'bank' ? '#3b82f6' : 'rgba(255,255,255,0.05)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <CreditCard size={14} /> {t.bank}
+                    </button>
+                    <button onClick={() => setDefaultWallet('cash')} style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', border: 'none', background: defaultWallet === 'cash' ? '#10b981' : 'rgba(255,255,255,0.05)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <Banknote size={14} /> {t.cash}
+                    </button>
+                  </div>
+                </div>
+
+                <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '0.5rem 0' }} />
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <button 
+                    onClick={() => { saveSettings(); setShowSettings(false); }} 
+                    className="btn-primary" 
+                    style={{ width: '100%' }}
+                  >
+                    {t.ok}
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setConfirmModal({
+                        show: true,
+                        title: lang === 'th' ? "ยืนยันการลบข้อมูลทั้งหมด?" : "Confirm clear all data?",
+                        onConfirm: () => {
+                          clearAppData();
+                          setShowSettings(false);
+                        }
+                      });
+                    }} 
+                    style={{ 
+                      color: 'var(--danger)', 
+                      background: 'rgba(239, 68, 68, 0.1)', 
+                      border: '1px solid rgba(239, 68, 68, 0.2)', 
+                      padding: '0.75rem',
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      fontSize: '0.85rem'
+                    }}
+                  >
+                    {t.clear_all}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1663,6 +1806,54 @@ export default function Home() {
           </button>
         </div>
       </div>
+      <AnimatePresence>
+        {confirmModal.show && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            exit={{ opacity: 0 }} 
+            className="modal-overlay"
+            style={{ zIndex: 2100 }}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="modal-content"
+              style={{ textAlign: 'center' }}
+            >
+              <div style={{ color: 'var(--danger)', marginBottom: '1.5rem' }}>
+                <Trash2 size={48} style={{ margin: '0 auto' }} />
+              </div>
+              <h3 style={{ marginBottom: '1rem' }}>{confirmModal.title}</h3>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
+                {lang === 'th' ? "การกระทำนี้ไม่สามารถย้อนกลับได้" : "This action cannot be undone."}
+              </p>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                {!confirmModal.isAlert && (
+                  <button 
+                    onClick={() => setConfirmModal({ ...confirmModal, show: false })} 
+                    className="btn-outline" 
+                    style={{ flex: 1 }}
+                  >
+                    {t.cancel}
+                  </button>
+                )}
+                <button 
+                  onClick={() => {
+                    confirmModal.onConfirm?.();
+                    setConfirmModal({ ...confirmModal, show: false });
+                  }} 
+                  className="btn-primary" 
+                  style={{ flex: 1, background: confirmModal.isAlert ? 'var(--primary)' : 'var(--danger)' }}
+                >
+                  {t.ok}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -14,6 +14,19 @@ const UserProfileSchema = new mongoose.Schema({
   budget: {
     type: Number,
     default: 1000,
+  },
+  monthlyBudget: {
+    type: Number,
+    default: 30000,
+  },
+  defaultWallet: {
+    type: String,
+    enum: ['bank', 'cash'],
+    default: 'bank'
+  },
+  nickname: {
+    type: String,
+    default: ""
   }
 }, { timestamps: true });
 
