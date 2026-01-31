@@ -267,7 +267,8 @@ export default function Home() {
     if (typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true; // Keep listening continuously
+      // Android Chrome bug: 'continuous: true' is unstable. Use 'false' and manual restart.
+      recognitionRef.current.continuous = false; 
       recognitionRef.current.interimResults = true; // Show partial results
       recognitionRef.current.lang = lang === 'th' ? "th-TH" : "en-US";
       recognitionRef.current.maxAlternatives = 1;
@@ -294,8 +295,13 @@ export default function Home() {
       };
       
       recognitionRef.current.onend = () => {
-        setIsListening(false);
-        setInterimTranscript("");
+        // Only set listening to false if we are actually STOPPING. 
+        // If we are auto-restarting, keep the UI in "listening" state to prevent flicker.
+        if (!isVoiceActiveRef.current) {
+          setIsListening(false);
+          setInterimTranscript("");
+        }
+
         if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
         
         // Auto-restart if voice is still meant to be active (e.g., didn't manually turn off)
