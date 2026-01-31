@@ -2180,6 +2180,42 @@ function HomeContent() {
 
   return (
     <div className="app-container">
+      {/* Auto-Scan Indicator */}
+      <AnimatePresence>
+        {isAutoScanning && folderHandle && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            style={{
+              position: 'fixed',
+              top: '80px',
+              right: '16px',
+              background: 'rgba(139, 92, 246, 0.15)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
+              borderRadius: '12px',
+              padding: '8px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              zIndex: 1000,
+              fontSize: '11px',
+              color: '#c4b5fd',
+              fontWeight: 600,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+            }}
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+            >
+              <Scan size={14} />
+            </motion.div>
+            {lang === 'th' ? 'กำลังสแกน...' : 'Scanning...'}
+          </motion.div>
+        )}
+      </AnimatePresence>
       <header className="header-main">
         <div className="profile-section">
           <img src={session.user.image} style={{ width: '45px', height: '45px', borderRadius: '50%', border: '2px solid var(--primary)' }} />
