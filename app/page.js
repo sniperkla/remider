@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import useMobileDetect from "./hooks/useMobileDetect";
+import { useSearchParams } from 'next/navigation';
 import {
   Mic,
   MicOff,
@@ -20,13 +21,30 @@ import {
   Sparkles,
   TrendingDown,
   TrendingUp,
-  Edit2,
+  X,
+  Utensils,
+  Car,
+  ShoppingBag,
+  Gamepad2,
+  Home as HomeIcon,
+  HeartPulse,
+  Tags,
+  ArrowRightLeft,
+  DollarSign,
+  Zap,
+  Fuel,
+  Shirt,
+  Smartphone,
   Edit3,
+  Edit2,
+  Scan,
+  Bell,
+  Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Tesseract from "tesseract.js";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
-import { Download, CreditCard, Banknote, History, Languages } from "lucide-react";
+import { Download, CreditCard, Banknote, History, Languages, MessageCircle } from "lucide-react";
 import { translations } from "@/lib/translations";
 
 // --- Smart Categorization & Visuals ---
@@ -39,7 +57,26 @@ const CATEGORY_COLORS = {
   "การเงิน": "#10b981",
   "สุขภาพ": "#ef4444",
   "รายได้": "#06b6d4",
+  "เงินโอน": "#6366f1",
   "อื่นๆ": "#64748b"
+};
+
+const CATEGORY_ICONS = {
+  "อาหาร": <Utensils size={14} />,
+  "เดินทาง": <Car size={14} />,
+  "ของใช้": <ShoppingBag size={14} />,
+  "บันเทิง": <Gamepad2 size={14} />,
+  "ที่พัก": <HomeIcon size={14} />,
+  "การเงิน": <CreditCard size={14} />,
+  "สุขภาพ": <HeartPulse size={14} />,
+  "รายได้": <TrendingUp size={14} />,
+  "เงินโอน": <ArrowRightLeft size={14} />,
+  "อื่นๆ": <Tags size={14} />
+};
+const DYNAMIC_ICONS = {
+  Utensils, Car, ShoppingBag, Gamepad2, HomeIcon, 
+  HeartPulse, Tags, ArrowRightLeft, CreditCard, TrendingUp,
+  DollarSign, Zap, Fuel, Shirt, Smartphone,
 };
 
 const detectCategory = (text) => {
@@ -48,35 +85,35 @@ const detectCategory = (text) => {
   
   const categories = {
     "อาหาร": {
-      keywords: ["กิน", "ข้าว", "น้ำ", "กาแฟ", "ขนม", "อาหาร", "มื้อ", "หิว", "สั่ง", "ชา", "ต้ม", "ผัด", "แกง", "ทอด", "ปิ้ง", "ย่าง", "บุฟเฟ่ต์", "มาม่า", "ส้มตำ", "สเต็ก", "ร้านอาหาร", "คาเฟ่", "eat", "food", "rice", "water", "coffee", "drink", "snack", "meal", "dinner", "lunch", "breakfast", "cafe", "starbucks", "kfc", "mcdonald", "grabfood", "lineman", "foodpanda", "swensen", "burger", "pizza"],
+      keywords: ["กิน", "ข้าว", "น้ำ", "กาแฟ", "ขนม", "อาหาร", "มื้อ", "หิว", "สั่ง", "ชา", "ต้ม", "ผัด", "แกง", "ทอด", "ปิ้ง", "ย่าง", "บุฟเฟ่ต์", "หมูกระทะ", "ชาบู", "สุกี้", "ก๋วยเตี๋ยว", "มาม่า", "ส้มตำ", "สเต็ก", "ร้านอาหาร", "คาเฟ่", "เบเกอรี่", "เค้ก", "ไอติม", "นม", "food", "rice", "water", "coffee", "tea", "drink", "snack", "meal", "dinner", "lunch", "breakfast", "cafe", "buffet", "shabu", "suki", "noodle", "steak", "starbucks", "kfc", "mcdonald", "burger", "pizza", "swensen", "bonchon", "mk", "yayoi", "fuji", "zen", "barbq", "amazone", "tao bin", "grabfood", "lineman", "foodpanda"],
       weight: 2
     },
     "เดินทาง": {
-      keywords: ["รถ", "น้ำมัน", "แท็กซี่", "วิน", "มา", "ไป", "โบลท์", "กรับ", "ค่ารถ", "เรือ", "เครื่องบิน", "ตั๋ว", "ทางด่วน", "มอเตอร์ไซค์", "เติมน้ำมัน", "จอดรถ", "ขนส่ง", "รถทัวร์", "car", "gas", "petrol", "taxi", "bts", "mrt", "bus", "train", "flight", "fare", "grab", "bolt", "fuel", "parking", "expressway"],
+      keywords: ["รถ", "น้ำมัน", "แท็กซี่", "วิน", "มา", "ไป", "โบลท์", "กรับ", "ค่ารถ", "เรือ", "เครื่องบิน", "ตั๋ว", "ทางด่วน", "มอเตอร์ไซค์", "เติมน้ำมัน", "จอดรถ", "ขนส่ง", "รถทัวร์", "รถตู้", "รถไฟฟ้า", "บีทีเอส", "เอ็มอาร์ที", "car", "gas", "petrol", "taxi", "motorcycle", "bike", "win", "bts", "mrt", "bus", "train", "flight", "ticket", "toll", "expressway", "parking", "transport", "grab", "bolt", "uber", "muve"],
       weight: 2
     },
     "ที่พัก": {
-      keywords: ["ค่าเช่า", "ค่าน้ำ", "ค่าไฟ", "ค่าหอ", "คอนโด", "หอพัก", "บ้าน", "ห้อง", "เน็ต", "อินเทอร์เน็ต", "rent", "electricity", "water bill", "pea", "mea", "mwa", "pwa", "condo", "apartment", "housing", "bill", "utilities", "wifi", "3bb", "ais fibre", "true online"],
+      keywords: ["ค่าเช่า", "ค่าน้ำ", "ค่าไฟ", "ค่าหอ", "คอนโด", "หอพัก", "บ้าน", "ห้อง", "เน็ต", "อินเทอร์เน็ต", "ส่วนกลาง", "ทำความสะอาด", "rent", "electricity", "water bill", "utility", "pea", "mea", "mwa", "pwa", "condo", "apartment", "dorm", "room", "house", "internet", "wifi", "broadband", "ais fibre", "true online", "3bb", "nt"],
       weight: 3
     },
     "ของใช้": {
-      keywords: ["ซื้อ", "ของ", "ของใช้", "ห้าง", "เซเว่น", "ช้อป", "แอป", "ตลาด", "เสื้อผ้า", "ซุปเปอร์", "ไอโฟน", "มือถือ", "ทิชชู่", "สบู่", "แชมพู", "buy", "shop", "mall", "market", "7-11", "supermarket", "shopee", "lazada", "tiktok", "item", "stuff", "cloth"],
+      keywords: ["ซื้อ", "ของ", "ของใช้", "ห้าง", "เซเว่น", "ช้อป", "แอป", "ตลาด", "เสื้อผ้า", "ซุปเปอร์", "ไอโฟน", "มือถือ", "คอม", "โน้ตบุ๊ค", "ไอแพด", "อุปกรณ์", "เครื่องเขียน", "กระดาษ", "ทิชชู่", "สบู่", "แชมพู", "ยาสีฟัน", "buy", "shop", "shopping", "mall", "market", "7-11", "seven eleven", "supermarket", "lotus", "big c", "makro", "top", "villa", "watsons", "boots", "shopee", "lazada", "tiktok", "item", "stuff", "clothes", "gadget", "iphone", "samsung", "ipad"],
       weight: 1
     },
     "บันเทิง": {
-      keywords: ["เกม", "หนัง", "เที่ยว", "เหล้า", "เบียร์", "ปาร์ตี้", "คอนเสิร์ต", "ดูหนัง", "ฟังเพลง", "สตรีมมิ่ง", "ดิสนีย์พลัส", "โรงแรม", "รีสอร์ท", "game", "movie", "netflix", "youtube", "spotify", "concert", "party", "alcohol", "beer", "wine", "pub", "club", "holiday", "vacation", "trip"],
+      keywords: ["เกม", "หนัง", "เที่ยว", "เหล้า", "เบียร์", "ไวน์", "ปาร์ตี้", "คอนเสิร์ต", "ดูหนัง", "ฟังเพลง", "สตรีมมิ่ง", "ดิสนีย์พลัส", "เน็ตฟลิกซ์", "โรงแรม", "รีสอร์ท", "ตั๋วหนัง", "เติมเกม", "game", "movie", "cinema", "netflix", "disney", "youtube", "spotify", "music", "concert", "party", "alcohol", "beer", "wine", "bar", "pub", "club", "karaoke", "holiday", "vacation", "trip", "hotel", "resort", "ticket"],
       weight: 2
     },
     "การเงิน": {
-      keywords: ["ภาษี", "ประกัน", "ค่าธรรมเนียม", "ดอกเบี้ย", "หุ้น", "ออมเงิน", "ลงทุน", "เงินกู้", "ผ่อน", "เทรด", "คริปโต", "tax", "fee", "insurance", "invest", "stock", "crypto", "dividend", "interest", "loan", "savings"],
+      keywords: ["ภาษี", "ประกัน", "ค่าธรรมเนียม", "ดอกเบี้ย", "หุ้น", "ออมเงิน", "ลงทุน", "เงินกู้", "ผ่อน", "เทรด", "คริปโต", "บัตรเครดิต", "จองหุ้น", "กองทุน", "tax", "fee", "insurance", "invest", "stock", "crypto", "dividend", "interest", "loan", "savings", "debt", "credit card", "installments", "fund", "bonds"],
       weight: 3
     },
     "สุขภาพ": {
-      keywords: ["ยา", "หมอ", "โรงพยาบาล", "คลินิก", "ฟิตเนส", "สปา", "นวด", "ตัดผม", "เสริมสวย", "ทำเล็บ", "หาหมอ", "ทำฟัน", "hospital", "pharmacy", "doctor", "medicine", "gym", "fitness", "spa", "massage", "skincare", "beauty", "clinic", "vitamin", "dental"],
+      keywords: ["ยา", "หมอ", "โรงพยาบาล", "คลินิก", "ฟิตเนส", "สปา", "นวด", "ตัดผม", "เสริมสวย", "ทำเล็บ", "หาหมอ", "ทำฟัน", "รากฟัน", "ขูดหินปูน", "แว่น", "hospital", "pharmacy", "drugstore", "doctor", "dentist", "medicine", "gym", "fitness", "workout", "spa", "massage", "salon", "haircut", "nail", "beauty", "clinic", "vitamin", "supplement"],
       weight: 3
     },
     "รายได้": {
-      keywords: ["เงินเดือน", "โบนัส", "รับเงิน", "กำไร", "รายได้", "ปันผล", "ถูกหวย", "รางวัล", "salary", "wage", "bonus", "commission", "profit", "income", "refund", "cashback", "dividend", "earn", "paycheck"],
+      keywords: ["เงินเดือน", "โบนัส", "รับเงิน", "กำไร", "รายได้", "ปันผล", "ถูกหวย", "รางวัล", "ค่าจ้าง", "ค่าคอม", "salary", "wage", "bonus", "commission", "profit", "income", "revenue", "earnings", "refund", "cashback", "dividend", "earn", "paycheck", "lotto", "lottery"],
       weight: 4
     }
   };
@@ -103,9 +140,13 @@ const detectCategory = (text) => {
 
 const parseThaiNumber = (str) => {
   if (!str) return 0;
+  // Pre-process: Remove common words that contain number sounds but aren't numbers
+  // e.g. "สามารถ" (Sa-mart) contains "สาม" (3), "สิบเอ็ด" is already handled but "สิบหา" etc could be tricky.
+  let cleanStr = str.replace(/สามารถ|สัมผัส|สมมติ|สิบเอ็ด/g, " ");
+
   // Heal numbers like "1, 520" or "1,520" by removing comma and optional space between digits
-  const healedStr = str.replace(/(\d)\s*,\s*(\d)/g, "$1$2");
-  const cleanStr = healedStr.replace(/,/g, "").trim();
+  const healedStr = cleanStr.replace(/(\d)\s*,\s*(\d)/g, "$1$2");
+  cleanStr = healedStr.replace(/,/g, "").trim();
   if (/^\d+(\.\d+)?$/.test(cleanStr)) return parseFloat(cleanStr);
 
   const thaiDigits = {
@@ -129,9 +170,36 @@ const parseThaiNumber = (str) => {
   }
 
   // 2. Handle WORD patterns like "หนึ่งแสน" or "สี่สิบ"
+  // First, find the first digit word or number to avoid grabbing numbers from earlier sentences
+  let startIdx = 10000;
+  [...Object.keys(thaiDigits), ...Object.keys(thaiMults)].forEach(w => {
+    const idx = cleanStr.indexOf(w);
+    if (idx !== -1 && idx < startIdx) startIdx = idx;
+  });
+  const numMatch = cleanStr.match(/\d+/);
+  if (numMatch && numMatch.index < startIdx) startIdx = numMatch.index;
+
+  // If no numbers found, return 0
+  if (startIdx === 10000) return 0;
+
+  // Helper for safe word matching (Thai doesn't have spaces, so we check for common non-digit characters)
+  const replaceSafe = (text, word, replacement) => {
+    // If word is surrounded by other Thai characters that make it a different word, don't match
+    // This is tricky in Thai, but we can at least ensure it's not part of known "blocked" words
+    const blockedWords = ["สามารถ", "สมทบ", "สิบเอ็ด"]; // "สามารถ" contains "สาม", "สิบเอ็ด" contains "สิบ"
+    for (const bw of blockedWords) {
+      if (text.includes(bw) && bw.includes(word)) return text; 
+    }
+    return text.replace(new RegExp(word, 'g'), replacement);
+  };
+
   for (const [multWord, multValue] of Object.entries(thaiMults)) {
     const idx = remaining.indexOf(multWord);
     if (idx !== -1) {
+      // Check if it's within a blocked word like "สามารถ"
+      const isBlocked = ["สามารถ", "สัมผัส", "สมมติ"].some(bw => remaining.includes(bw) && bw.includes(multWord));
+      if (isBlocked && multWord === "สาม") continue; 
+
       const before = remaining.substring(Math.max(0, idx - 10), idx).trim();
       let digitValue = 1;
       let foundDigit = false;
@@ -141,6 +209,10 @@ const parseThaiNumber = (str) => {
       for (const [dw, dv] of Object.entries(thaiDigits)) {
         const dIdx = before.lastIndexOf(dw);
         if (dIdx !== -1 && dIdx > lastMatchIdx) {
+          // Verify it's not a fragment
+          const surrounding = before.substring(Math.max(0, dIdx - 1), dIdx + dw.length + 1);
+          if (dw === "สาม" && (surrounding.includes("สามารถ") || surrounding.includes("สม"))) continue;
+
           lastMatchIdx = dIdx;
           digitValue = dv;
           foundDigit = true;
@@ -165,8 +237,12 @@ const parseThaiNumber = (str) => {
 
   for (const [dw, dv] of Object.entries(thaiDigits)) {
     if (remaining.includes(dw)) {
-      total += dv;
-      remaining = remaining.replace(dw, " ");
+      // Check if it's part of "สามารถ"
+      const isPartofCan = dw === "สาม" && remaining.includes("สามารถ");
+      if (!isPartofCan) {
+        total += dv;
+        remaining = remaining.replace(dw, " ");
+      }
     }
   }
 
@@ -182,9 +258,15 @@ export default function Home() {
   const [monthlyBudget, setMonthlyBudget] = useState(30000);
   const [defaultWallet, setDefaultWallet] = useState("bank");
   const [nickname, setNickname] = useState("");
+  const [groqKeys, setGroqKeys] = useState([]); // System AI Key Pool
   const [transactions, setTransactions] = useState([]);
+  const [debts, setDebts] = useState([]);
+  const [reminders, setReminders] = useState([]);
+  const [preventDelete, setPreventDelete] = useState(false);
   const [activeWallet, setActiveWallet] = useState("bank"); // Default wallet for manual entry
   const [viewMode, setViewMode] = useState("daily"); // daily or monthly
+  const [visibleCount, setVisibleCount] = useState(10);
+  const [activeTab, setActiveTab] = useState("transactions"); // transactions or debts
   
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -194,6 +276,7 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [lang, setLang] = useState("th"); // 'th' or 'en'
   const [editingTransaction, setEditingTransaction] = useState(null);
+  const [editingReminder, setEditingReminder] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ show: false, title: "", onConfirm: null });
   const t = translations[lang];
   
@@ -201,6 +284,7 @@ export default function Home() {
   const [manualDesc, setManualDesc] = useState("");
   const [manualType, setManualType] = useState("expense");
   const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [isAILoading, setIsAILoading] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [aiMessage, setAiMessage] = useState(translations.th.ai_greeting);
@@ -211,14 +295,39 @@ export default function Home() {
       setAiMessage(t.ai_greeting);
     }
   }, [lang]);
+
+  // Auto-clear noise/silence messages so they don't block the screen forever
+  useEffect(() => {
+    if (aiMessage && (aiMessage.includes("Noise") || aiMessage.includes("ไม่ได้ยินเสียง"))) {
+      const timer = setTimeout(() => {
+        setAiMessage("");
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [aiMessage]);
   const [aiInsight, setAiInsight] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [useSmartAI, setUseSmartAI] = useState(true); // Toggle for Smart Agent (Default ON)
+  const [showToast, setShowToast] = useState({ show: false, title: "", message: "", type: "info" });
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
   const isVoiceActiveRef = useRef(false); // Track if voice should be actively listening
   const silenceTimeoutRef = useRef(null);
   const [interimTranscript, setInterimTranscript] = useState(""); // For showing partial speech
+  const interimTranscriptRef = useRef("");
+  useEffect(() => { interimTranscriptRef.current = interimTranscript; }, [interimTranscript]);
+  
+  const isListeningRef = useRef(false);
+  useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
+
+  const aiMessageRef = useRef(aiMessage);
+  useEffect(() => { aiMessageRef.current = aiMessage; }, [aiMessage]);
+
   const isMobile = useMobileDetect();
   const isMobileRef = useRef(false); // Ref to access latest isMobile inside closed-over callbacks
   
@@ -229,14 +338,84 @@ export default function Home() {
 
   const lastProcessedTextRef = useRef(""); // Track last text to avoid mobile duplicates
   const lastProcessTimeRef = useRef(0); // Cooldown for processing
-  const lastRestartTimeRef = useRef(0); // Cooldown for restarts to avoid loops
   const restartCountRef = useRef(0); // Count rapid restarts
+  
+  // PWA & Service Worker Logic
+  useEffect(() => {
+    // 1. Register Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').then(
+          (registration) => console.log('SW registered:', registration.scope),
+          (err) => console.log('SW registration failed:', err)
+        );
+      });
+    }
+
+    // 2. Listen for Install Prompt
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      // Automatically show the overlay if we have a prompt and aren't installed
+      if (!window.matchMedia('(display-mode: standalone)').matches) {
+        setShowInstallModal(true);
+      }
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setIsAppInstalled(true);
+      console.log('App successfully installed!');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // 3. Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsAppInstalled(true);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to install prompt: ${outcome}`);
+    setDeferredPrompt(null);
+  };
 
 
 
   const [isLoading, setIsLoading] = useState(false);
 
+  const searchParams = useSearchParams();
+
   useEffect(() => {
+    // 1. Check for Shared Content (from LINE/Other Apps) via Web Share Target
+    const sharedText = searchParams.get('text');
+    const sharedTitle = searchParams.get('title');
+    
+    if (sharedText || sharedTitle) {
+      const content = (sharedText || sharedTitle || "").trim();
+      if (content) {
+        console.log("Received shared content:", content);
+        // Delay slightly to ensure data is loaded
+        setTimeout(() => {
+          if (processVoiceRef.current) {
+            setAiMessage(lang === 'th' ? `กำลังบันทึกจาก LINE: "${content}"` : `Processing shared text: "${content}"`);
+            processVoiceRef.current(content);
+            // Clear URL params to avoid re-processing on reload (optional, requires router.replace)
+          }
+        }, 1000);
+      }
+    }
+
     const loadInitialData = async () => {
       if (session) {
         setIsLoading(true);
@@ -252,7 +431,27 @@ export default function Home() {
               setActiveWallet(data.defaultWallet);
             }
             if (data.nickname) setNickname(data.nickname);
+            if (data.groqKeys) setGroqKeys(data.groqKeys);
+            if (data.preventDelete !== undefined) setPreventDelete(data.preventDelete);
             if (data.transactions) setTransactions(data.transactions);
+            if (data.debts) setDebts(data.debts);
+            
+            // Fetch reminders
+            const reminderRes = await fetch('/api/reminders');
+            if (reminderRes.ok) {
+              const reminderData = await reminderRes.json();
+              setReminders(reminderData);
+            }
+
+            // Show FAQ on first login (Onboarding)
+            const onboardingKey = `hasSeenFAQ_${session.user.email}`;
+            const hasSeenFAQ = localStorage.getItem(onboardingKey);
+            if (!hasSeenFAQ) {
+              setTimeout(() => {
+                setShowHelp(true);
+                localStorage.setItem(onboardingKey, 'true');
+              }, 1500); // Small delay for smoother entrance
+            }
           }
         } catch (error) {
           console.error("Failed to load data from MongoDB:", error);
@@ -263,6 +462,38 @@ export default function Home() {
 
     loadInitialData();
   }, [session]);
+
+  // Check for due reminders on mount/load
+  useEffect(() => {
+    if (reminders.length > 0 && !isLoading) {
+      const today = reminders.filter(r => new Date(r.date).toDateString() === new Date().toDateString());
+      if (today.length > 0) {
+        setTimeout(() => {
+          setShowToast({
+            show: true,
+            title: lang === 'th' ? "มีรายการค้างชำระวันนี้ค่ะ! 🔔" : "You have payments due today!",
+            message: today.map(r => `• ${r.description} (฿${r.amount})`).join("\n"),
+            type: "urgent"
+          });
+          // Play a gentle sound if possible
+          try {
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = context.createOscillator();
+            const gain = context.createGain();
+            osc.connect(gain);
+            gain.connect(context.destination);
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(880, context.currentTime);
+            gain.gain.setValueAtTime(0, context.currentTime);
+            gain.gain.linearRampToValueAtTime(0.1, context.currentTime + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.01, context.currentTime + 0.5);
+            osc.start();
+            osc.stop(context.currentTime + 0.5);
+          } catch(e) {}
+        }, 2000);
+      }
+    }
+  }, [reminders, isLoading]);
 
 
   // Fix Closure Bug for Voice Recognition:
@@ -289,10 +520,16 @@ export default function Home() {
       const resetSilenceTimer = () => {
         if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
         
-        // Mobile: 3 seconds | Desktop: 5 seconds
-        const timeoutDuration = isMobileRef.current ? 3000 : 5000;
+        // Mobile: 5 seconds | Desktop: 8 seconds (Longer for stability)
+        const timeoutDuration = isMobileRef.current ? 5000 : 8000;
         
         silenceTimeoutRef.current = setTimeout(() => {
+          // Check if we are actually still hearing speech
+          if (isListeningRef.current && interimTranscriptRef.current) {
+            resetSilenceTimer(); // Extend if there is current active text
+            return;
+          }
+          
           console.log("Auto-stopping mic due to silence/noise");
           isVoiceActiveRef.current = false;
           if (recognitionRef.current) recognitionRef.current.stop();
@@ -301,7 +538,15 @@ export default function Home() {
             ? "ไม่ได้ยินเสียงพูดเลยปิดก่อนนะคะ (Noise/Silence) 🎀" 
             : "Didn't hear anything, stopping to save power! 🎀";
             
-          setAiMessage(timeoutMsg);
+          // ONLY show silence message if the current message is a greeting or another silence message
+          // This prevents overwriting a successful AI transaction response.
+          const currentMsg = aiMessageRef.current;
+          const isDefault = currentMsg === translations.th.ai_greeting || currentMsg === translations.en.ai_greeting;
+          const isSilence = currentMsg?.includes("Noise") || currentMsg?.includes("ไม่ได้ยินเสียง");
+          
+          if (isDefault || isSilence) {
+            setAiMessage(timeoutMsg);
+          }
         }, timeoutDuration);
       };
 
@@ -317,42 +562,19 @@ export default function Home() {
         // If we are auto-restarting (Desktop), keep the UI in "listening" state to prevent flicker.
         // On Mobile, we always stop fully (no auto-restart).
         // IMPORTANT: Use Ref here because this callback is closed over initial render state!
-        if (!isVoiceActiveRef.current || isMobileRef.current) {
-          setIsListening(false);
-          setInterimTranscript("");
-        }
-
+        setIsListening(false);
+        setInterimTranscript("");
         if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
-        
-        // Auto-restart ONLY on Desktop
-        if (isVoiceActiveRef.current && !isMobileRef.current) {
-          const now = Date.now();
-          // If it restarted too fast (less than 2s), increment count
-          if (now - lastRestartTimeRef.current < 2000) {
-            restartCountRef.current++;
-          } else {
-            restartCountRef.current = 0;
-          }
+      };
 
-          // Safety break: if it loops more than 5 times rapidly, stop auto-restart
-          if (restartCountRef.current < 5) {
-            lastRestartTimeRef.current = now;
-            // Delay restart slightly for stability
-            setTimeout(() => {
-              if (isVoiceActiveRef.current) {
-                try {
-                  recognitionRef.current.start();
-                } catch (e) {
-                  // Ignore
-                }
-              }
-            }, 300);
-          } else {
-            console.log("Mic loop detected - disabling auto-restart");
-            isVoiceActiveRef.current = false;
-            setAiMessage(lang === 'th' ? "เรมี่ขอพักก่อนนะ ไมค์เหมือนจะมีปัญหานิดหน่อยค่ะ 🎀" : "Mic seems unstable, taking a break! 🎀");
-          }
-        }
+      recognitionRef.current.onspeechstart = () => {
+        console.log("Speech started detection");
+        resetSilenceTimer();
+      };
+
+      recognitionRef.current.onspeechend = () => {
+        console.log("Speech ended detection");
+        // Don't stop here, let onresult or silence handle it
       };
       
       recognitionRef.current.onresult = (event) => {
@@ -432,7 +654,7 @@ export default function Home() {
     } else {
       setTranscript("");
       setInterimTranscript("");
-      isVoiceActiveRef.current = !isMobile; // Only auto-restart on Desktop
+      isVoiceActiveRef.current = true; // One-shot by default across all platforms for predictable behavior
       try {
         recognitionRef.current.start();
       } catch (e) {
@@ -443,8 +665,182 @@ export default function Home() {
 
   const lastProcessedRef = useRef({ text: "", time: 0 });
 
-  function processVoiceCommand(text) {
+  // --- AI Agent Logic ---
+  async function processAICommand(text) {
+    setTranscript("");
+    setInterimTranscript("");
+    setAiMessage(lang === 'th' ? "กำลังคิด... 🧠" : "Thinking... 🧠");
+    setIsAILoading(true);
+    try {
+      const res = await fetch('/api/ai/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          text, 
+          lang, 
+          balance, 
+          budget 
+        })
+      });
+      const data = await res.json();
+      setIsAILoading(false);
+      
+      if (!res.ok) throw new Error(data.message || "AI Error");
+      
+      // Safety Interceptor: If input is clearly a question, override any transaction action
+      const voiceTextLower = text.toLowerCase();
+      const isQuestion = ["ได้ไหม", "พอไหม", "หรือเปล่า", "เหรอ", "ไหม", "มั้ย", "?", "ได้บ้าง", "กี่บาท", "เท่าไหร่", "ยังไง"].some(q => voiceTextLower.includes(q));
+      
+      if (isQuestion && data.action !== "PLANNING") {
+        console.log("Forcing PLANNING action for question:", text);
+        data.action = "PLANNING";
+        data.thought = lang === 'th' 
+          ? "ผู้ใช้กำลังถามคำถาม (คำถามเกี่ยวกับงบประมาณ/ความเป็นไปได้) ไม่ใช่คำสั่งบันทึกรายการ" 
+          : "User is asking a question (budget/possibility inquiry), not a command to record.";
+        
+        if (!data.message) {
+          data.message = lang === 'th' 
+            ? "นี่เป็นคำถามใช่ไหมคะ? เดี๋ยวเรมี่ช่วยวางแผนการใช้เงินให้นะคะ ✨" 
+            : "This sounds like a question! Let me help you with some financial planning. ✨";
+        }
+      }
+      
+      console.log("AI Action:", data);
+
+      // Step 2: Show Detailed Analysis ("Thinking first")
+      if (data.thought) {
+        setAiMessage(lang === 'th' ? `🧠 กำลังวิเคราะห์: ${data.thought}` : `🧠 Analyzing: ${data.thought}`);
+        const readingTime = Math.max(3500, data.thought.length * 60); // Sufficient time to read
+        await new Promise(r => setTimeout(r, readingTime));
+      }
+
+      if (data.action === "ADD_TRANSACTION") {
+         const { amount, type, category, description, wallet, bank, icon } = data;
+         addTransaction(amount, type, description, category, wallet || activeWallet, bank, icon);
+         setAiMessage(data.message || (lang === 'th' ? `บันทึกแล้ว: ${description} ${amount}฿` : `Saved: ${description} ${amount}฿`));
+      } 
+      
+      else if (data.action === "TRANSFER") {
+         const { amount, from_bank, to_bank, icon } = data;
+         const bankPath = from_bank && to_bank ? `${from_bank} ➔ ${to_bank}` : (from_bank || to_bank);
+         addTransaction(amount, "expense", lang === 'th' ? "โอนเงิน" : "Transfer", "เงินโอน", "bank", bankPath, icon || "ArrowRightLeft");
+         setAiMessage(data.message || (lang === 'th' ? `บันทึกรายการโอน ฿${amount} (${bankPath}) แล้วค่ะ` : `Recorded transfer of ฿${amount} (${bankPath})`));
+      }
+      
+      else if (data.action === "SET_BUDGET") {
+        if (data.period === "monthly") {
+           setMonthlyBudget(data.amount);
+           fetch('/api/data', {
+               method: 'POST',
+               body: JSON.stringify({ monthlyBudget: data.amount })
+           });
+           setAiMessage(data.message || (lang === 'th' ? `ตั้งงบรายเดือนเป็น ฿${data.amount.toLocaleString()} แล้วค่ะ` : `Monthly budget set to ฿${data.amount.toLocaleString()}`));
+        } else {
+           setBudget(data.amount);
+            // Sync API
+            fetch('/api/data', {
+                method: 'POST',
+                body: JSON.stringify({ budget: data.amount })
+            });
+            setAiMessage(data.message || (lang === 'th' ? `ตั้งงบรายวันเป็น ฿${data.amount.toLocaleString()} แล้วค่ะ` : `Daily budget set to ฿${data.amount.toLocaleString()}`));
+        }
+      }
+
+      else if (data.action === "SET_BALANCE") {
+         const updates = {};
+         if (data.wallet === 'bank') updates.bank = data.amount;
+         if (data.wallet === 'cash') updates.cash = data.amount;
+         
+         const newBal = { ...balance, ...updates };
+         setBalance(newBal);
+         fetch('/api/data', {
+            method: 'POST',
+            body: JSON.stringify({ balance: newBal })
+        });
+         setAiMessage(data.message || (lang === 'th' ? `ปรับยอดเงิน${data.wallet}เป็น ฿${data.amount}` : `Updated ${data.wallet} balance to ฿${data.amount}`));
+      }
+      
+      else if (data.action === "BORROW" || data.action === "LEND") {
+        const { amount, person, type, wallet, note } = data;
+        const debtType = data.action === "BORROW" ? "borrow" : "lend";
+        
+        // 1. Add to Debts
+        const debtRes = await fetch('/api/debts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount, person, type: debtType, note })
+        });
+        const newDebt = await debtRes.json();
+        setDebts(prev => [newDebt, ...prev]);
+
+        // 2. Add as Transaction (Optional: toggle this based on user preference?)
+        // Borrow = Income, Lend = Expense
+        const txnType = debtType === "borrow" ? "income" : "expense";
+        const txnDesc = debtType === "borrow" 
+          ? (lang === 'th' ? `ยืมจาก ${person}` : `Borrowed from ${person}`)
+          : (lang === 'th' ? `ให้ ${person} ยืม` : `Lent to ${person}`);
+        
+        addTransaction(amount, txnType, txnDesc, "การเงิน", wallet || activeWallet, null, "ArrowRightLeft");
+        
+        setAiMessage(data.message || (lang === 'th' 
+          ? `บันทึกรายการ${debtType === 'borrow' ? 'ยืม' : 'ให้ยืม'} ฿${amount} (${person}) แล้วค่ะ` 
+          : `Recorded ${debtType} of ฿${amount} (${person})`));
+        
+        setActiveTab("debts");
+      }
+      
+      else if (data.action === "SHOW_SUMMARY") {
+        setShowSummary(true);
+        setActiveTab("transactions");
+        setAiMessage(data.message || (lang === 'th' ? "สรุปยอดให้แล้วค่ะ!" : "Here is your summary!"));
+      }
+
+      else if (data.action === "SHOW_DEBTS") {
+        setActiveTab("debts");
+        setAiMessage(data.message || (lang === 'th' ? "นี่คือรายการยืม/คืนเงินทั้งหมดค่ะ" : "Here are your borrow/lend records."));
+      }
+
+      else if (data.action === "REMIND") {
+        const { description, amount, date, wallet } = data;
+        addReminder(description, amount, date, wallet);
+        setActiveTab("reminders");
+        setAiMessage(data.message || (lang === 'th' 
+          ? `ตั้งเตือนความจำ: ${description} ฿${amount} วันที่ ${new Date(date).toLocaleDateString('th-TH')} แล้วค่ะ 🎀` 
+          : `Set reminder for ${description} ฿${amount} on ${new Date(date).toLocaleDateString()}! 🎀`));
+      }
+      else if (data.action === "PLANNING") {
+        setAiMessage(data.message);
+      }
+      
+      else {
+        setAiMessage(data.message || (lang === 'th' ? "ไม่แน่ใจค่ะ ขออีกทีได้ไหมคะ? 😅" : "I didn't quite catch that! 😅"));
+      }
+    } catch (err) {
+      console.error(err);
+      setIsAILoading(false);
+      setAiMessage(lang === 'th' ? "สมอง AI มีปัญหา แงง 😭" : "My AI brain hurts! 😭");
+    }
+  };
+
+  const processVoiceCommand = (text) => {
     if (!text || !text.trim()) return;
+    
+    // Stop mic immediately once we have a final command
+    isVoiceActiveRef.current = false;
+    if (recognitionRef.current) recognitionRef.current.stop();
+    
+    // Immediate feedback: clear transcripts
+    setTranscript("");
+    setInterimTranscript("");
+
+    const voiceTextLower = text.toLowerCase();
+
+    // AI AGENT MODE
+    if (useSmartAI) {
+      processAICommand(text);
+      return;
+    }
+
     
     // Strengthen Duplicate prevention for Mobile:
     // 1. Ignore if same as last text within 3 seconds
@@ -465,8 +861,6 @@ export default function Home() {
 
     lastProcessedRef.current = { text, time: nowTime };
 
-    const voiceTextLower = text.toLowerCase();
-    
     // 1. Check for Summary Commands (Today, Week, Month) - No amount needed
     const summaryKeywords = ["สรุป", "รายงาน", "summary", "report", "total", "รวมทั้งหมด", "ใช้ไปเท่าไหร่"];
     const isSummaryRequest = summaryKeywords.some(kw => voiceTextLower.includes(kw));
@@ -509,7 +903,21 @@ export default function Home() {
 
     // 3. Identify Amount (Robust Thai support)
     const amount = parseThaiNumber(text);
-    if (amount === 0) return;
+
+    // 4. Global Question Check for Manual Mode
+    const isQuestion = ["ได้ไหม", "พอไหม", "หรือเปล่า", "เหรอ", "ไหม", "มั้ย", "?", "can i", "is it enough", "possible"].some(q => voiceTextLower.includes(q));
+    
+    if (isQuestion) {
+      setAiMessage(lang === 'th' 
+        ? "นี่เป็นคำถามใช่ไหมคะ? รบกวนเปิดโหมด 'AI อัจฉริยะ' (Smart AI) เพื่อให้เรมี่ช่วยตอบหรือวางแผนให้นะคะ ✨" 
+        : "Is this a question? Please turn on 'Smart AI Agent' mode so I can help you plan or answer! ✨");
+      return;
+    }
+
+    if (amount === 0) {
+      setAiMessage(lang === 'th' ? `เรมี่ไม่เห็นจำนวนเงินในประโยค "${text}" เลยค่ะ 😅` : `I couldn't find an amount in "${text}" 😅`);
+      return;
+    }
     
     // Pattern to clean up description by removing amount-related parts
     let cleanedText = text;
@@ -545,6 +953,47 @@ export default function Home() {
       return;
     }
 
+    // 1.5.2 Check for Borrow/Lend
+    const borrowKeywords = ["ยืมเงิน", "ยืม", "borrow"];
+    const lendKeywords = ["ให้ยืม", "ปล่อยกู้", "lend"];
+    const isBorrow = borrowKeywords.some(kw => voiceTextLower.includes(kw));
+    const isLend = lendKeywords.some(kw => voiceTextLower.includes(kw));
+
+    if (isBorrow || isLend) {
+      const debtType = isBorrow ? "borrow" : "lend";
+      let person = lang === 'th' ? "คนอื่น" : "Others";
+      
+      // Try to extract person name: "ยืมเงินพี่ 500" -> "พี่"
+      const nameMatch = text.match(/(?:ยืมเงิน|ยืม|ให้ยืม)\s*([^\d\s]+)/);
+      if (nameMatch && nameMatch[1]) {
+        person = nameMatch[1].replace(/บาท|baht/g, "").trim();
+      }
+
+      // Add to Debts API
+      fetch('/api/debts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, person, type: debtType, note: text })
+      }).then(res => res.json()).then(newDebt => {
+        setDebts(prev => [newDebt, ...prev]);
+        
+        // Add as Transaction
+        const txnType = debtType === "borrow" ? "income" : "expense";
+        const txnDesc = debtType === "borrow" 
+          ? (lang === 'th' ? `ยืมจาก ${person}` : `Borrowed from ${person}`)
+          : (lang === 'th' ? `ให้ ${person} ยืม` : `Lent to ${person}`);
+        
+        addTransaction(amount, txnType, txnDesc, "การเงิน", wallet, null, "ArrowRightLeft");
+        
+        setAiMessage(lang === 'th' 
+          ? `บันทึกรายการ${debtType === 'borrow' ? 'ยืม' : 'ให้ยืม'} ฿${amount} (${person}) แล้วค่ะ` 
+          : `Recorded ${debtType} of ฿${amount} (${person})`);
+        
+        setActiveTab("debts");
+      });
+      return;
+    }
+
     if (isDeposit) {
       const newBank = balance.bank + amount;
       const newCash = balance.cash - amount;
@@ -569,7 +1018,7 @@ export default function Home() {
     ];
     const isAdjustment = adjustKeywords.some(kw => voiceTextLower.includes(kw));
 
-    if (isAdjustment) {
+    if (isAdjustment && !isQuestion) {
       console.log("=== VOICE COMMAND DEBUG ===");
       console.log("Raw text:", text);
       console.log("Lower text:", voiceTextLower);
@@ -725,7 +1174,10 @@ export default function Home() {
     console.log("Segments:", segments);
     
     // Helper function to parse Thai numbers
-    const parseThaiNumberInContext = (str) => parseThaiNumber(str);
+    // Helper function to parse Thai numbers
+
+  const parseThaiNumberInContext = (str) => parseThaiNumber(str);
+
     
     // Helper function to detect transaction type for a segment
     const detectSegmentType = (segText) => {
@@ -860,13 +1312,16 @@ export default function Home() {
     setAiMessage(t.voice_recorded(type, description, singleAmount.toLocaleString(), t[wallet]));
   }
 
-  const addTransaction = async (amount, type, description, category = "อื่นๆ", wallet = "bank") => {
+  const addTransaction = async (amount, type, description, category = "อื่นๆ", wallet = "bank", bank = null, icon = null, isScanned = false) => {
     const data = {
       amount,
       type,
       description,
       category,
       wallet,
+      bank,
+      icon,
+      isScanned,
       date: new Date().toISOString(),
     };
 
@@ -967,6 +1422,12 @@ export default function Home() {
 
     if (editingTransaction) {
       updateTransaction(editingTransaction._id || editingTransaction.id, data);
+    } else if (editingReminder) {
+      updateReminder(editingReminder._id || editingReminder.id, {
+        description: data.description,
+        amount: data.amount,
+        wallet: data.wallet
+      });
     } else {
       addTransaction(data.amount, data.type, data.description, data.category, data.wallet);
     }
@@ -975,6 +1436,7 @@ export default function Home() {
     setManualDesc("");
     setManualType("expense");
     setEditingTransaction(null);
+    setEditingReminder(null);
     setShowManualEntry(false);
   };
 
@@ -1011,6 +1473,14 @@ export default function Home() {
   };
 
   const processOcrText = (text) => {
+    // AI AGENT MODE FOR IMAGES
+    if (useSmartAI) {
+        // Clean up text slightly to save tokens but keep structure
+        const compactText = text.replace(/\s+/g, " ").trim();
+        processAICommand(lang === 'th' ? `ช่วยดูข้อมูลจากสลิป/ใบเสร็จนี้หน่อย: ${compactText}` : `Scan this receipt/slip text: ${compactText}`);
+        return;
+    }
+
     // 1. Normalize text
     let cleanedText = text.replace(/,/g, ""); 
     
@@ -1036,10 +1506,14 @@ export default function Home() {
     // Exclusion keywords (Balance, not transaction)
     const ignoreKeywords = ["ยอดเงินที่ใช้ได้", "available balance", "ยอดเงินคงเหลือ", "คงเหลือ", "เงินในบัญชี"];
     
+    // Filter out LINE Chat specific noise
+    cleanedText = cleanedText.replace(/อ่านแล้ว/g, ""); // "Read" status in Thai LINE
+    cleanedText = cleanedText.replace(/Read by/g, "");
+    
     // High Priority: Transaction specific
     const highPriorityKeywords = [
       "โอนเงินสำเร็จ", "เงินเข้า", "รับเงิน", "โอนให้", "ชำระเงินสำเร็จ", "รายการเงินเข้า", "รายการเงินออก",
-      "รวมทั้งสิ้น", "ยอดรวมสุทธิ", "สุทธิ", "ยอดชำระ", "จ่ายแล้ว", "รวมเป็นเงิน",
+      "รวมทั้งสิ้น", "ยอดรวมสุทธิ", "สุทธิ", "ยอดชำระ", "จ่ายแล้ว", "รวมเป็นเงิน", "หักบัญชี",
       "grand total", "total due", "total amount", "net amount", "paid", "amount paid"
     ];
     
@@ -1150,7 +1624,7 @@ export default function Home() {
 
       // Detect Bank Name
       const bankNames = {
-        "SCB": ["scb", "ไทยพาณิชย์"],
+        "SCB": ["scb", "ไทยพาณิชย์", "scb connect", "connect"],
         "KBank": ["kbank", "กสิกร"],
         "K-Bank": ["กสิกรไทย"],
         "BBL": ["bbl", "กรุงเทพ", "bangkok bank"],
@@ -1175,7 +1649,7 @@ export default function Home() {
         ? (lang === 'th' ? `สแกนจากสลิป ${detectedBank}` : `Scanned from ${detectedBank} slip`)
         : t.ocr_description;
 
-      addTransaction(finalAmount, type, finalDescription, category, wallet);
+      addTransaction(finalAmount, type, finalDescription, category, wallet, detectedBank, null, true);
     } else {
       setConfirmModal({
         show: true,
@@ -1215,7 +1689,7 @@ export default function Home() {
       const res = await fetch('/api/ai/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactions, budget, balance, lang })
+        body: JSON.stringify({ transactions, budget, monthlyBudget, balance, lang })
       });
       const data = await res.json();
       if (data.insight) {
@@ -1235,7 +1709,15 @@ export default function Home() {
     }
   }, [showSummary]);
 
-  const deleteTransaction = async (id) => {
+  const deleteTransaction = async (id, force = false) => {
+    if (preventDelete && !force) {
+      setConfirmModal({
+        show: true,
+        title: t.confirm_delete_title,
+        onConfirm: () => deleteTransaction(id, true)
+      });
+      return;
+    }
     const transaction = transactions.find((t) => (t._id || t.id) === id);
     if (transaction) {
       // Optimistic update
@@ -1261,29 +1743,205 @@ export default function Home() {
     }
   };
 
-  const saveSettings = async () => {
+  const addDebt = async (amount, person, type, note = "") => {
+    try {
+      const res = await fetch('/api/debts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, person, type, note })
+      });
+      const data = await res.json();
+      setDebts(prev => [data, ...prev]);
+      
+      // Auto-add transaction
+      const txnType = type === "borrow" ? "income" : "expense";
+      const txnDesc = type === "borrow" 
+        ? (lang === 'th' ? `ยืมจาก ${person}` : `Borrowed from ${person}`)
+        : (lang === 'th' ? `ให้ ${person} ยืม` : `Lent to ${person}`);
+      
+      addTransaction(amount, txnType, txnDesc, "การเงิน", activeWallet);
+    } catch (error) {
+      console.error("Failed to add debt");
+    }
+  };
+
+  const toggleDebtStatus = async (id) => {
+    const debt = debts.find(d => (d._id || d.id) === id);
+    if (!debt) return;
+    
+    const newStatus = debt.status === 'active' ? 'paid' : 'active';
+    
+    // Optimistic update
+    setDebts(prev => prev.map(d => (d._id || d.id) === id ? { ...d, status: newStatus } : d));
+    
+    try {
+      await fetch(`/api/debts?id=${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      
+      // If paid, maybe prompt to add counter-transaction?
+      // For now just keep it simple.
+    } catch (error) {
+      console.warn("Failed to update debt status");
+    }
+  };
+
+  const deleteDebt = async (id) => {
+    setDebts(prev => prev.filter(d => (d._id || d.id) !== id));
+    try {
+      await fetch(`/api/debts?id=${id}`, { method: 'DELETE' });
+    } catch (error) {
+      console.warn("Failed to delete debt");
+    }
+  };
+
+   const saveSettings = async () => {
     try {
       await fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ budget, monthlyBudget, defaultWallet, nickname })
+        body: JSON.stringify({ budget, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete })
       });
     } catch (error) {
       console.error("Failed to save settings");
     }
   };
 
+  const addReminder = async (desc, amount, date, wallet = "bank", category = "อื่นๆ") => {
+    try {
+      const res = await fetch('/api/reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: desc, amount, date, wallet, category })
+      });
+      const data = await res.json();
+      setReminders(prev => [data, ...prev].sort((a, b) => new Date(a.date) - new Date(b.date)));
+    } catch (error) {
+       console.error("Failed to add reminder");
+    }
+  };
+
+  const deleteReminder = async (id) => {
+    setReminders(prev => prev.filter(r => (r._id || r.id) !== id));
+    try {
+       await fetch(`/api/reminders?id=${id}`, { method: 'DELETE' });
+    } catch (error) {
+       console.warn("Failed to delete reminder");
+    }
+  };
+
+  const markReminderAsPaid = async (reminder) => {
+    const id = reminder._id || reminder.id;
+    // 1. Optimistic remove
+    setReminders(prev => prev.filter(r => (r._id || r.id) !== id));
+    
+    // 2. Add as transaction
+    await addTransaction(reminder.amount, "expense", reminder.description, reminder.category, reminder.wallet);
+    
+    // 3. Mark as paid in DB
+    try {
+      await fetch(`/api/reminders?id=${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'paid' })
+      });
+    } catch (error) {
+       console.warn("Failed to mark reminder as paid");
+    }
+  };
+
+  const updateReminder = async (id, updatedData) => {
+    try {
+      const res = await fetch(`/api/reminders?id=${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setReminders(prev => prev.map(r => (r._id || r.id) === id ? data : r));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const openEditReminder = (reminder) => {
+    setEditingReminder(reminder);
+    setManualAmount(reminder.amount.toString());
+    setManualDesc(reminder.description);
+    setManualType('expense');
+    setActiveWallet(reminder.wallet);
+    setShowManualEntry(true);
+  };
+
   const clearAppData = () => {
     setBalance({ bank: 0, cash: 0 });
     setTransactions([]);
+    setDebts([]);
     
     // Also sync to DB
     fetch('/api/data', {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ transactions: [], balance: { bank: 0, cash: 0 } })
+      body: JSON.stringify({ 
+        clearAll: true,
+        balance: { bank: 0, cash: 0 } 
+      })
     });
   };
+
+  const testBrowserNotification = async () => {
+    // 1. Diagnostic Alert (Tell user the state)
+    const permission = Notification.permission;
+    console.log("Current Notification Permission:", permission);
+
+    if (permission === "denied") {
+      alert(lang === 'th' 
+        ? "⚠️ การแจ้งเตือนถูกปิดกั้น (Denied) อยู่ค่ะ\n\nวิธีแก้: คลิกรูปแม่กุญแจ 🔒 ที่แถบที่อยู่ด้านบน แล้วเปลี่ยน 'การแจ้งเตือน' เป็น 'อนุญาต' (Allow) นะคะ" 
+        : "⚠️ Notifications are Denied.\n\nFix: Click the Lock icon 🔒 in the URL bar and set 'Notifications' to 'Allow'.");
+      return;
+    }
+
+    if (permission === "default") {
+      const result = await Notification.requestPermission();
+      if (result !== "granted") return;
+    }
+
+    // 2. Show In-App Feedback
+    setShowToast({
+      show: true,
+      title: lang === 'th' ? "เตรียมส่งการแจ้งเตือน... 🎀" : "Preparing Banner... 🎀",
+      message: lang === 'th' ? "พับหน้าต่างนี้ลง แล้วรอดูบันเนอร์บนขวานะคะ (ใน 5 วินาที)" : "Minimize this or switch apps to see the banner! (In 5 seconds)",
+      type: "info"
+    });
+
+    // 3. Trigger via Service Worker (Most reliable for PWAs/Mac)
+    setTimeout(async () => {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification("Nong Remi Reminder 🎀", {
+          body: lang === 'th' ? "วู้ววว! การแจ้งเตือนทำงานได้แล้วค่ะ! 💸✨" : "Woohoo! Your notifications are now working! 💸✨",
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: "remi-final-test",
+          vibrate: [100, 50, 100],
+          requireInteraction: true // Keeps the notification on screen longer
+        });
+        console.log("Service Worker Notification Sent Successfully");
+      } catch (err) {
+        console.error("SW Notification Error:", err);
+        // Fallback to legacy if SW fails
+        new Notification("Nong Remi Reminder 🎀", {
+          body: "Fallback: Notification Triggered!",
+          icon: "/icon-192.png"
+        });
+      }
+    }, 5000);
+  };
+
 
   const exportToCSV = () => {
     if (transactions.length === 0) return;
@@ -1378,12 +2036,55 @@ export default function Home() {
           >
             <Languages size={18} />
           </button>
+          {/* Smart AI Toggle with Glow */}
+          <motion.button 
+            whileTap={{ scale: 0.9 }}
+            animate={useSmartAI ? {
+              boxShadow: [
+                "0 0 0px rgba(139, 92, 246, 0)",
+                "0 0 15px rgba(139, 92, 246, 0.6)",
+                "0 0 0px rgba(139, 92, 246, 0)"
+              ]
+            } : {}}
+            transition={{ repeat: Infinity, duration: 2 }}
+            onClick={() => setUseSmartAI(!useSmartAI)}
+            style={{ 
+              background: useSmartAI ? "linear-gradient(135deg, #8b5cf6, #d946ef)" : "rgba(255, 255, 255, 0.05)", 
+              border: useSmartAI ? "none" : "1px solid var(--glass-border)", 
+              color: "white", 
+              padding: "8px",
+              borderRadius: "12px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              position: 'relative'
+            }}
+            title={useSmartAI ? "Disable Smart AI" : "Enable Smart AI"}
+          >
+            <Sparkles size={20} fill={useSmartAI ? "white" : "none"} style={{ opacity: useSmartAI ? 1 : 0.6 }} />
+            {useSmartAI && (
+              <motion.div 
+                layoutId="ai-glow"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                style={{ 
+                  position: 'absolute', 
+                  inset: '-2px', 
+                  borderRadius: '14px', 
+                  border: '2px solid #8b5cf6',
+                  filter: 'blur(4px)'
+                }} 
+              />
+            )}
+          </motion.button>
+
           <button 
             onClick={() => { setShowSummary(true); updateAIInsight(); }} 
             className={`btn-icon-ai ${isAnalyzing ? 'analyzing' : ''}`}
             style={{ 
-              background: "rgba(139, 92, 246, 0.2)", 
-              border: "1px solid var(--primary)", 
+              background: "rgba(139, 92, 246, 0.1)", 
+              border: "1px solid rgba(139, 92, 246, 0.3)", 
               color: "var(--primary)", 
               padding: "8px",
               borderRadius: "12px",
@@ -1393,7 +2094,7 @@ export default function Home() {
               justifyContent: "center"
             }}
           >
-            <Sparkles size={20} className={isAnalyzing ? "animate-pulse" : ""} />
+            <BarChart3 size={20} className={isAnalyzing ? "animate-pulse" : ""} />
           </button>
           <button onClick={() => setShowSettings(!showSettings)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
             <Settings size={22} />
@@ -1451,7 +2152,7 @@ export default function Home() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                 <h2 style={{ fontSize: '1.5rem', fontWeight: 700 }}>{t.settings}</h2>
                 <button onClick={() => { saveSettings(); setShowSettings(false); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                   <Trash2 size={24} style={{ transform: 'rotate(45deg)' }} />
+                   <X size={24} />
                 </button>
               </div>
 
@@ -1507,7 +2208,38 @@ export default function Home() {
                   />
                 </div>
 
-                {/* 5. Default Wallet */}
+                {/* 5. Prevent Delete Toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0' }}>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {t.prevent_delete}
+                  </label>
+                  <div 
+                    onClick={() => setPreventDelete(!preventDelete)}
+                    style={{ 
+                      width: '44px', 
+                      height: '24px', 
+                      background: preventDelete ? 'var(--primary)' : 'rgba(255,255,255,0.1)', 
+                      borderRadius: '12px', 
+                      position: 'relative', 
+                      cursor: 'pointer',
+                      transition: 'background 0.3s ease'
+                    }}
+                  >
+                    <motion.div 
+                      animate={{ x: preventDelete ? 22 : 2 }}
+                      style={{ 
+                        width: '20px', 
+                        height: '20px', 
+                        background: 'white', 
+                        borderRadius: '10px', 
+                        position: 'absolute', 
+                        top: '2px'
+                      }} 
+                    />
+                  </div>
+                </div>
+
+                {/* 6. Default Wallet */}
                 <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                     {lang === 'th' ? "กระเป๋าเงินเริ่มต้น" : "Default Wallet"}
@@ -1521,6 +2253,29 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
+
+                {!isAppInstalled && deferredPrompt && (
+                  <button 
+                    onClick={handleInstallClick}
+                    style={{ 
+                      width: '100%', 
+                      padding: '0.75rem', 
+                      borderRadius: '12px', 
+                      border: '2px solid var(--primary)', 
+                      background: 'rgba(139, 92, 246, 0.1)', 
+                      color: 'white', 
+                      fontSize: '14px', 
+                      fontWeight: 700, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      gap: '8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Download size={16} /> {t.install_app}
+                  </button>
+                )}
 
                 <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '0.5rem 0' }} />
 
@@ -1564,6 +2319,168 @@ export default function Home() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {showInstallModal && !isAppInstalled && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10000,
+              background: 'rgba(7, 10, 19, 0.98)',
+              backdropFilter: 'blur(20px)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '2rem',
+              textAlign: 'center'
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              style={{ maxWidth: '400px' }}
+            >
+              <div style={{ 
+                width: '120px', 
+                height: '120px', 
+                margin: '0 auto 2rem',
+                position: 'relative' 
+              }}>
+                <motion.div 
+                   animate={{ scale: [1, 1.1, 1] }} 
+                   transition={{ repeat: Infinity, duration: 2 }}
+                   style={{ 
+                     background: 'linear-gradient(135deg, #8b5cf6, #d946ef)', 
+                     borderRadius: '32px', 
+                     width: '100%', 
+                     height: '100%',
+                     display: 'flex',
+                     alignItems: 'center',
+                     justifyContent: 'center',
+                     boxShadow: '0 20px 40px rgba(139, 92, 246, 0.4)'
+                   }}
+                >
+                  <img src="/icon-192.png" alt="Logo" style={{ width: '80px', height: '80px', borderRadius: '18px' }} />
+                </motion.div>
+                <div style={{ position: 'absolute', top: -10, right: -10, background: '#ef4444', color: 'white', fontSize: '12px', padding: '4px 10px', borderRadius: '20px', fontWeight: 800 }}>
+                  NEW
+                </div>
+              </div>
+
+              <h1 style={{ fontSize: '2rem', fontWeight: 900, color: 'white', marginBottom: '1rem', letterSpacing: '-1px' }}>
+                {lang === 'th' ? "ติดตั้ง RemiderMe" : "Install RemiderMe"}
+              </h1>
+              <p style={{ color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '2.5rem' }}>
+                {lang === 'th' 
+                  ? "ติดตั้งเพื่อรับการแจ้งเตือนค่าไฟและค่าน้ำแบบทันทีบนหน้าจอ และใช้งานแอปได้รวดเร็วขึ้นถึง 2 เท่า! 🎀✨" 
+                  : "Install to get instant bill reminders on your screen and use the app 2x faster! 🎀✨"}
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <button 
+                  onClick={() => {
+                    handleInstallClick();
+                    setShowInstallModal(false);
+                  }}
+                  style={{ 
+                    width: '100%', 
+                    padding: '1.25rem', 
+                    borderRadius: '20px', 
+                    border: 'none', 
+                    background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)', 
+                    color: 'white', 
+                    fontSize: '16px', 
+                    fontWeight: 800, 
+                    cursor: 'pointer',
+                    boxShadow: '0 10px 25px rgba(139, 92, 246, 0.5)'
+                  }}
+                >
+                  {lang === 'th' ? "ติดตั้งเลยตอนนี้ 🚀" : "Install Now 🚀"}
+                </button>
+                <button 
+                  onClick={() => setShowInstallModal(false)}
+                  style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '14px', cursor: 'pointer' }}
+                >
+                  {lang === 'th' ? "ไว้ทีหลัง" : "Maybe Later"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showToast.show && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            style={{
+              position: 'fixed',
+              top: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 9999,
+              width: '90%',
+              maxWidth: '400px',
+              marginLeft: isMobile ? '0' : '-200px' // Adjust for center on desktop if translate isn't enough
+            }}
+          >
+            <div className="glass-card" style={{ 
+              padding: '1.25rem', 
+              border: '2px solid #8b5cf6', 
+              background: 'rgba(15, 23, 42, 0.95)',
+              boxShadow: '0 10px 25px -5px rgba(139, 92, 246, 0.5)',
+              display: 'flex',
+              gap: '15px',
+              position: 'relative'
+            }}>
+              <div style={{ 
+                background: 'linear-gradient(135deg, #8b5cf6, #d946ef)', 
+                width: '45px', 
+                height: '45px', 
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 10px rgba(139, 92, 246, 0.4)'
+              }}>
+                <Bell color="white" size={24} className="animate-bounce" />
+              </div>
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                <div style={{ fontWeight: 800, color: 'white', fontSize: '15px', marginBottom: '2px' }}>{showToast.title}</div>
+                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '13px', whiteSpace: 'pre-line' }}>{showToast.message}</div>
+              </div>
+              <button 
+                onClick={() => setShowToast({ ...showToast, show: false })}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', alignSelf: 'flex-start' }}
+              >
+                <X size={18} />
+              </button>
+              {/* Timeout Progress Bar */}
+              <motion.div 
+                initial={{ width: '100%' }}
+                animate={{ width: 0 }}
+                transition={{ duration: 6, ease: "linear" }}
+                onAnimationComplete={() => setShowToast({ ...showToast, show: false })}
+                style={{ 
+                  position: 'absolute', 
+                  bottom: 0, 
+                  left: 0, 
+                  height: '3px', 
+                  background: 'linear-gradient(90deg, #8b5cf6, #d946ef)',
+                  borderRadius: '0 0 12px 12px'
+                }} 
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {showHelp && (
           <motion.div 
             initial={{ opacity: 0, y: -20 }} 
@@ -1592,6 +2509,7 @@ export default function Home() {
                   <div style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.5' }}>{item.a}</div>
                 </div>
               ))}
+
             </div>
           </motion.div>
         )}
@@ -1603,9 +2521,26 @@ export default function Home() {
             <span className="text-sm">{t.total_balance}</span>
             <div className="balance-amount" style={{ fontSize: '1.8rem' }}>฿{(balance.bank + balance.cash).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
           </div>
-          <button onClick={exportToCSV} className="btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '12px' }}>
-            <Download size={14} /> {t.export}
-          </button>
+          <motion.button 
+            whileTap={{ scale: 0.95 }}
+            onClick={exportToCSV} 
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: isMobile ? '6px' : '8px', 
+              padding: isMobile ? '6px 12px' : '8px 16px', 
+              fontSize: '12px',
+              borderRadius: '10px',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              background: 'rgba(255, 255, 255, 0.1)',
+              color: 'white',
+              cursor: 'pointer',
+              fontWeight: 500,
+              backdropFilter: 'blur(4px)'
+            }}
+          >
+            <Download size={14} /> {isMobile ? "CSV" : t.export}
+          </motion.button>
         </div>
 
         <div className="balance-grid">
@@ -1657,18 +2592,96 @@ export default function Home() {
         </div>
       </motion.div>
 
+      {/* Tabs for switching between Transactions and Debts */}
+      <div style={{ display: 'flex', gap: '10px', marginTop: '1.5rem', marginBottom: '1rem' }}>
+        <button 
+          onClick={() => setActiveTab('transactions')}
+          style={{ 
+            flex: 1, 
+            padding: '10px', 
+            borderRadius: '16px', 
+            border: 'none', 
+            background: activeTab === 'transactions' ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
+            color: 'white', 
+            fontWeight: 600,
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+        >
+          <History size={16} /> {t.today_transactions}
+        </button>
+        <button 
+          onClick={() => setActiveTab('debts')}
+          style={{ 
+            flex: 1, 
+            padding: '10px', 
+            borderRadius: '16px', 
+            border: 'none', 
+            background: activeTab === 'debts' ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
+            color: 'white', 
+            fontWeight: 600,
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+        >
+          <ArrowRightLeft size={16} /> {t.debts}
+        </button>
+        <button 
+          onClick={() => setActiveTab('reminders')}
+          style={{ 
+            flex: 1, 
+            padding: '10px', 
+            borderRadius: '16px', 
+            border: 'none', 
+            background: activeTab === 'reminders' ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
+            color: 'white', 
+            fontWeight: 600,
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px'
+          }}
+        >
+          <Bell size={16} /> {t.reminders}
+          {reminders.filter(r => new Date(r.date).toDateString() === new Date().toDateString()).length > 0 && (
+             <span style={{ 
+               width: '8px', 
+               height: '8px', 
+               background: '#ef4444', 
+               borderRadius: '50%', 
+               marginLeft: '-4px' 
+             }}></span>
+          )}
+        </button>
+      </div>
+
       <div className="transaction-list">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <Calendar size={16} /> <span className="text-sm">{lang === 'th' ? "วันนี้" : "Today"}</span>
+            {activeTab === 'transactions' ? <Calendar size={16} /> : (activeTab === 'debts' ? <ArrowRightLeft size={16} /> : <Bell size={16} />)}
+            <span className="text-sm">
+              {activeTab === 'transactions' ? (lang === 'th' ? "วันนี้" : "Today") : (activeTab === 'debts' ? t.debts : t.reminders)}
+            </span>
           </div>
-          <button onClick={() => setShowSummary(!showSummary)} style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
-            <BarChart3 size={18} /> <span className="text-sm">{lang === 'th' ? "ดูรายงาน" : "View Report"}</span>
-          </button>
+          {activeTab === 'transactions' && (
+            <button onClick={() => setShowSummary(!showSummary)} style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+              <BarChart3 size={18} /> <span className="text-sm">{lang === 'th' ? "ดูรายงาน" : "View Report"}</span>
+            </button>
+          )}
         </div>
 
-        <AnimatePresence>
-            {showSummary && (
+        <AnimatePresence mode="wait">
+          {activeTab === 'transactions' ? (
+            <motion.div key="list-transactions" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
+              <AnimatePresence>
+                  {showSummary && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="glass-card" style={{ marginBottom: '1rem', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '1.5rem', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '12px' }}>
                       <button onClick={() => setViewMode('daily')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: viewMode === 'daily' ? 'var(--primary)' : 'transparent', color: 'white', fontSize: '12px', fontWeight: 600 }}>{lang === 'th' ? 'รายวัน' : 'Daily'}</button>
@@ -1789,41 +2802,257 @@ export default function Home() {
           <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>{t.no_transactions}</div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {transactions.map((txn) => (
+            {transactions.slice(0, visibleCount).map((txn) => (
               <motion.div key={txn._id || txn.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="transaction-item">
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                   <div style={{ padding: "10px", borderRadius: "12px", background: txn.type === "income" ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)", color: txn.type === "income" ? "var(--success)" : "var(--danger)" }}>
                     {txn.type === "income" ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
                   </div>
-                  <div>
-                    <div style={{ fontWeight: "600" }}>{txn.description}</div>
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                       <span className="text-sm">{formatDate(txn.date)}</span>
+                   <div>
+                    <div style={{ 
+                      fontWeight: "600", 
+                      fontSize: isMobile ? '0.9rem' : '1rem',
+                      maxWidth: isMobile ? '140px' : 'auto',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {txn.description}
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                       <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                        {new Date(txn.date).toLocaleString(lang === 'th' ? "th-TH" : "en-US", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                       </span>
+                       
                        <span style={{ 
                          fontSize: '10px', 
                          background: `${CATEGORY_COLORS[txn.category] || '#64748b'}20`, 
                          color: CATEGORY_COLORS[txn.category] || '#64748b',
-                         padding: '2px 10px', 
-                         borderRadius: '12px',
+                         padding: isMobile ? '2px 6px' : '2px 10px', 
+                         borderRadius: '8px',
                          fontWeight: '600',
-                         border: `1px solid ${CATEGORY_COLORS[txn.category] || '#64748b'}40`
-                       }}>{t.categories[txn.category] || txn.category}</span>
+                         border: `1px solid ${CATEGORY_COLORS[txn.category] || '#64748b'}30`,
+                         display: 'flex',
+                         alignItems: 'center',
+                         gap: '4px'
+                       }}>
+                          {(txn.icon && DYNAMIC_ICONS[txn.icon]) ? React.createElement(DYNAMIC_ICONS[txn.icon], { size: 12 }) : (CATEGORY_ICONS[txn.category] || <Tags size={12} />)}
+                         {!isMobile && (t.categories[txn.category] || txn.category)}
+                       </span>
+                       
+                       {txn.bank && (
+                          <span style={{ 
+                           fontSize: '10px', 
+                           background: 'rgba(59, 130, 246, 0.08)', 
+                           color: '#3b82f6',
+                           padding: '2px 6px', 
+                           borderRadius: '8px',
+                           fontWeight: '700',
+                           border: '1px solid rgba(59, 130, 246, 0.2)',
+                           display: 'flex',
+                           alignItems: 'center',
+                           gap: '4px'
+                         }}>
+                           <CreditCard size={10} /> {txn.bank}
+                         </span>
+                       )}
+                       {txn.isScanned && (
+                         <span style={{ 
+                           fontSize: '10px', 
+                           background: 'rgba(139, 92, 246, 0.15)', 
+                           color: '#8b5cf6', 
+                           padding: isMobile ? '2px 6px' : '2px 8px', 
+                           borderRadius: '6px',
+                           display: 'flex',
+                           alignItems: 'center',
+                           gap: '3px',
+                           border: '1px solid rgba(139, 92, 246, 0.3)'
+                         }}>
+                           <Scan size={10} /> {lang === 'th' ? "สลิป" : "Slip"}
+                         </span>
+                       )}
                     </div>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                  <div style={{ fontWeight: "700", color: txn.type === "income" ? "var(--success)" : "var(--danger)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <div style={{ 
+                    fontWeight: "800", 
+                    fontSize: isMobile ? '0.95rem' : '1.1rem',
+                    color: txn.type === "income" ? "var(--success)" : "var(--danger)",
+                    minWidth: isMobile ? '60px' : 'auto',
+                    textAlign: 'right'
+                  }}>
                     {txn.type === "income" ? "+" : "-"} {txn.amount.toLocaleString()}
                   </div>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <button onClick={() => openEdit(txn)} style={{ background: "none", border: "none", color: "var(--accent-blue)", cursor: "pointer", opacity: 0.8, padding: '4px' }}><Edit2 size={18} /></button>
-                    <button onClick={() => deleteTransaction(txn._id || txn.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.8, padding: '4px' }}><Trash2 size={18} /></button>
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <button onClick={() => openEdit(txn)} style={{ background: "none", border: "none", color: "var(--accent-blue)", cursor: "pointer", opacity: 0.6, padding: '4px' }}><Edit2 size={16} /></button>
+                    <button onClick={() => deleteTransaction(txn._id || txn.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.6, padding: '4px' }}><Trash2 size={16} /></button>
                   </div>
                 </div>
               </motion.div>
             ))}
           </AnimatePresence>
         )}
+
+        {transactions.length > visibleCount && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1.5rem' }}>
+            <button 
+              onClick={() => setVisibleCount(prev => prev + 10)}
+              style={{ 
+                background: 'rgba(255, 255, 255, 0.05)', 
+                border: '1px solid var(--glass-border)', 
+                color: 'white', 
+                padding: '8px 24px', 
+                borderRadius: '12px', 
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              {lang === 'th' ? "ดูเพิ่มเติม" : "Show More"}
+            </button>
+          </div>
+        )}
+      </motion.div>
+    ) : activeTab === 'debts' ? (
+    <motion.div key="list-debts" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+      {debts.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", background: 'rgba(255,255,255,0.02)', borderRadius: '24px' }}>
+           <ArrowRightLeft size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+           <p>{t.no_debts}</p>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {debts.map((debt) => (
+            <motion.div 
+              key={debt._id || debt.id} 
+              layout 
+              className="glass-card" 
+              style={{ 
+                padding: '1rem', 
+                border: debt.status === 'paid' ? '1px solid rgba(255,255,255,0.1)' : `1px solid ${debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+                opacity: debt.status === 'paid' ? 0.6 : 1,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ 
+                  width: '40px', 
+                  height: '40px', 
+                  borderRadius: '12px', 
+                  background: debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)'
+                }}>
+                  {debt.type === 'borrow' ? <ArrowDownCircle size={20} /> : <ArrowUpCircle size={20} />}
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontWeight: 700, color: 'white' }}>{debt.person}</span>
+                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: debt.status === 'paid' ? 'rgba(255,255,255,0.1)' : (debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'), color: debt.status === 'paid' ? 'white' : (debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)') }}>
+                      {debt.status === 'paid' ? t.status_paid : (debt.type === 'borrow' ? t.borrow : t.lend)}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(debt.date).toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { day: 'numeric', month: 'short' })} • {debt.note || (lang === 'th' ? 'ไม่มีบันทึก' : 'No note')}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 800, color: debt.status === 'paid' ? 'white' : (debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)') }}>฿{debt.amount.toLocaleString()}</div>
+                  <button 
+                    onClick={() => toggleDebtStatus(debt._id || debt.id)}
+                    style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
+                  >
+                    {debt.status === 'paid' ? (lang === 'th' ? 'คืนค่า' : 'Re-activate') : (lang === 'th' ? 'คืนแล้ว' : 'Mark as Paid')}
+                  </button>
+                </div>
+                <button onClick={() => deleteDebt(debt._id || debt.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', opacity: 0.5, cursor: 'pointer' }}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+    ) : (
+      <motion.div key="list-reminders" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+        {reminders.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", background: 'rgba(255,255,255,0.02)', borderRadius: '24px' }}>
+             <Bell size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+             <p>{t.no_reminders}</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {reminders.map((reminder) => {
+              const rDate = new Date(reminder.date);
+              const isToday = rDate.toDateString() === new Date().toDateString();
+              const isOverdue = rDate < new Date().setHours(0,0,0,0);
+              
+              return (
+                <motion.div 
+                  key={reminder._id || reminder.id} 
+                  layout 
+                  className="glass-card" 
+                  style={{ 
+                    padding: '1rem', 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    borderLeft: isToday ? '4px solid #ef4444' : (isOverdue ? '4px solid #f59e0b' : '1px solid var(--glass-border)')
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ 
+                      width: '40px', 
+                      height: '40px', 
+                      borderRadius: '12px', 
+                      background: isToday ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: isToday ? '#ef4444' : '#3b82f6'
+                    }}>
+                      <Clock size={20} />
+                    </div>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontWeight: 700, color: 'white' }}>{reminder.description}</span>
+                        {isToday && <span style={{ fontSize: '10px', background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>{t.upcoming}</span>}
+                        {isOverdue && !isToday && <span style={{ fontSize: '10px', background: '#f59e0b', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>{t.overdue}</span>}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {rDate && !isNaN(rDate) ? rDate.toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { day: 'numeric', month: 'short' }) : '—'} • {reminder?.wallet === 'bank' ? t.bank : t.cash}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: 800, color: 'white' }}>฿{(reminder?.amount || 0).toLocaleString()}</div>
+                      <button 
+                        onClick={() => markReminderAsPaid(reminder)}
+                        style={{ background: 'var(--success)', border: 'none', color: 'white', fontSize: '10px', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        {t.paid_already}
+                      </button>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                      <button onClick={() => openEditReminder(reminder)} style={{ background: "none", border: "none", color: "var(--accent-blue)", cursor: "pointer", opacity: 0.6, padding: '4px' }}><Edit2 size={16} /></button>
+                      <button onClick={() => deleteReminder(reminder._id || reminder.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.6, padding: '4px' }}><Trash2 size={16} /></button>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
+    )}
+</AnimatePresence>
       </div>
 
       <div style={{ height: '100px' }}></div>
@@ -1832,7 +3061,7 @@ export default function Home() {
             {showManualEntry && (
                 <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="glass-card" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 110, borderRadius: '32px 32px 0 0' }}>
                     <div style={{ textAlign: 'center', marginBottom: '1rem', fontWeight: 700, fontSize: '1.1rem' }}>
-                      {editingTransaction ? (lang === 'th' ? 'แก้ไขรายการ' : 'Edit Transaction') : t.add_manual}
+                      {editingTransaction ? (lang === 'th' ? 'แก้ไขรายการ' : 'Edit Transaction') : (editingReminder ? (lang === 'th' ? 'แก้ไขการแจ้งเตือน' : 'Edit Reminder') : t.add_manual)}
                     </div>
                     <form onSubmit={handleManualSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1857,73 +3086,188 @@ export default function Home() {
         </AnimatePresence>
 
       <div className="mic-button-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
+        {/* AI Mode Badge */}
+        <div style={{ 
+          marginBottom: '-5px', 
+          background: useSmartAI ? 'linear-gradient(135deg, #8b5cf6, #d946ef)' : 'rgba(255,255,255,0.1)',
+          padding: '4px 12px',
+          borderRadius: '20px',
+          fontSize: '10px',
+          fontWeight: 600,
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          boxShadow: useSmartAI ? '0 4px 12px rgba(139, 92, 246, 0.3)' : 'none',
+          border: useSmartAI ? 'none' : '1px solid rgba(255,255,255,0.1)',
+          transition: 'all 0.3s ease'
+        }}>
+          {useSmartAI ? (
+            <>
+              <Sparkles size={12} fill="white" />
+              <span>{lang === 'th' ? "AI อัจฉริยะ" : "Smart AI Agent"}</span>
+            </>
+          ) : (
+            <span style={{ opacity: 0.7 }}>{lang === 'th' ? "โหมดปกติ" : "Normal Mode"}</span>
+          )}
+        </div>
         <AnimatePresence>
-          {/* Show interim (partial) transcript while speaking */}
+          {/* Show interim (partial) transcript while speaking - Bubble Style */}
           {interimTranscript && isListening && (
             <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="glass-card"
+              initial={{ opacity: 0, y: 20, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
               style={{ 
-                padding: '0.5rem 1rem', 
-                maxWidth: '300px', 
-                borderRadius: '16px', 
-                fontSize: '12px', 
-                textAlign: 'center', 
-                border: '1px solid rgba(139, 92, 246, 0.4)',
-                background: 'rgba(139, 92, 246, 0.1)',
-                color: 'rgba(255,255,255,0.7)',
-                marginBottom: '5px'
+                maxWidth: isMobile ? '280px' : '320px',
+                marginBottom: '16px',
               }}
             >
-              🎤 {interimTranscript}...
+              {/* Chat Bubble */}
+              <div style={{ 
+                background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+                padding: isMobile ? '12px 16px' : '10px 14px',
+                borderRadius: '20px 20px 6px 20px',
+                fontSize: isMobile ? '15px' : '14px',
+                fontWeight: 500,
+                color: 'white',
+                boxShadow: '0 4px 20px rgba(139, 92, 246, 0.4)',
+                position: 'relative',
+                lineHeight: 1.4
+              }}>
+                {/* Bubble tail */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: -6,
+                  width: 0,
+                  height: 0,
+                  borderLeft: '8px solid transparent',
+                  borderTop: '8px solid #7c3aed'
+                }} />
+                
+                {/* Text content */}
+                <span>{interimTranscript}</span>
+                
+                {/* Typing cursor */}
+                <motion.span
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ duration: 0.8, repeat: Infinity }}
+                  style={{ 
+                    marginLeft: '2px',
+                    fontWeight: 700
+                  }}
+                >
+                  |
+                </motion.span>
+              </div>
+              
+              {/* "You" label */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '6px',
+                marginTop: '6px',
+                paddingRight: '4px'
+              }}>
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  <Mic size={12} style={{ color: '#a78bfa' }} />
+                </motion.div>
+                <span style={{ 
+                  fontSize: '11px', 
+                  color: '#a78bfa',
+                  fontWeight: 600
+                }}>
+                  {lang === 'th' ? 'กำลังพูด...' : 'Speaking...'}
+                </span>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
+
         
         <AnimatePresence>
-          {aiMessage && (isListening || (aiMessage !== translations.th.ai_greeting && aiMessage !== translations.en.ai_greeting)) && (
+          {aiMessage && (
             <motion.div 
-              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              initial={{ opacity: 0, y: 15, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.9 }}
-              className="glass-card"
+              exit={{ opacity: 0, scale: 0.9 }}
               style={{ 
-                padding: '0.75rem 1.25rem', 
-                maxWidth: '280px', 
-                borderRadius: '20px', 
-                fontSize: '13px', 
-                textAlign: 'center', 
-                border: '1px solid rgba(59, 130, 246, 0.3)', 
-                marginBottom: '5px',
-                position: 'relative' // Added for the close button
+                maxWidth: '95%', 
+                width: isMobile ? '320px' : '450px',
+                marginBottom: '10px',
+                position: 'relative',
+                zIndex: 1000
               }}
             >
               <button 
-                onClick={() => setAiMessage("")}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setAiMessage("");
+                }}
                 style={{ 
                   position: 'absolute', 
                   top: '-8px', 
                   right: '-8px', 
-                  background: 'var(--danger)', 
+                  background: '#ef4444', 
                   color: 'white', 
-                  border: 'none', 
+                  border: '2px solid rgba(255,255,255,0.2)', 
                   borderRadius: '50%', 
-                  width: '22px', 
-                  height: '22px', 
-                  fontSize: '10px', 
+                  width: '26px', 
+                  height: '26px', 
+                  fontSize: '12px', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center', 
                   cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                  zIndex: 10
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.5)',
+                  zIndex: 20,
+                  transition: 'transform 0.2s'
                 }}
+                onMouseEnter={(e) => e.target.style.transform = 'scale(1.15)'}
+                onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
               >
                 ✕
               </button>
-              {aiMessage}
+
+              <div className="glass-card" style={{
+                padding: '0.85rem 1.5rem', 
+                borderRadius: '24px', 
+                fontSize: '14px', 
+                lineHeight: '1.4',
+                textAlign: 'center', 
+                border: '1px solid rgba(139, 92, 246, 0.5)', 
+                background: 'rgba(15, 23, 42, 0.95)',
+                backdropFilter: 'blur(20px)',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4)',
+                overflow: 'hidden',
+                maxHeight: '350px',
+                overflowY: 'auto',
+                position: 'relative'
+              }}>
+                {/* Shimmer effect for thinking state */}
+                {isAILoading && (
+                  <motion.div 
+                    animate={{ x: ['-100%', '100%'] }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: 'linear' }}
+                    style={{
+                      position: 'absolute',
+                      top: 0, left: 0, width: '100%', height: '100%',
+                      background: 'linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent)',
+                      pointerEvents: 'none'
+                    }}
+                  />
+                )}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                  {isAILoading && <Loader2 size={16} className="animate-spin" style={{ color: '#a855f7' }} />}
+                  <span style={{ color: '#f8fafc', fontWeight: 500 }}>{aiMessage}</span>
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1953,10 +3297,11 @@ export default function Home() {
               <Camera size={24} />
             )}
           </button>
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
               <button className={`mic-button ${isListening ? 'active' : ''}`} onClick={toggleListening}>
-                  {isListening ? <MicOff size={32} /> : <Mic size={32} />}
+                  {isListening ? <Mic size={32} /> : <Mic size={32} style={{ opacity: 0.5 }} />}
               </button>
+              
               {/* Continuous mode indicator */}
               {isListening && (
                 <div style={{

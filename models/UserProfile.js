@@ -27,6 +27,10 @@ const UserProfileSchema = new mongoose.Schema({
   nickname: {
     type: String,
     default: ""
+  },
+  preventDelete: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

@@ -2,18 +2,64 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]/route";
 import Groq from "groq-sdk";
+import dbConnect from "@/lib/mongodb";
+import SystemSetting from "@/models/SystemSetting";
+
+async function getGroqClient() {
+  await dbConnect();
+  let setting = await SystemSetting.findOne({ key: "global_config" });
+  
+  if (!setting || !setting.groqKeys || setting.groqKeys.length === 0) {
+    const envKey = process.env.GROQ_API_KEY?.trim();
+    if (!envKey) return null;
+    
+    if (!setting) {
+      setting = await SystemSetting.create({ key: "global_config", groqKeys: [envKey] });
+    } else {
+      setting.groqKeys = [envKey];
+      await setting.save();
+    }
+  }
+
+  const keys = setting.groqKeys;
+  let attempts = 0;
+  
+  return {
+    async createCompletion(params) {
+      let lastError;
+      while (attempts < keys.length) {
+        const index = (setting.activeKeyIndex + attempts) % keys.length;
+        const currentKey = keys[index];
+        const groq = new Groq({ apiKey: currentKey });
+        try {
+          const completion = await groq.chat.completions.create(params);
+          if (attempts > 0) {
+            setting.activeKeyIndex = index;
+            await setting.save();
+          }
+          return completion;
+        } catch (err) {
+          console.error(`Groq Key Error Analysis (Key Index ${index}):`, err.message);
+          lastError = err;
+          attempts++;
+        }
+      }
+      throw lastError || new Error("All Groq keys failed");
+    }
+  };
+}
 
 export async function POST(request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { transactions, budget, balance, lang = "th" } = await request.json();
+    const { transactions, budget, monthlyBudget, balance, lang = "th" } = await request.json();
     const isEn = lang === "en";
     
-    // Check for Groq API Key
-    const apiKey = process.env.GROQ_API_KEY?.trim();
-    if (!apiKey) {
+    // Check for Groq API Key Pool
+    const groqClient = await getGroqClient();
+    if (!groqClient) {
       return NextResponse.json({ 
         insight: isEn 
           ? "I can't generate the report yet! Please make sure to add GROQ_API_KEY to .env.local for me 🎀✨"
@@ -21,12 +67,11 @@ export async function POST(request) {
       });
     }
 
-    const groq = new Groq({ apiKey });
-
     const prompt = isEn ? `
       You are a cute, friendly, and smart personal financial assistant named "Nong Remi".
       Current Data:
       - Daily Budget: ฿${budget}
+      - Monthly Budget: ฿${monthlyBudget}
       - Current Balance: Bank ฿${balance.bank}, Cash ฿${balance.cash}
       - Today's Transactions: ${JSON.stringify(transactions)}
 
@@ -41,6 +86,7 @@ export async function POST(request) {
       คุณเป็นผู้ช่วยวิเคราะห์การเงินส่วนบุคคลชื่อ "น้องเรมี่" (Nong Remi) ที่มีความน่ารัก เป็นกันเอง และชาญฉลาดมาก
       ข้อมูลปัจจุบัน:
       - งบประมาณรายวัน: ฿${budget}
+      - งบประมาณรายเดือน: ฿${monthlyBudget}
       - ยอดเงินคงเหลือ: ธนาคาร ฿${balance.bank}, เงินสด ฿${balance.cash}
       - รายการธุรกรรมวันนี้: ${JSON.stringify(transactions)}
 
@@ -55,7 +101,7 @@ export async function POST(request) {
 
     try {
       console.log(`🚀 Captain AI switching to Groq (LLaMA 3) [Lang: ${lang}]...`);
-      const completion = await groq.chat.completions.create({
+      const completion = await groqClient.createCompletion({
         messages: [
           {
             role: "user",

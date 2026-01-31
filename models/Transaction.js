@@ -28,6 +28,14 @@ const TransactionSchema = new mongoose.Schema({
     enum: ['bank', 'cash'],
     default: 'bank',
   },
+  bank: {
+    type: String, // Store bank name (e.g., "SCB", "KBANK -> SCB")
+    required: false,
+  },
+  icon: {
+    type: String, // Store lucide icon name (e.g. "Coffee", "Bus")
+    required: false,
+  },
   date: {
     type: Date,
     default: Date.now,
