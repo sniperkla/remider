@@ -250,6 +250,29 @@ const parseThaiNumber = (str) => {
 };
 // --- End Smart Categorization ---
 
+// IndexedDB Helper for FileSystemHandles
+const dbPromise = typeof window !== 'undefined' ? new Promise((resolve, reject) => {
+  const request = indexedDB.open("RemiFolderDB", 1);
+  request.onupgradeneeded = () => request.result.createObjectStore("handles");
+  request.onsuccess = () => resolve(request.result);
+  request.onerror = () => reject(request.error);
+}) : null;
+
+const storeHandle = async (key, value) => {
+  const db = await dbPromise;
+  const tx = db.transaction("handles", "readwrite");
+  tx.objectStore("handles").put(value, key);
+  return new Promise((r) => (tx.oncomplete = r));
+};
+
+const getHandle = async (key) => {
+  const db = await dbPromise;
+  const tx = db.transaction("handles", "readonly");
+  const request = tx.objectStore("handles").get(key);
+  return new Promise((r) => (request.onsuccess = () => r(request.result)));
+};
+
+
 function HomeContent() {
   const { data: session, status } = useSession();
 
@@ -288,6 +311,11 @@ function HomeContent() {
   const [scanProgress, setScanProgress] = useState(0);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [aiMessage, setAiMessage] = useState(translations.th.ai_greeting);
+  
+  const [folderHandle, setFolderHandle] = useState(null);
+  const [isAutoScanning, setIsAutoScanning] = useState(false);
+  const [lastAutoScan, setLastAutoScan] = useState(0); // Timestamp
+
 
   useEffect(() => {
     // Update the greeting if it's still the default greeting
@@ -295,6 +323,77 @@ function HomeContent() {
       setAiMessage(t.ai_greeting);
     }
   }, [lang]);
+
+  // Load Auto-Billing Folder from IDB
+  useEffect(() => {
+    const loadFolder = async () => {
+      const handle = await getHandle("billingFolder");
+      if (handle) {
+        setFolderHandle(handle);
+        const last = localStorage.getItem("lastAutoScan");
+        if (last) setLastAutoScan(parseInt(last));
+      }
+    };
+    loadFolder();
+  }, []);
+
+  const connectFolder = async () => {
+    try {
+      const handle = await window.showDirectoryPicker();
+      setFolderHandle(handle);
+      await storeHandle("billingFolder", handle);
+      const now = Date.now();
+      setLastAutoScan(now);
+      localStorage.setItem("lastAutoScan", now.toString());
+      scanFolderTransactions(handle, now);
+    } catch (err) {
+      console.warn("Folder access denied or cancelled", err);
+    }
+  };
+
+  const disconnectFolder = async () => {
+    setFolderHandle(null);
+    await storeHandle("billingFolder", null);
+  };
+
+  const scanFolderTransactions = async (handle = folderHandle, since = lastAutoScan) => {
+    if (!handle) return;
+    setIsAutoScanning(true);
+    let newItemsCount = 0;
+    try {
+      const options = { mode: 'read' };
+      if ((await handle.queryPermission(options)) !== 'granted') {
+        if ((await handle.requestPermission(options)) !== 'granted') {
+          setIsAutoScanning(false);
+          return;
+        }
+      }
+      for await (const entry of handle.values()) {
+        if (entry.kind !== 'file') continue;
+        const isImage = /\.(jpg|jpeg|png|webp|bmp)$/i.test(entry.name);
+        if (!isImage) continue;
+        const file = await entry.getFile();
+        if (file.lastModified > since) {
+          try {
+            const result = await Tesseract.recognize(file, "tha+eng");
+            processOcrText(result.data.text);
+            newItemsCount++;
+          } catch (ocrErr) {
+            console.error("OCR Error for auto-file:", entry.name, ocrErr);
+          }
+        }
+      }
+      const now = Date.now();
+      setLastAutoScan(now);
+      localStorage.setItem("lastAutoScan", now.toString());
+      if (newItemsCount > 0) {
+        setAiMessage(t.scanned_new_files(newItemsCount));
+      }
+    } catch (err) {
+      console.error("Folder scan failed:", err);
+    }
+    setIsAutoScanning(false);
+  };
 
   // Auto-clear noise/silence messages so they don't block the screen forever
   useEffect(() => {
@@ -2252,6 +2351,47 @@ function HomeContent() {
                       <Banknote size={14} /> {t.cash}
                     </button>
                   </div>
+                </div>
+                
+                {/* 7. Auto-Billing Folder Link */}
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <Scan size={18} color="#8b5cf6" />
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{t.auto_billing}</span>
+                  </div>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '12px' }}>{t.auto_billing_desc}</p>
+                  
+                  {!folderHandle ? (
+                    <button 
+                      onClick={connectFolder}
+                      className="btn-primary"
+                      style={{ width: '100%', fontSize: '13px', background: 'rgba(139, 92, 246, 0.2)', border: '1px solid rgba(139, 92, 246, 0.4)', color: 'white' }}
+                    >
+                      {t.link_folder}
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--success)', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)', wordBreak: 'break-all' }}>
+                        {t.folder_connected} {folderHandle.name}
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button 
+                          onClick={() => scanFolderTransactions()}
+                          disabled={isAutoScanning}
+                          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'var(--primary)', color: 'white', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        >
+                          {isAutoScanning ? <Loader2 size={12} className="animate-spin" /> : <Scan size={12} />}
+                          {t.scan_now}
+                        </button>
+                        <button 
+                          onClick={disconnectFolder}
+                          style={{ padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          {t.disconnect}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {!isAppInstalled && deferredPrompt && (
