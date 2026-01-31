@@ -19,12 +19,86 @@ import {
   Sparkles,
   TrendingDown,
   TrendingUp,
+  Edit2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Tesseract from "tesseract.js";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Download, CreditCard, Banknote, History, Languages } from "lucide-react";
 import { translations } from "@/lib/translations";
+
+// --- Smart Categorization & Visuals ---
+const CATEGORY_COLORS = {
+  "อาหาร": "#f59e0b",
+  "เดินทาง": "#3b82f6",
+  "ของใช้": "#ec4899",
+  "บันเทิง": "#8b5cf6",
+  "ที่พัก": "#6366f1",
+  "การเงิน": "#10b981",
+  "สุขภาพ": "#ef4444",
+  "รายได้": "#06b6d4",
+  "อื่นๆ": "#64748b"
+};
+
+const detectCategory = (text) => {
+  if (!text) return "อื่นๆ";
+  const lowerText = text.toLowerCase();
+  
+  const categories = {
+    "อาหาร": {
+      keywords: ["กิน", "ข้าว", "น้ำ", "กาแฟ", "ขนม", "อาหาร", "มื้อ", "หิว", "สั่ง", "ชา", "ต้ม", "ผัด", "แกง", "ทอด", "ปิ้ง", "ย่าง", "บุฟเฟ่ต์", "มาม่า", "ส้มตำ", "สเต็ก", "ร้านอาหาร", "คาเฟ่", "eat", "food", "rice", "water", "coffee", "drink", "snack", "meal", "dinner", "lunch", "breakfast", "cafe", "starbucks", "kfc", "mcdonald", "grabfood", "lineman", "foodpanda", "swensen", "burger", "pizza"],
+      weight: 2
+    },
+    "เดินทาง": {
+      keywords: ["รถ", "น้ำมัน", "แท็กซี่", "วิน", "มา", "ไป", "โบลท์", "กรับ", "ค่ารถ", "เรือ", "เครื่องบิน", "ตั๋ว", "ทางด่วน", "มอเตอร์ไซค์", "เติมน้ำมัน", "จอดรถ", "ขนส่ง", "รถทัวร์", "car", "gas", "petrol", "taxi", "bts", "mrt", "bus", "train", "flight", "fare", "grab", "bolt", "fuel", "parking", "expressway"],
+      weight: 2
+    },
+    "ที่พัก": {
+      keywords: ["ค่าเช่า", "ค่าน้ำ", "ค่าไฟ", "ค่าหอ", "คอนโด", "หอพัก", "บ้าน", "ห้อง", "เน็ต", "อินเทอร์เน็ต", "rent", "electricity", "water bill", "pea", "mea", "mwa", "pwa", "condo", "apartment", "housing", "bill", "utilities", "wifi", "3bb", "ais fibre", "true online"],
+      weight: 3
+    },
+    "ของใช้": {
+      keywords: ["ซื้อ", "ของ", "ของใช้", "ห้าง", "เซเว่น", "ช้อป", "แอป", "ตลาด", "เสื้อผ้า", "ซุปเปอร์", "ไอโฟน", "มือถือ", "ทิชชู่", "สบู่", "แชมพู", "buy", "shop", "mall", "market", "7-11", "supermarket", "shopee", "lazada", "tiktok", "item", "stuff", "cloth"],
+      weight: 1
+    },
+    "บันเทิง": {
+      keywords: ["เกม", "หนัง", "เที่ยว", "เหล้า", "เบียร์", "ปาร์ตี้", "คอนเสิร์ต", "ดูหนัง", "ฟังเพลง", "สตรีมมิ่ง", "ดิสนีย์พลัส", "โรงแรม", "รีสอร์ท", "game", "movie", "netflix", "youtube", "spotify", "concert", "party", "alcohol", "beer", "wine", "pub", "club", "holiday", "vacation", "trip"],
+      weight: 2
+    },
+    "การเงิน": {
+      keywords: ["ภาษี", "ประกัน", "ค่าธรรมเนียม", "ดอกเบี้ย", "หุ้น", "ออมเงิน", "ลงทุน", "เงินกู้", "ผ่อน", "เทรด", "คริปโต", "tax", "fee", "insurance", "invest", "stock", "crypto", "dividend", "interest", "loan", "savings"],
+      weight: 3
+    },
+    "สุขภาพ": {
+      keywords: ["ยา", "หมอ", "โรงพยาบาล", "คลินิก", "ฟิตเนส", "สปา", "นวด", "ตัดผม", "เสริมสวย", "ทำเล็บ", "หาหมอ", "ทำฟัน", "hospital", "pharmacy", "doctor", "medicine", "gym", "fitness", "spa", "massage", "skincare", "beauty", "clinic", "vitamin", "dental"],
+      weight: 3
+    },
+    "รายได้": {
+      keywords: ["เงินเดือน", "โบนัส", "รับเงิน", "กำไร", "รายได้", "ปันผล", "ถูกหวย", "รางวัล", "salary", "wage", "bonus", "commission", "profit", "income", "refund", "cashback", "dividend", "earn", "paycheck"],
+      weight: 4
+    }
+  };
+
+  let bestCategory = "อื่นๆ";
+  let maxScore = 0;
+
+  for (const [cat, data] of Object.entries(categories)) {
+    let score = 0;
+    data.keywords.forEach(kw => {
+      if (lowerText.includes(kw.toLowerCase())) {
+        score += data.weight;
+      }
+    });
+    
+    if (score > maxScore) {
+      maxScore = score;
+      bestCategory = cat;
+    }
+  }
+
+  return bestCategory;
+};
+// --- End Smart Categorization ---
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -42,6 +116,7 @@ export default function Home() {
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [lang, setLang] = useState("th"); // 'th' or 'en'
+  const [editingTransaction, setEditingTransaction] = useState(null);
   const t = translations[lang];
   
   const [manualAmount, setManualAmount] = useState("");
@@ -107,9 +182,15 @@ export default function Home() {
       recognitionRef.current.lang = lang === 'th' ? "th-TH" : "en-US";
       recognitionRef.current.maxAlternatives = 1;
 
+      // Track processed results to prevent duplicates on mobile
+      const lastSessionIndexRef = { current: -1 };
+
       recognitionRef.current.onstart = () => {
         setIsListening(true);
         isVoiceActiveRef.current = true;
+        // Don't reset lastSessionIndexRef here if we want to ignore results from previous 
+        // short sessions that might still be in the buffer, but usually start is fresh.
+        lastSessionIndexRef.current = -1;
       };
       
       recognitionRef.current.onend = () => {
@@ -132,7 +213,12 @@ export default function Home() {
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
           if (result.isFinal) {
-            finalTranscript += result[0].transcript;
+            // Check if we've already processed this specific result index
+            if (i > lastSessionIndexRef.current) {
+              finalTranscript += result[0].transcript;
+              lastSessionIndexRef.current = i;
+              console.log("Processing final result at index:", i, result[0].transcript);
+            }
           } else {
             interimText += result[0].transcript;
           }
@@ -144,10 +230,12 @@ export default function Home() {
         }
         
         // Process final result
-        if (finalTranscript) {
+        if (finalTranscript.trim()) {
           setTranscript(finalTranscript);
           setInterimTranscript("");
-          if (processVoiceRef.current) processVoiceRef.current(finalTranscript);
+          if (processVoiceRef.current) {
+            processVoiceRef.current(finalTranscript);
+          }
         }
       };
 
@@ -190,8 +278,19 @@ export default function Home() {
     }
   };
 
+  const lastProcessedRef = useRef({ text: "", time: 0 });
+
   function processVoiceCommand(text) {
-    if (!text) return;
+    if (!text || !text.trim()) return;
+    
+    // Duplicate prevention: Ignore same text if processed within last 500ms
+    const nowTime = Date.now();
+    if (text === lastProcessedRef.current.text && (nowTime - lastProcessedRef.current.time) < 500) {
+      console.log("Ignoring duplicate voice command:", text);
+      return;
+    }
+    lastProcessedRef.current = { text, time: nowTime };
+
     const voiceTextLower = text.toLowerCase();
     
     // 1. Check for Summary Commands (Today, Week, Month) - No amount needed
@@ -605,21 +704,7 @@ export default function Home() {
     };
     
     // Helper function to detect category for a segment
-    const detectSegmentCategory = (segText) => {
-      const segLower = segText.toLowerCase();
-      const catMap = {
-        "อาหาร": ["กิน", "ข้าว", "น้ำ", "กาแฟ", "ขนม", "อาหาร", "ชา", "eat", "food", "coffee", "drink", "meal"],
-        "เดินทาง": ["รถ", "น้ำมัน", "แท็กซี่", "วิน", "grab", "bolt", "gas", "taxi", "fare"],
-        "ของใช้": ["ซื้อ", "ของ", "ปรับผ้า", "ผงซักฟอก", "แชมพู", "สบู่", "buy", "shop", "item"],
-        "สุขภาพ": ["ยา", "หมอ", "doctor", "medicine"],
-        "บันเทิง": ["เกม", "หนัง", "game", "movie", "netflix"]
-      };
-      
-      for (const [cat, keywords] of Object.entries(catMap)) {
-        if (keywords.some(kw => segLower.includes(kw))) return cat;
-      }
-      return "อื่นๆ";
-    };
+    const detectSegmentCategory = (segText) => detectCategory(segText);
     
     // Parse amounts for each segment
     const parsedSegments = segments.map(seg => ({
@@ -715,26 +800,8 @@ export default function Home() {
 
     let type = "expense"; // Default to expense
     if (isIncome && !isExpense) type = "income";
-
-    // 6. Identify Category (Detailed mapping for both languages)
-    let category = "อื่นๆ";
-    const catMap = {
-      "อาหาร": ["กิน", "ข้าว", "น้ำ", "กาแฟ", "ขนม", "มื้อ", "อาหาร", "หิว", "สั่ง", "ชา", "ต้ม", "ผัด", "แกง", "ทอด", "eat", "food", "rice", "water", "coffee", "drink", "snack", "meal", "dinner", "lunch", "breakfast", "cafe", "starbucks", "grabfood", "lineman", "foodpanda"],
-      "เดินทาง": ["รถ", "น้ำมัน", "แท็กซี่", "วิน", "มา", "ไป", "โบลท์", "กรับ", "ค่ารถ", "เรือ", "เครื่องบิน", "ตั๋ว", "parking", "car", "gas", "petrol", "taxi", "bts", "mrt", "bus", "train", "flight", "fare", "grab", "bolt"],
-      "ของใช้": ["ซื้อของ", "เซเว่น", "ซุปเปอร์", "ห้าง", "เสื้อ", "กางเกง", "ของใช้", "ช้อป", "แอป", "ของกินของใช้", "buy", "shop", "mall", "market", "7-11", "supermarket", "cloth", "item", "stuff", "shopee", "lazada", "tiktok"],
-      "บันเทิง": ["หนัง", "เกม", "เที่ยว", "ปาร์ตี้", "ดูหนัง", "เล่นเกม", "ฟังเพลง", "คอนเสิร์ต", "movie", "game", "travel", "trip", "leisure", "party", "netflix", "spotify", "youtube"],
-      "ที่พัก": ["ค่าเช่า", "น้ำไฟ", "ห้อง", "บ้าน", "เน็ต", "ไวไฟ", "บิล", "คอนโด", "หอพัก", "rent", "room", "water", "electric", "bill", "wifi", "internet", "house", "condo"],
-      "การเงิน": ["โอน", "ถอน", "ตู้", "ธนาคาร", "ค่าธรรมเนียม", "ดอกเบี้ย", "เงินกู้", "transfer", "atm", "withdraw", "bank", "fee", "interest", "loan"],
-      "สุขภาพ": ["โรงพยาบาล", "ยา", "หาหมอ", "ยิม", "คลินิก", "ประกัน", "ฟิตเนส", "หน้า", "สปา", "hospital", "drug", "medicine", "doctor", "gym", "fitness", "insurance", "skincare"],
-      "รายได้": ["เงินเดือน", "โบนัส", "ขายของ", "กำไร", "คอมมิชชั่น", "ทิป", "ปันผล", "ถูกหวย", "รางวัล", "salary", "bonus", "sell", "earn", "profit", "commission", "tip", "dividend"]
-    };
-
-    for (const [cat, keywords] of Object.entries(catMap)) {
-      if (keywords.some(kw => voiceTextLower.includes(kw))) {
-        category = cat;
-        break;
-      }
-    }
+    // 6. Identify Category (Smart unified detection)
+    let category = detectCategory(text);
 
     // 7. Construct Description (Clean up the text)
     const originalNumberMatch = text.match(/[\d,.]+/);
@@ -796,6 +863,50 @@ export default function Home() {
     }
   };
 
+  const openEdit = (txn) => {
+    setEditingTransaction(txn);
+    setManualAmount(txn.amount.toString());
+    setManualDesc(txn.description);
+    setManualType(txn.type);
+    setActiveWallet(txn.wallet || "bank");
+    setShowManualEntry(true);
+  };
+
+  const updateTransaction = async (id, updatedData) => {
+    const oldTxn = transactions.find(t => (t._id || t.id) === id);
+    if (!oldTxn) return;
+
+    // Optimistically update transactions and balance
+    setTransactions(prev => prev.map(t => (t._id || t.id) === id ? { ...t, ...updatedData } : t));
+    
+    setBalance(prev => {
+      const updated = { ...prev };
+      // Reverse old effect
+      if (oldTxn.type === "income") {
+        updated[oldTxn.wallet || "bank"] -= oldTxn.amount;
+      } else {
+        updated[oldTxn.wallet || "bank"] += oldTxn.amount;
+      }
+      // Apply new effect
+      if (updatedData.type === "income") {
+        updated[updatedData.wallet || "bank"] += updatedData.amount;
+      } else {
+        updated[updatedData.wallet || "bank"] -= updatedData.amount;
+      }
+      return updated;
+    });
+
+    try {
+      await fetch(`/api/transactions?id=${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData),
+      });
+    } catch (error) {
+      console.warn("Failed to update in MongoDB");
+    }
+  };
+
   const handleManualSubmit = (e) => {
     e.preventDefault();
     const amount = parseFloat(manualAmount);
@@ -803,11 +914,26 @@ export default function Home() {
       alert(t.invalid_amount);
       return;
     }
-    let category = manualType === "income" ? (lang === 'th' ? "รายได้" : "Income") : (lang === 'th' ? "อื่นๆ" : "Other");
-    addTransaction(amount, manualType, manualDesc || (manualType === "income" ? t.income : t.expense), category, activeWallet);
+
+    const data = {
+      amount,
+      type: manualType,
+      description: manualDesc || (manualType === "income" ? t.income : t.expense),
+      wallet: activeWallet,
+      // Keep category if editing, or detect if new
+      category: editingTransaction ? editingTransaction.category : (manualType === "income" ? (lang === 'th' ? "รายได้" : "Income") : (lang === 'th' ? "อื่นๆ" : "Other"))
+    };
+
+    if (editingTransaction) {
+      updateTransaction(editingTransaction._id || editingTransaction.id, data);
+    } else {
+      addTransaction(data.amount, data.type, data.description, data.category, data.wallet);
+    }
+
     setManualAmount("");
     setManualDesc("");
     setManualType("expense");
+    setEditingTransaction(null);
     setShowManualEntry(false);
   };
 
@@ -924,23 +1050,8 @@ export default function Home() {
 
       if (isIncome && !isExpense) type = "income";
 
-      // 5. Category detection
-      let category = "อื่นๆ";
-      const catKeywords = {
-        "อาหาร": ["cafe", "coffee", "restaurant", "food", "ข้าว", "น้ำ", "กาแฟ", "grabfood", "lineman", "foodpanda", "kfc", "mcdonald", "starbucks"],
-        "เดินทาง": ["taxi", "grab", "bolt", "ptt", "shell", "bangchak", "น้ำมัน", "ค่ารถ", "bts", "mrt", "ทางด่วน"],
-        "ที่พัก": ["ค่าน้ำ", "ค่าไฟ", "ค่าเช่า", "rent", "electricity", "water bill", "pea", "mea", "mwa", "pwa", "คอนโด", "หอพัก"],
-        "ของใช้": ["7-11", "cp all", "shopee", "lazada", "ห้าง", "เซเว่น", "lotus", "big c", "tops", "makro", "watsons"],
-        "การเงิน": ["fee", "ค่าธรรมเนียม", "ดอกเบี้ย", "insurance", "ประกัน", "ภาษี", "tax"],
-        "สื่อสาร": ["ais", "true", "dtac", "ค่าโทร", "อินเตอร์เน็ต", "wifi", "internet", "netflix", "youtube", "spotify"]
-      };
-
-      for (const [cat, words] of Object.entries(catKeywords)) {
-        if (words.some(w => ocrTextLower.includes(w))) {
-          category = cat;
-          break;
-        }
-      }
+      // 5. Category detection (Smart unified detection)
+      const category = detectCategory(ocrTextLower);
 
       addTransaction(finalAmount, type, t.ocr_description, category);
     } else {
@@ -1405,7 +1516,15 @@ export default function Home() {
                     <div style={{ fontWeight: "600" }}>{txn.description}</div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                        <span className="text-sm">{formatDate(txn.date)}</span>
-                       <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>{t.categories[txn.category] || txn.category}</span>
+                       <span style={{ 
+                         fontSize: '10px', 
+                         background: `${CATEGORY_COLORS[txn.category] || '#64748b'}20`, 
+                         color: CATEGORY_COLORS[txn.category] || '#64748b',
+                         padding: '2px 10px', 
+                         borderRadius: '12px',
+                         fontWeight: '600',
+                         border: `1px solid ${CATEGORY_COLORS[txn.category] || '#64748b'}40`
+                       }}>{t.categories[txn.category] || txn.category}</span>
                     </div>
                   </div>
                 </div>
@@ -1413,7 +1532,10 @@ export default function Home() {
                   <div style={{ fontWeight: "700", color: txn.type === "income" ? "var(--success)" : "var(--danger)" }}>
                     {txn.type === "income" ? "+" : "-"} {txn.amount.toLocaleString()}
                   </div>
-                  <button onClick={() => deleteTransaction(txn._id || txn.id)} style={{ background: "none", border: "none", color: "var(--glass-border)", cursor: "pointer" }}><Trash2 size={16} /></button>
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    <button onClick={() => openEdit(txn)} style={{ background: "none", border: "none", color: "var(--accent-blue)", cursor: "pointer", opacity: 0.8, padding: '4px' }}><Edit2 size={18} /></button>
+                    <button onClick={() => deleteTransaction(txn._id || txn.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.8, padding: '4px' }}><Trash2 size={18} /></button>
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -1426,6 +1548,9 @@ export default function Home() {
         <AnimatePresence>
             {showManualEntry && (
                 <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="glass-card" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 110, borderRadius: '32px 32px 0 0' }}>
+                    <div style={{ textAlign: 'center', marginBottom: '1rem', fontWeight: 700, fontSize: '1.1rem' }}>
+                      {editingTransaction ? (lang === 'th' ? 'แก้ไขรายการ' : 'Edit Transaction') : t.add_manual}
+                    </div>
                     <form onSubmit={handleManualSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button type="button" onClick={() => setManualType('expense')} className="btn-primary" style={{ flex: 1, background: manualType === 'expense' ? 'var(--danger)' : 'var(--glass)' }}>{t.expense}</button>
@@ -1441,8 +1566,8 @@ export default function Home() {
                         </div>
                         <input type="number" placeholder={lang === 'th' ? "บาท" : "Amount (฿)"} value={manualAmount} onChange={e => setManualAmount(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} required />
                         <input type="text" placeholder={t.description} value={manualDesc} onChange={e => setManualDesc(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} />
-                        <button type="submit" className="btn-primary">{t.save}</button>
-                        <button type="button" onClick={() => setShowManualEntry(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}>{t.cancel}</button>
+                        <button type="submit" className="btn-primary">{editingTransaction ? t.save : t.save}</button>
+                        <button type="button" onClick={() => { setShowManualEntry(false); setEditingTransaction(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}>{t.cancel}</button>
                     </form>
                 </motion.div>
             )}

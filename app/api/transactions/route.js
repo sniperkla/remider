@@ -67,3 +67,54 @@ export async function DELETE(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function PUT(request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+    const newData = await request.json();
+
+    await dbConnect();
+    const userId = session.user.email;
+
+    // 1. Get Old Transaction for balance reversal
+    const oldTxn = await Transaction.findOne({ _id: id, userId });
+    if (!oldTxn) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+    // 2. Reverse Old Balance
+    const oldWalletField = `balance.${oldTxn.wallet || 'bank'}`;
+    const oldRefund = oldTxn.type === 'income' ? -oldTxn.amount : oldTxn.amount;
+    
+    // 3. Apply New Balance
+    const newWalletField = `balance.${newData.wallet || 'bank'}`;
+    const newChange = newData.type === 'income' ? newData.amount : -newData.amount;
+
+    // 3. Update Profile Balance
+    // If it was the same wallet, we add the changes together.
+    if (oldWalletField === newWalletField) {
+      await UserProfile.findOneAndUpdate(
+        { userId },
+        { $inc: { [newWalletField]: oldRefund + newChange } }
+      );
+    } else {
+      await UserProfile.findOneAndUpdate(
+        { userId },
+        { $inc: { [oldWalletField]: oldRefund, [newWalletField]: newChange } }
+      );
+    }
+
+    // 4. Update Transaction
+    const updated = await Transaction.findOneAndUpdate(
+      { _id: id, userId },
+      { $set: newData },
+      { new: true }
+    );
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
