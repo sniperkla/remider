@@ -316,6 +316,15 @@ function HomeContent() {
   const [isAutoScanning, setIsAutoScanning] = useState(false);
   const [lastAutoScan, setLastAutoScan] = useState(0); // Timestamp
 
+  // Refs for background scanning to avoid stale closures
+  const folderHandleRef = useRef(null);
+  const lastAutoScanRef = useRef(0);
+  const isAutoScanningRef = useRef(false);
+
+  useEffect(() => { folderHandleRef.current = folderHandle; }, [folderHandle]);
+  useEffect(() => { lastAutoScanRef.current = lastAutoScan; }, [lastAutoScan]);
+  useEffect(() => { isAutoScanningRef.current = isAutoScanning; }, [isAutoScanning]);
+
 
   useEffect(() => {
     // Update the greeting if it's still the default greeting
@@ -356,24 +365,29 @@ function HomeContent() {
     await storeHandle("billingFolder", null);
   };
 
-  const scanFolderTransactions = async (handle = folderHandle, since = lastAutoScan) => {
-    if (!handle) return;
+  const scanFolderTransactions = async (handle = folderHandleRef.current, since = lastAutoScanRef.current) => {
+    if (!handle || isAutoScanningRef.current) return;
+    
     setIsAutoScanning(true);
     let newItemsCount = 0;
     try {
+      // Check permission (silent check first)
       const options = { mode: 'read' };
       if ((await handle.queryPermission(options)) !== 'granted') {
-        if ((await handle.requestPermission(options)) !== 'granted') {
-          setIsAutoScanning(false);
-          return;
-        }
+        // We can't auto-prompt for permission in background
+        // But if it was granted once in session, it usually stays
+        setIsAutoScanning(false);
+        return;
       }
+
       for await (const entry of handle.values()) {
         if (entry.kind !== 'file') continue;
         const isImage = /\.(jpg|jpeg|png|webp|bmp)$/i.test(entry.name);
         if (!isImage) continue;
+        
         const file = await entry.getFile();
         if (file.lastModified > since) {
+          console.log(`Auto-detected new file: ${entry.name}`);
           try {
             const result = await Tesseract.recognize(file, "tha+eng");
             processOcrText(result.data.text);
@@ -383,6 +397,7 @@ function HomeContent() {
           }
         }
       }
+      
       const now = Date.now();
       setLastAutoScan(now);
       localStorage.setItem("lastAutoScan", now.toString());
@@ -394,6 +409,34 @@ function HomeContent() {
     }
     setIsAutoScanning(false);
   };
+
+  // REAL-TIME AUTO-SCAN LOGIC
+  useEffect(() => {
+    if (!folderHandle) return;
+
+    // 1. Scan on window focus (e.g., coming back from banking app)
+    const handleFocus = () => {
+      if (document.visibilityState === 'visible') {
+        console.log("App focused, checking for new bills...");
+        scanFolderTransactions();
+      }
+    };
+    window.addEventListener('visibilitychange', handleFocus);
+    window.addEventListener('focus', handleFocus);
+
+    // 2. Poll every 10 seconds for truly "real-time" feel
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        scanFolderTransactions();
+      }
+    }, 10000);
+
+    return () => {
+      window.removeEventListener('visibilitychange', handleFocus);
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(interval);
+    };
+  }, [folderHandle, t]);
 
   // Auto-clear noise/silence messages so they don't block the screen forever
   useEffect(() => {
