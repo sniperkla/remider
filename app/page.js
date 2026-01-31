@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import useMobileDetect from "./hooks/useMobileDetect";
 import { useSearchParams } from 'next/navigation';
@@ -250,7 +250,7 @@ const parseThaiNumber = (str) => {
 };
 // --- End Smart Categorization ---
 
-export default function Home() {
+function HomeContent() {
   const { data: session, status } = useSession();
 
   const [balance, setBalance] = useState({ bank: 0, cash: 0 });
@@ -3372,5 +3372,35 @@ export default function Home() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+// Wrap in Suspense for useSearchParams compatibility with Next.js static generation
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        background: '#0a0f1a'
+      }}>
+        <div style={{ textAlign: 'center', color: 'white' }}>
+          <div style={{ 
+            width: '48px', 
+            height: '48px', 
+            border: '3px solid rgba(139, 92, 246, 0.3)', 
+            borderTopColor: '#8b5cf6',
+            borderRadius: '50%',
+            margin: '0 auto 1rem',
+            animation: 'spin 1s linear infinite'
+          }} />
+          <p style={{ opacity: 0.7 }}>Loading...</p>
+        </div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }
