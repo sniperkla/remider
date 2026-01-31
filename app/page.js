@@ -45,6 +45,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Tesseract from "tesseract.js";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Download, CreditCard, Banknote, History, Languages, MessageCircle } from "lucide-react";
+import { Filesystem, Directory } from '@capacitor/filesystem'; // Native File Support
 import { translations } from "@/lib/translations";
 
 // --- Smart Categorization & Visuals ---
@@ -274,7 +275,27 @@ const getHandle = async (key) => {
 
 
 function HomeContent() {
-  const { data: session, status } = useSession();
+  const { data: nextAuthSession, status } = useSession();
+  const [isNative, setIsNative] = useState(false);
+
+  useEffect(() => {
+     // Check if running in Capacitor Native
+     if (typeof window !== 'undefined' && window.localStorage.getItem('capacitor_native') === 'true') {
+        setIsNative(true);
+     }
+     // Better check:
+     const checkNative = async () => {
+       try {
+         // This is a simple heuristic. Actual Capacitor check relies on window.Capacitor
+         if (window.Capacitor && window.Capacitor.isNative) {
+           setIsNative(true);
+         }
+       } catch (e) {}
+     };
+     checkNative();
+  }, []);
+
+  const session = nextAuthSession || (isNative ? { user: { name: "Mobile User", email: "offline@remiderme.app", image: "https://ui-avatars.com/api/?name=M+U" } } : null);
 
   const [balance, setBalance] = useState({ bank: 0, cash: 0 });
   const [budget, setBudget] = useState(1000);
@@ -349,6 +370,17 @@ function HomeContent() {
   }, []);
 
   const connectFolder = async () => {
+    if (isNative) {
+         // Android: Auto-connect to standard folders
+         const dummyHandle = { name: "Android Storage (Screenshots)" };
+         setFolderHandle(dummyHandle);
+         await storeHandle("billingFolder", dummyHandle);
+         const startFrom = Date.now() - (60 * 60 * 1000); 
+         setLastAutoScan(startFrom);
+         scanAndroidFolder(startFrom);
+         return;
+    }
+
     try {
       const handle = await window.showDirectoryPicker();
       setFolderHandle(handle);
@@ -368,7 +400,80 @@ function HomeContent() {
     await storeHandle("billingFolder", null);
   };
 
+  const scanAndroidFolder = async (since = lastAutoScanRef.current, forceAll = false) => {
+    if (isAutoScanningRef.current) return;
+    setIsAutoScanning(true);
+    console.log("🤖 Starting Android Scan...");
+
+    let newItemsCount = 0;
+    try {
+       // Common Screenshot paths on Android
+       const pathsToScan = ['DCIM/Screenshots', 'Pictures/Screenshots', 'Download'];
+       
+       for (const path of pathsToScan) {
+          try {
+             // We use ExternalStorage to access shared media folders
+             const result = await Filesystem.readdir({
+                 path: path,
+                 directory: Directory.ExternalStorage
+             });
+             
+             console.log(`📂 Scanning ${path}: found ${result.files.length} files`);
+
+             for (const file of result.files) {
+                 // Check if likely an image
+                 if (!/\.(jpg|jpeg|png|webp)$/i.test(file.name)) continue;
+                 
+                 // mtime is usually in ms
+                 if (forceAll || (file.mtime >= since && !processedFilesRef.current.has(file.name))) {
+                      console.log(`🎯 New Android file: ${file.name}`);
+                      
+                      // Process
+                      if (!forceAll) processedFilesRef.current.add(file.name);
+                      
+                      const contents = await Filesystem.readFile({
+                          path: `${path}/${file.name}`,
+                          directory: Directory.ExternalStorage
+                      });
+                      
+                      // Convert base64 to usable format for Tesseract
+                      const base64 = `data:image/jpeg;base64,${contents.data}`;
+                      
+                      const ocrResult = await Tesseract.recognize(base64, "tha+eng");
+                      const ocrText = ocrResult.data.text;
+                      
+                      if (ocrText.trim()) {
+                          console.log(`✅ OCR Success: ${ocrText.substring(0, 50)}...`);
+                          processOcrText(ocrText);
+                          newItemsCount++;
+                      }
+                 }
+             }
+          } catch (e) {
+              console.log(`⚠️ Skip path ${path}:`, e.message);
+          }
+       }
+       
+       const nextScanTime = Date.now() - 30000;
+       setLastAutoScan(nextScanTime);
+       localStorage.setItem("lastAutoScan", nextScanTime.toString());
+       
+       if (newItemsCount > 0) {
+         setAiMessage(t.scanned_new_files(newItemsCount));
+       } else {
+         console.log("🤖 Android Scan completed: No new bills.");
+       }
+
+    } catch(err) {
+       console.error("❌ Android Scan Error", err);
+    }
+    setIsAutoScanning(false);
+  };
+
   const scanFolderTransactions = async (handle = folderHandleRef.current, since = lastAutoScanRef.current, forceAll = false) => {
+    if (isNative) {
+        return scanAndroidFolder(since, forceAll);
+    }
     if (!handle || isAutoScanningRef.current) return;
     
     setIsAutoScanning(true);
