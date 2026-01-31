@@ -91,6 +91,33 @@ body {
   gap: 0.5rem;
 }
 
+.btn-google {
+  background: white;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 1rem 2rem;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.btn-google:hover {
+  background: #f9fafb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.btn-google:active {
+  transform: scale(0.98);
+}
+
 /* Typography */
 h1 {
   font-size: 1.875rem;
@@ -171,4 +198,48 @@ h1 {
   min-height: 80vh;
   gap: 2rem;
   text-align: center;
+}
+
+/* Text pulse animation for listening indicator */
+@keyframes textPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.listening-indicator {
+  animation: textPulse 1.5s ease-in-out infinite;
+}
+
+/* Interim transcript styling */
+.interim-transcript {
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 16px;
+  padding: 0.5rem 1rem;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 300px;
+  text-align: center;
+}
+
+/* Continuous listening mode indicator */
+.mic-button.active::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 2px solid var(--primary);
+  animation: ripple 1.5s ease-out infinite;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
 }

@@ -23,7 +23,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Tesseract from "tesseract.js";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
-import { Download, CreditCard, Banknote, History } from "lucide-react";
+import { Download, CreditCard, Banknote, History, Languages } from "lucide-react";
+import { translations } from "@/lib/translations";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -40,6 +41,8 @@ export default function Home() {
   const [showSummary, setShowSummary] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [lang, setLang] = useState("th"); // 'th' or 'en'
+  const t = translations[lang];
   
   const [manualAmount, setManualAmount] = useState("");
   const [manualDesc, setManualDesc] = useState("");
@@ -47,10 +50,21 @@ export default function Home() {
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
-  const [aiMessage, setAiMessage] = useState("สวัสดีครับ! ผมเป็นผู้ช่วยการเงินของคุณ บอกผมได้เลยว่าวันนี้จ่ายอะไรไปบ้าง");
+  const [aiMessage, setAiMessage] = useState(translations.th.ai_greeting);
+
+  useEffect(() => {
+    // Update the greeting if it's still the default greeting
+    if (aiMessage === translations.th.ai_greeting || aiMessage === translations.en.ai_greeting) {
+      setAiMessage(t.ai_greeting);
+    }
+  }, [lang]);
+  const [aiInsight, setAiInsight] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
+  const isVoiceActiveRef = useRef(false); // Track if voice should be actively listening
+  const [interimTranscript, setInterimTranscript] = useState(""); // For showing partial speech
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -88,32 +102,91 @@ export default function Home() {
     if (typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
-      recognitionRef.current.interimResults = false;
-      recognitionRef.current.lang = "th-TH";
+      recognitionRef.current.continuous = true; // Keep listening continuously
+      recognitionRef.current.interimResults = true; // Show partial results
+      recognitionRef.current.lang = lang === 'th' ? "th-TH" : "en-US";
+      recognitionRef.current.maxAlternatives = 1;
 
-      recognitionRef.current.onstart = () => setIsListening(true);
-      recognitionRef.current.onend = () => setIsListening(false);
+      recognitionRef.current.onstart = () => {
+        setIsListening(true);
+        isVoiceActiveRef.current = true;
+      };
+      
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+        setInterimTranscript("");
+        // Auto-restart if voice is still meant to be active (e.g., didn't manually turn off)
+        if (isVoiceActiveRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch (e) {
+            // Already started, ignore
+          }
+        }
+      };
       
       recognitionRef.current.onresult = (event) => {
-        const result = event.results[0][0].transcript;
-        setTranscript(result);
-        if (processVoiceRef.current) processVoiceRef.current(result);
+        let finalTranscript = "";
+        let interimText = "";
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            finalTranscript += result[0].transcript;
+          } else {
+            interimText += result[0].transcript;
+          }
+        }
+        
+        // Show interim results for feedback
+        if (interimText) {
+          setInterimTranscript(interimText);
+        }
+        
+        // Process final result
+        if (finalTranscript) {
+          setTranscript(finalTranscript);
+          setInterimTranscript("");
+          if (processVoiceRef.current) processVoiceRef.current(finalTranscript);
+        }
       };
 
       recognitionRef.current.onerror = (event) => {
         console.error("Speech recognition error", event.error);
-        setIsListening(false);
+        // Don't stop on 'no-speech' error, just keep listening
+        if (event.error === 'no-speech' || event.error === 'aborted') {
+          // These are normal, just continue
+          return;
+        }
+        // Only turn off for serious errors
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          isVoiceActiveRef.current = false;
+          setIsListening(false);
+        }
       };
     }
   }, []);
 
+  // Update speech recognition language when app language changes
+  useEffect(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = lang === 'th' ? "th-TH" : "en-US";
+    }
+  }, [lang]);
+
   const toggleListening = () => {
     if (isListening) {
+      isVoiceActiveRef.current = false; // Stop auto-restart
       recognitionRef.current.stop();
     } else {
       setTranscript("");
-      recognitionRef.current.start();
+      setInterimTranscript("");
+      isVoiceActiveRef.current = true; // Enable auto-restart
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        // Already started
+      }
     }
   };
 
@@ -121,7 +194,46 @@ export default function Home() {
     if (!text) return;
     const voiceTextLower = text.toLowerCase();
     
-    // 1. Identify Amount (Smarter extraction with Thai word support)
+    // 1. Check for Summary Commands (Today, Week, Month) - No amount needed
+    const summaryKeywords = ["สรุป", "รายงาน", "summary", "report", "total", "รวมทั้งหมด", "ใช้ไปเท่าไหร่"];
+    const isSummaryRequest = summaryKeywords.some(kw => voiceTextLower.includes(kw));
+
+    if (isSummaryRequest) {
+      const now = new Date();
+      let startDate = new Date();
+      let periodLabel = lang === 'th' ? "วันนี้" : "Today";
+
+      if (voiceTextLower.includes("อาทิตย์") || voiceTextLower.includes("สัปดาห์") || voiceTextLower.includes("week")) {
+        startDate.setDate(now.getDate() - 7);
+        periodLabel = lang === 'th' ? "7 วันที่ผ่านมา" : "Last 7 days";
+      } else if (voiceTextLower.includes("เดือน") || voiceTextLower.includes("month")) {
+        startDate.setMonth(now.getMonth() - 1);
+        periodLabel = lang === 'th' ? "เดือนนี้" : "This month";
+      } else if (voiceTextLower.includes("ปี") || voiceTextLower.includes("year")) {
+        startDate.setFullYear(now.getFullYear() - 1);
+        periodLabel = lang === 'th' ? "ปีนี้" : "This year";
+      } else {
+        startDate.setHours(0, 0, 0, 0);
+      }
+
+      const filtered = transactions.filter(t => new Date(t.date) >= startDate);
+      const income = filtered.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+      const expense = filtered.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+
+      setAiMessage(t.voice_summary(periodLabel, income.toLocaleString(), expense.toLocaleString()));
+      return;
+    }
+
+    // 2. Check for Balance Inquiry Commands - No amount needed
+    const inquiryKeywords = ["เงินเหลือเท่าไหร่", "มีเงินเท่าไหร่", "ยอดเงิน", "เช็คยอด", "balance info", "how much money", "my balance", "how much i have"];
+    const isInquiry = inquiryKeywords.some(kw => voiceTextLower.includes(kw));
+
+    if (isInquiry) {
+      setAiMessage(t.voice_balance((balance.bank || 0).toLocaleString(), (balance.cash || 0).toLocaleString(), ((balance.bank || 0) + (balance.cash || 0)).toLocaleString()));
+      return;
+    }
+
+    // 3. Identify Amount (Smarter extraction with Thai word support)
     const cleanedText = text.replace(/,/g, "");
     
     // Support Thai number words
@@ -147,25 +259,16 @@ export default function Home() {
         }
       }
     } else {
-      // Check for words without digits (e.g., "หนึ่งล้าน")
+      // If no numbers were found and it wasn't a non-numeric command (summary/inquiry), we can't record a transaction
       return; 
     }
 
     if (amount === 0) return;
     
-    // 1.4 Detect Target Wallet from Context
+    // 4. Detect Target Wallet from Context
     let wallet = activeWallet;
     if (voiceTextLower.includes("เงินสด") || voiceTextLower.includes("ถอน") || voiceTextLower.includes("cash")) wallet = "cash";
     if (voiceTextLower.includes("ธนาคาร") || voiceTextLower.includes("โอน") || voiceTextLower.includes("bank") || voiceTextLower.includes("card")) wallet = "bank";
-
-    // 1.5 Check for Balance Inquiry Commands
-    const inquiryKeywords = ["เงินเหลือเท่าไหร่", "มีเงินเท่าไหร่", "ยอดเงิน", "เช็คยอด", "balance info", "how much money", "my balance", "how much i have"];
-    const isInquiry = inquiryKeywords.some(kw => voiceTextLower.includes(kw));
-
-    if (isInquiry) {
-      setAiMessage(`ตอนนี้มีเงินในธนาคาร ฿${balance.bank.toLocaleString()} และเงินสด ฿${balance.cash.toLocaleString()} รวมทั้งหมด ฿${(balance.bank + balance.cash).toLocaleString()} ครับ`);
-      return;
-    }
 
     // 1.5.1 Check for Transfers (Between bank and cash)
     const isWithdraw = voiceTextLower.includes("ถอน") || voiceTextLower.includes("atm") || voiceTextLower.includes("withdraw");
@@ -183,7 +286,7 @@ export default function Home() {
         body: JSON.stringify({ balance: { bank: newBank, cash: newCash } })
       });
 
-      setAiMessage(`ถอนเงิน ฿${amount.toLocaleString()} จากธนาคารเข้ากระเป๋าเงินสดเรียบร้อยครับ`);
+      setAiMessage(t.voice_withdraw(amount.toLocaleString()));
       return;
     }
 
@@ -199,7 +302,7 @@ export default function Home() {
         body: JSON.stringify({ balance: { bank: newBank, cash: newCash } })
       });
 
-      setAiMessage(`ฝากเงิน ฿${amount.toLocaleString()} เข้าบัญชีธนาคารเรียบร้อยครับ`);
+      setAiMessage(t.voice_deposit(amount.toLocaleString()));
       return;
     }
 
@@ -212,6 +315,217 @@ export default function Home() {
     const isAdjustment = adjustKeywords.some(kw => voiceTextLower.includes(kw));
 
     if (isAdjustment) {
+      console.log("=== VOICE COMMAND DEBUG ===");
+      console.log("Raw text:", text);
+      console.log("Lower text:", voiceTextLower);
+      
+      // Check for multi-wallet balance setting (e.g., "มีเงินในธนาคารห้าพันบาท และ เงินสดสองพันบาท")
+      // This handles sentences that contain BOTH bank and cash amounts
+      const hasBankMention = voiceTextLower.includes("ธนาคาร") || voiceTextLower.includes("bank");
+      const hasCashMention = voiceTextLower.includes("เงินสด") || voiceTextLower.includes("cash");
+      
+      if (hasBankMention && hasCashMention) {
+        // Multi-wallet balance adjustment
+        let bankAmount = 0;
+        let cashAmount = 0;
+        
+        // Helper function to parse Thai amount text
+        const parseThaiAmount = (segment) => {
+          // Thai digit words mapping
+          const thaiDigits = {
+            "หนึ่ง": 1, "เอ็ด": 1,
+            "สอง": 2, "ยี่": 2,
+            "สาม": 3,
+            "สี่": 4,
+            "ห้า": 5,
+            "หก": 6,
+            "เจ็ด": 7,
+            "แปด": 8,
+            "เก้า": 9,
+            "สิบ": 10
+          };
+          
+          const thaiMults = {
+            "ล้าน": 1000000, 
+            "แสน": 100000, 
+            "หมื่น": 10000, 
+            "พัน": 1000, 
+            "ร้อย": 100
+          };
+          
+          // First try to find numeric amount (5000, 7000, etc.)
+          const numMatch = segment.match(/(\d+[\d,.]*)/);
+          if (numMatch) {
+            let amt = parseFloat(numMatch[1].replace(/,/g, ""));
+            // Only multiply if the multiplier word appears IMMEDIATELY after the number
+            const afterNum = segment.substring(segment.indexOf(numMatch[1]) + numMatch[1].length);
+            for (const [word, mult] of Object.entries(thaiMults)) {
+              // Check if multiplier is within 3 characters after the number
+              const multPos = afterNum.indexOf(word);
+              if (multPos !== -1 && multPos <= 3) {
+                amt = amt * mult;
+                break;
+              }
+            }
+            // If amt is still small (1-10) and doesn't have a multiplier near it,
+            // this might be a standalone digit word that shouldn't be used as amount
+            if (amt >= 100 || (amt < 100 && segment.match(/(\d+[\d,.]*)\s*(บาท|baht)/i))) {
+              return amt;
+            }
+          }
+          
+          // Parse Thai word numbers (e.g., "ห้าพัน" = 5000, "เจ็ดพัน" = 7000)
+          // Pattern: Look for digit word + multiplier combinations
+          let total = 0;
+          
+          // Try each multiplier from largest to smallest
+          for (const [multWord, multValue] of Object.entries(thaiMults)) {
+            const multIdx = segment.indexOf(multWord);
+            if (multIdx !== -1) {
+              // Look for a Thai digit word immediately before the multiplier
+              const beforeMult = segment.substring(Math.max(0, multIdx - 10), multIdx);
+              let digitValue = 1; // Default to 1 if no digit found (e.g., "พัน" alone = 1000)
+              
+              // Check each Thai digit word - find the one closest to the multiplier
+              let closestDigitPos = -1;
+              for (const [digitWord, digitVal] of Object.entries(thaiDigits)) {
+                const digitPos = beforeMult.lastIndexOf(digitWord);
+                if (digitPos !== -1 && digitPos > closestDigitPos) {
+                  closestDigitPos = digitPos;
+                  digitValue = digitVal;
+                }
+              }
+              
+              total += digitValue * multValue;
+            }
+          }
+          
+          // If still no amount found, check for standalone digit words (rare case)
+          if (total === 0) {
+            for (const [digitWord, digitVal] of Object.entries(thaiDigits)) {
+              if (segment.includes(digitWord)) {
+                return digitVal;
+              }
+            }
+          }
+          
+          return total > 0 ? total : 0;
+        };
+        
+        // Split by common connectors and find amounts for each wallet
+        const segments = text.split(/และ|และก็|กับ|,|and/i);
+        
+        for (const seg of segments) {
+          const segLower = seg.toLowerCase();
+          if ((segLower.includes("ธนาคาร") || segLower.includes("bank")) && bankAmount === 0) {
+            bankAmount = parseThaiAmount(seg);
+            console.log("Bank segment:", seg, "-> Amount:", bankAmount);
+          }
+          if ((segLower.includes("เงินสด") || segLower.includes("cash")) && cashAmount === 0) {
+            cashAmount = parseThaiAmount(seg);
+            console.log("Cash segment:", seg, "-> Amount:", cashAmount);
+          }
+        }
+        
+        // If segment splitting didn't work, try extracting amounts from full text
+        // and assign based on position relative to wallet keywords
+        if (bankAmount === 0 || cashAmount === 0) {
+          console.log("Fallback parsing for text:", text);
+          
+          // Find all Thai number amounts in the text
+          const findAllAmounts = (str) => {
+            const amounts = [];
+            const thaiDigits = {
+              "หนึ่ง": 1, "เอ็ด": 1, "สอง": 2, "ยี่": 2, "สาม": 3,
+              "สี่": 4, "ห้า": 5, "หก": 6, "เจ็ด": 7, "แปด": 8, "เก้า": 9
+            };
+            const thaiMults = { "ล้าน": 1000000, "แสน": 100000, "หมื่น": 10000, "พัน": 1000, "ร้อย": 100 };
+            
+            // Look for patterns like "ห้าพัน", "เจ็ดพัน", etc.
+            for (const [multWord, multValue] of Object.entries(thaiMults)) {
+              let searchFrom = 0;
+              while (true) {
+                const multIdx = str.indexOf(multWord, searchFrom);
+                if (multIdx === -1) break;
+                
+                // Look backwards from the multiplier to find a digit word
+                const beforeMult = str.substring(Math.max(0, multIdx - 10), multIdx);
+                let digitValue = 1;
+                
+                for (const [digitWord, digitVal] of Object.entries(thaiDigits)) {
+                  if (beforeMult.includes(digitWord)) {
+                    digitValue = digitVal;
+                    break;
+                  }
+                }
+                
+                amounts.push({ index: multIdx, amount: digitValue * multValue });
+                searchFrom = multIdx + 1;
+              }
+            }
+            
+            // Also check for numeric values
+            const numRegex = /(\d+)/g;
+            let match;
+            while ((match = numRegex.exec(str)) !== null) {
+              const num = parseInt(match[1]);
+              if (num >= 100) { // Only consider significant amounts
+                amounts.push({ index: match.index, amount: num });
+              }
+            }
+            
+            return amounts.sort((a, b) => a.index - b.index);
+          };
+          
+          const allAmounts = findAllAmounts(text);
+          console.log("Found amounts:", allAmounts);
+          
+          // Find wallet keyword positions
+          const bankIdx = voiceTextLower.indexOf("ธนาคาร") !== -1 ? voiceTextLower.indexOf("ธนาคาร") : voiceTextLower.indexOf("bank");
+          const cashIdx = voiceTextLower.indexOf("เงินสด") !== -1 ? voiceTextLower.indexOf("เงินสด") : voiceTextLower.indexOf("cash");
+          
+          console.log("Wallet positions - bank:", bankIdx, "cash:", cashIdx);
+          
+          // Assign amounts to the nearest wallet keyword
+          for (const a of allAmounts) {
+            const distToBank = bankIdx !== -1 ? Math.abs(a.index - bankIdx) : Infinity;
+            const distToCash = cashIdx !== -1 ? Math.abs(a.index - cashIdx) : Infinity;
+            
+            if (distToBank < distToCash && bankAmount === 0) {
+              bankAmount = a.amount;
+            } else if (distToCash <= distToBank && cashAmount === 0) {
+              cashAmount = a.amount;
+            }
+          }
+        }
+        
+        // If we got both amounts, update both wallets
+        if (bankAmount > 0 || cashAmount > 0) {
+          const newBalance = { 
+            bank: bankAmount > 0 ? bankAmount : balance.bank, 
+            cash: cashAmount > 0 ? cashAmount : balance.cash 
+          };
+          setBalance(newBalance);
+          
+          // Sync to DB
+          fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ balance: newBalance })
+          });
+
+          // Build feedback message
+          let msg = lang === 'th' ? "ปรับยอดเงินแล้ว: " : "Balance updated: ";
+          if (bankAmount > 0) msg += `${t.bank} ฿${bankAmount.toLocaleString()}`;
+          if (bankAmount > 0 && cashAmount > 0) msg += lang === 'th' ? " และ " : " & ";
+          if (cashAmount > 0) msg += `${t.cash} ฿${cashAmount.toLocaleString()}`;
+          
+          setAiMessage(msg);
+          return;
+        }
+      }
+      
+      // Single wallet adjustment (original logic)
       const oldAmount = balance[wallet];
       const newBalance = { ...balance, [wallet]: amount };
       setBalance(newBalance);
@@ -223,11 +537,143 @@ export default function Home() {
         body: JSON.stringify({ balance: newBalance })
       });
 
-      setAiMessage(`ปรับยอดเงินให้แล้วครับ! จาก ฿${oldAmount.toLocaleString()} เป็น ฿${amount.toLocaleString()} ใน${wallet === 'bank' ? 'บัญชีธนาคาร' : 'กระเป๋าเงินสด'}`);
+      setAiMessage(t.voice_adjusted(oldAmount.toLocaleString(), amount.toLocaleString(), t[wallet]));
       return;
     }
     
-    // 2. Identify Transaction Type (Income vs Expense)
+    // 2. CHECK FOR MULTI-TRANSACTION (e.g., "ซื้อกาแฟ 50 และ ข้าว 80")
+    // Split by connectors and check if multiple segments have amounts
+    const connectorPattern = /\s*(?:และ|และก็|กับ|,|and)\s*/gi;
+    const segments = text.split(connectorPattern).filter(s => s.trim());
+    
+    console.log("=== MULTI-TRANSACTION CHECK ===");
+    console.log("Segments:", segments);
+    
+    // Helper function to parse Thai numbers
+    const parseThaiNumber = (str) => {
+      const thaiDigits = {
+        "หนึ่ง": 1, "เอ็ด": 1, "สอง": 2, "ยี่": 2, "สาม": 3,
+        "สี่": 4, "ห้า": 5, "หก": 6, "เจ็ด": 7, "แปด": 8, "เก้า": 9, "สิบ": 10
+      };
+      const thaiMults = { "ล้าน": 1000000, "แสน": 100000, "หมื่น": 10000, "พัน": 1000, "ร้อย": 100 };
+      
+      // First check for numeric amount
+      const numMatch = str.match(/(\d+[\d,.]*)/);
+      if (numMatch) {
+        let amt = parseFloat(numMatch[1].replace(/,/g, ""));
+        // Check for Thai multiplier right after the number
+        const afterNum = str.substring(str.indexOf(numMatch[1]) + numMatch[1].length);
+        for (const [word, mult] of Object.entries(thaiMults)) {
+          if (afterNum.substring(0, 5).includes(word)) {
+            amt *= mult;
+            break;
+          }
+        }
+        return amt;
+      }
+      
+      // Try Thai word numbers
+      let total = 0;
+      for (const [multWord, multValue] of Object.entries(thaiMults)) {
+        const multIdx = str.indexOf(multWord);
+        if (multIdx !== -1) {
+          const beforeMult = str.substring(Math.max(0, multIdx - 10), multIdx);
+          let digitValue = 1;
+          for (const [digitWord, digitVal] of Object.entries(thaiDigits)) {
+            if (beforeMult.includes(digitWord)) {
+              digitValue = digitVal;
+              break;
+            }
+          }
+          total += digitValue * multValue;
+        }
+      }
+      return total;
+    };
+    
+    // Helper function to detect transaction type for a segment
+    const detectSegmentType = (segText) => {
+      const segLower = segText.toLowerCase();
+      const incomeKw = ["ได้", "เข้า", "รับ", "ขาย", "รายได้", "income", "receive", "got", "earn"];
+      const expenseKw = ["จ่าย", "ซื้อ", "ค่า", "กิน", "เติม", "buy", "pay", "spent", "purchase"];
+      
+      const hasIncome = incomeKw.some(kw => segLower.includes(kw));
+      const hasExpense = expenseKw.some(kw => segLower.includes(kw));
+      
+      if (hasIncome && !hasExpense) return "income";
+      return "expense"; // Default
+    };
+    
+    // Helper function to detect category for a segment
+    const detectSegmentCategory = (segText) => {
+      const segLower = segText.toLowerCase();
+      const catMap = {
+        "อาหาร": ["กิน", "ข้าว", "น้ำ", "กาแฟ", "ขนม", "อาหาร", "ชา", "eat", "food", "coffee", "drink", "meal"],
+        "เดินทาง": ["รถ", "น้ำมัน", "แท็กซี่", "วิน", "grab", "bolt", "gas", "taxi", "fare"],
+        "ของใช้": ["ซื้อ", "ของ", "ปรับผ้า", "ผงซักฟอก", "แชมพู", "สบู่", "buy", "shop", "item"],
+        "สุขภาพ": ["ยา", "หมอ", "doctor", "medicine"],
+        "บันเทิง": ["เกม", "หนัง", "game", "movie", "netflix"]
+      };
+      
+      for (const [cat, keywords] of Object.entries(catMap)) {
+        if (keywords.some(kw => segLower.includes(kw))) return cat;
+      }
+      return "อื่นๆ";
+    };
+    
+    // Parse amounts for each segment
+    const parsedSegments = segments.map(seg => ({
+      text: seg.trim(),
+      amount: parseThaiNumber(seg),
+      type: detectSegmentType(seg),
+      category: detectSegmentCategory(seg)
+    })).filter(s => s.amount > 0);
+    
+    console.log("Parsed segments:", parsedSegments);
+    
+    // If we have multiple segments with amounts, process as multi-transaction
+    if (parsedSegments.length > 1) {
+      console.log("Processing as MULTI-TRANSACTION");
+      
+      let totalAmount = 0;
+      const descriptions = [];
+      
+      for (const seg of parsedSegments) {
+        // Clean description
+        let desc = seg.text.replace(/\d+[\d,.]*/g, "").trim();
+        desc = desc.replace(/บาท|baht/gi, "").trim();
+        if (!desc) desc = seg.type === "income" ? "รายรับ" : "รายจ่าย";
+        
+        // Add transaction
+        addTransaction(seg.amount, seg.type, desc, seg.category, activeWallet);
+        
+        totalAmount += seg.amount;
+        descriptions.push(`${desc} ฿${seg.amount.toLocaleString()}`);
+      }
+      
+      // Show confirmation message
+      const msg = lang === 'th' 
+        ? `บันทึก ${parsedSegments.length} รายการ: ${descriptions.join(", ")}`
+        : `Recorded ${parsedSegments.length} items: ${descriptions.join(", ")}`;
+      
+      setAiMessage(msg);
+      return;
+    }
+    
+    // SINGLE TRANSACTION PROCESSING (original logic)
+    // Use the already parsed amount from earlier, or parse again
+    let singleAmount = amount; // Reuse the amount parsed earlier
+    
+    // If we don't have an amount yet (shouldn't happen, but safety check)
+    if (singleAmount === 0) {
+      singleAmount = parseThaiNumber(text);
+      if (singleAmount === 0) return;
+    }
+    
+    // Wallet was already detected earlier, reuse it
+    // (wallet variable already exists from earlier in the function)
+
+    // 5. Identify Transaction Type (Income vs Expense)
     const incomeKeywords = [
       "ได้", "เข้า", "บวก", "ขาย", "รายได้", "รับ", "โอนเข้า", "มาให้", "ให้มา", "ตกมา", "หยิบมา", "เจอ", "พบ", "เก็บได้",
       "เงินเดือน", "เบิก", "ค่าจ้าง", "ค่าแรง", "โอที", "เบี้ยเลี้ยง", "คอมมิชชั่น", "ค่าคอม", "โบนัส", "เงินรางวัล",
@@ -270,7 +716,7 @@ export default function Home() {
     let type = "expense"; // Default to expense
     if (isIncome && !isExpense) type = "income";
 
-    // 3. Identify Category (Detailed mapping for both languages)
+    // 6. Identify Category (Detailed mapping for both languages)
     let category = "อื่นๆ";
     const catMap = {
       "อาหาร": ["กิน", "ข้าว", "น้ำ", "กาแฟ", "ขนม", "มื้อ", "อาหาร", "หิว", "สั่ง", "ชา", "ต้ม", "ผัด", "แกง", "ทอด", "eat", "food", "rice", "water", "coffee", "drink", "snack", "meal", "dinner", "lunch", "breakfast", "cafe", "starbucks", "grabfood", "lineman", "foodpanda"],
@@ -290,7 +736,7 @@ export default function Home() {
       }
     }
 
-    // 4. Construct Description (Clean up the text)
+    // 7. Construct Description (Clean up the text)
     const originalNumberMatch = text.match(/[\d,.]+/);
     let description = text;
     if (originalNumberMatch) {
@@ -306,8 +752,8 @@ export default function Home() {
     description = description.trim();
     if (!description) description = type === "income" ? "รายรับ" : "รายจ่าย";
 
-    addTransaction(amount, type, description, category, wallet);
-    setAiMessage(`บันทึก${type === 'income' ? 'รายรับ' : 'รายจ่าย'} ${description} ฿${amount.toLocaleString()} ใน${wallet === 'bank' ? 'ธนาคาร' : 'เงินสด'} เรียบร้อยครับ`);
+    addTransaction(singleAmount, type, description, category, wallet);
+    setAiMessage(t.voice_recorded(type, description, singleAmount.toLocaleString(), t[wallet]));
   }
 
   const addTransaction = async (amount, type, description, category = "อื่นๆ", wallet = "bank") => {
@@ -354,11 +800,11 @@ export default function Home() {
     e.preventDefault();
     const amount = parseFloat(manualAmount);
     if (isNaN(amount) || amount <= 0) {
-      alert("กรุณาใส่จำนวนเงินที่ถูกต้อง");
+      alert(t.invalid_amount);
       return;
     }
-    let category = manualType === "income" ? "รายได้" : "อื่นๆ";
-    addTransaction(amount, manualType, manualDesc || (manualType === "income" ? "รายรับ" : "รายจ่าย"), category, activeWallet);
+    let category = manualType === "income" ? (lang === 'th' ? "รายได้" : "Income") : (lang === 'th' ? "อื่นๆ" : "Other");
+    addTransaction(amount, manualType, manualDesc || (manualType === "income" ? t.income : t.expense), category, activeWallet);
     setManualAmount("");
     setManualDesc("");
     setManualType("expense");
@@ -496,34 +942,61 @@ export default function Home() {
         }
       }
 
-      addTransaction(finalAmount, type, "สแกนจากสลิป/บิล", category);
+      addTransaction(finalAmount, type, t.ocr_description, category);
     } else {
-      alert("ไม่สามารถระบุจำนวนเงินได้ กรุณาลองปรับมุมกล้องหรือใส่เองครับ");
+      alert(t.ocr_failed);
     }
   };
 
-  const getAIInsight = () => {
-    const todayExpenses = transactions.filter(t => t.type === 'expense');
+  const getAIInsight = (customTransactions = transactions) => {
+    const todayExpenses = customTransactions.filter(t => t.type === 'expense');
     const totalSpent = todayExpenses.reduce((acc, t) => acc + t.amount, 0);
     const topCategory = Object.entries(todayExpenses.reduce((acc, t) => { acc[t.category] = (acc[t.category] || 0) + t.amount; return acc; }, {}))
       .sort((a, b) => b[1] - a[1])[0];
 
-    if (totalSpent === 0) return "วันนี้ยังไม่มีค่าใช้จ่ายเลย สุดยอดมากครับ! รักษาไว้นะ";
+    if (totalSpent === 0) return t.local_insight_zero;
     
+    let base = "";
     if (totalSpent > budget) {
-      return `วันนี้ใช้เงินเกินงบไปแล้ว ฿${(totalSpent - budget).toLocaleString()} ลองลดการใช้จ่ายในหมวด ${topCategory?.[0] || 'อื่นๆ'} ดูนะครับ`;
+      base = t.local_insight_over((totalSpent - budget).toLocaleString(), topCategory?.[0] || (lang === 'th' ? 'อื่นๆ' : 'Other'));
+    } else if (totalSpent > budget * 0.8) {
+      base = t.local_insight_limit;
+    } else {
+      base = t.local_insight_good;
     }
 
-    if (totalSpent > budget * 0.8) {
-      return "งบประมาณวันนี้ใกล้จะหมดแล้วนะ อีกนิดเดียวจะถึงขีดจำกัดแล้ว ใจเย็นๆ ก่อนควักเงินนะครับ";
+    if (topCategory && (topCategory[0] === 'อาหาร' || topCategory[0] === 'Food') && topCategory[1] > budget * 0.5) {
+      base += t.local_insight_food;
     }
 
-    if (topCategory && topCategory[0] === 'อาหาร' && topCategory[1] > budget * 0.5) {
-      return "วันนี้คุณเน้นเรื่องกินเป็นพิเศษเลยนะ ลองหาของกินที่ประหยัดลงหน่อยไหม?";
-    }
-
-    return "การใช้จ่ายวันนี้ดูปกติครับ คุณทำได้ดีมากในการคุมงบประมาณ!";
+    return base;
   };
+
+  const updateAIInsight = async () => {
+    setIsAnalyzing(true);
+    try {
+      const res = await fetch('/api/ai/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactions, budget, balance, lang })
+      });
+      const data = await res.json();
+      if (data.insight) {
+        setAiInsight(data.insight);
+      } else {
+        setAiInsight(getAIInsight());
+      }
+    } catch (error) {
+      setAiInsight(getAIInsight());
+    }
+    setIsAnalyzing(false);
+  };
+
+  useEffect(() => {
+    if (showSummary && !aiInsight) {
+      updateAIInsight();
+    }
+  }, [showSummary]);
 
   const deleteTransaction = async (id) => {
     const transaction = transactions.find((t) => (t._id || t.id) === id);
@@ -586,11 +1059,11 @@ export default function Home() {
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleTimeString(lang === 'th' ? "th-TH" : "en-US", { hour: "2-digit", minute: "2-digit" });
   };
 
   if (status === "loading") {
-    return <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>กำลังโหลด...</div>;
+    return <div className="app-container" style={{ justifyContent: 'center', alignItems: 'center' }}>{lang === 'th' ? 'กำลังโหลด...' : 'Loading...'}</div>;
   }
 
   if (!session) {
@@ -602,15 +1075,21 @@ export default function Home() {
           className="glass-card"
           style={{ padding: '3rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}
         >
-          <div style={{ background: 'linear-gradient(135deg, var(--primary), var(--accent-pink))', width: '80px', height: '80px', borderRadius: '24px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', width: '80px', height: '80px', borderRadius: '24px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 10px 25px -5px rgba(139, 92, 246, 0.5)' }}>
             <Wallet size={40} color="white" />
           </div>
           <div>
             <h1>RemiderMe</h1>
             <p className="text-sm" style={{ marginTop: '0.5rem' }}>จดบันทึกรายรับรายจ่ายด้วยเสียงที่ง่ายที่สุด</p>
           </div>
-          <button onClick={() => signIn("google")} className="btn-primary" style={{ marginTop: '1rem' }}>
-             เข้าสู่ระบบด้วย Google (Gmail)
+          <button onClick={() => signIn("google")} className="btn-google" style={{ marginTop: '1rem' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Sign in with Google
           </button>
         </motion.div>
       </div>
@@ -623,11 +1102,45 @@ export default function Home() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <img src={session.user.image} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--primary)' }} />
           <div>
-            <h1 style={{ fontSize: "1.2rem" }}>หวัดดี, {session.user.name.split(' ')[0]}</h1>
-            <p className="text-sm">{new Date().toLocaleDateString("th-TH", { weekday: "long", day: "numeric" })}</p>
+            <h1 style={{ fontSize: "1.2rem" }}>{t.greeting}, {session.user.name.split(' ')[0]}</h1>
+            <p className="text-sm">{new Date().toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { weekday: "long", day: "numeric" })}</p>
           </div>
         </div>
         <div style={{ display: "flex", gap: "10px" }}>
+          <button 
+            onClick={() => setLang(lang === 'th' ? 'en' : 'th')}
+            title={t.language}
+            style={{ 
+              background: "rgba(255, 255, 255, 0.05)", 
+              border: "1px solid var(--glass-border)", 
+              color: "white", 
+              padding: "8px",
+              borderRadius: "12px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <Languages size={18} />
+          </button>
+          <button 
+            onClick={() => { setShowSummary(true); updateAIInsight(); }} 
+            className={`btn-icon-ai ${isAnalyzing ? 'analyzing' : ''}`}
+            style={{ 
+              background: "rgba(139, 92, 246, 0.2)", 
+              border: "1px solid var(--primary)", 
+              color: "var(--primary)", 
+              padding: "8px",
+              borderRadius: "12px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <Sparkles size={20} className={isAnalyzing ? "animate-pulse" : ""} />
+          </button>
           <button onClick={() => setShowSettings(!showSettings)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
             <Settings size={22} />
           </button>
@@ -658,9 +1171,34 @@ export default function Home() {
 
       <AnimatePresence>
         {showHelp && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="glass-card" style={{ marginBottom: "1rem" }}>
-            <h3>วิธีใช้งาน</h3>
-            <p className="text-sm">• "จ่ายค่าข้าว 120"<br/>• "ได้เงินเดือน 30000"</p>
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            exit={{ opacity: 0, y: -20 }} 
+            className="glass-card" 
+            style={{ 
+              marginBottom: "1.5rem", 
+              padding: "1.5rem",
+              background: "rgba(15, 23, 42, 0.95)",
+              border: "1px solid var(--primary)",
+              maxHeight: "400px",
+              overflowY: "auto"
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <HelpCircle size={20} /> {t.how_to_use}
+              </h3>
+              <button onClick={() => setShowHelp(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
+              {t.faq.map((item, idx) => (
+                <div key={idx} style={{ textAlign: 'left' }}>
+                  <div style={{ fontWeight: 700, color: '#fff', marginBottom: '4px', fontSize: '14px' }}>{item.q}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.5' }}>{item.a}</div>
+                </div>
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -668,11 +1206,11 @@ export default function Home() {
       <motion.div layout className="glass-card" style={{ padding: '1.5rem', background: "linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))" }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div style={{ textAlign: 'left' }}>
-            <span className="text-sm">ยอดเงินรวมทั้งหมด</span>
+            <span className="text-sm">{t.total_balance}</span>
             <div className="balance-amount" style={{ fontSize: '1.8rem' }}>฿{(balance.bank + balance.cash).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
           </div>
           <button onClick={exportToCSV} className="btn-outline" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '12px' }}>
-            <Download size={14} /> Export
+            <Download size={14} /> {t.export}
           </button>
         </div>
 
@@ -689,10 +1227,10 @@ export default function Home() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#3b82f6', marginBottom: '8px' }}>
-              <CreditCard size={16} /> <span style={{ fontSize: '13px', fontWeight: 600 }}>ธนาคาร</span>
+              <CreditCard size={16} /> <span style={{ fontSize: '13px', fontWeight: 600 }}>{t.bank}</span>
             </div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'white' }}>฿{balance.bank.toLocaleString()}</div>
-            {activeWallet === 'bank' && <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '4px' }}>● กระเป๋าหลักตอนนี้</div>}
+            {activeWallet === 'bank' && <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '4px' }}>● {t.active_wallet}</div>}
           </motion.div>
 
           <motion.div 
@@ -707,16 +1245,16 @@ export default function Home() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', marginBottom: '8px' }}>
-              <Banknote size={16} /> <span style={{ fontSize: '13px', fontWeight: 600 }}>เงินสด</span>
+              <Banknote size={16} /> <span style={{ fontSize: '13px', fontWeight: 600 }}>{t.cash}</span>
             </div>
             <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'white' }}>฿{balance.cash.toLocaleString()}</div>
-            {activeWallet === 'cash' && <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>● กระเป๋าหลักตอนนี้</div>}
+            {activeWallet === 'cash' && <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>● {t.active_wallet}</div>}
           </motion.div>
         </div>
         
         <div style={{ marginTop: '1.5rem', textAlign: 'left' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span className="text-sm">งบวันนี้ ({Math.min(100, Math.round((transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0) / budget) * 100))}%)</span>
+            <span className="text-sm">{lang === 'th' ? "งบวันนี้" : "Today's Budget"} ({Math.min(100, Math.round((transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0) / budget) * 100))}%)</span>
             <span className="text-sm">฿{transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0).toLocaleString()} / ฿{budget.toLocaleString()}</span>
           </div>
           <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -728,10 +1266,10 @@ export default function Home() {
       <div className="transaction-list">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <Calendar size={16} /> <span className="text-sm">วันนี้</span>
+            <Calendar size={16} /> <span className="text-sm">{lang === 'th' ? "วันนี้" : "Today"}</span>
           </div>
           <button onClick={() => setShowSummary(!showSummary)} style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
-            <BarChart3 size={18} /> <span className="text-sm">ดูรายงาน</span>
+            <BarChart3 size={18} /> <span className="text-sm">{lang === 'th' ? "ดูรายงาน" : "View Report"}</span>
           </button>
         </div>
 
@@ -739,12 +1277,12 @@ export default function Home() {
             {showSummary && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="glass-card" style={{ marginBottom: '1rem', overflow: 'hidden' }}>
                     <div style={{ display: 'flex', gap: '10px', marginBottom: '1.5rem', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '12px' }}>
-                      <button onClick={() => setViewMode('daily')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: viewMode === 'daily' ? 'var(--primary)' : 'transparent', color: 'white', fontSize: '12px', fontWeight: 600 }}>รายวัน</button>
-                      <button onClick={() => setViewMode('monthly')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: viewMode === 'monthly' ? 'var(--primary)' : 'transparent', color: 'white', fontSize: '12px', fontWeight: 600 }}>รายเดือน</button>
+                      <button onClick={() => setViewMode('daily')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: viewMode === 'daily' ? 'var(--primary)' : 'transparent', color: 'white', fontSize: '12px', fontWeight: 600 }}>{lang === 'th' ? 'รายวัน' : 'Daily'}</button>
+                      <button onClick={() => setViewMode('monthly')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: viewMode === 'monthly' ? 'var(--primary)' : 'transparent', color: 'white', fontSize: '12px', fontWeight: 600 }}>{lang === 'th' ? 'รายเดือน' : 'Monthly'}</button>
                     </div>
 
                     <p className="text-sm" style={{ fontWeight: 600, marginBottom: '1rem' }}>
-                      {viewMode === 'daily' ? 'สรุปค่าใช้จ่ายประจําวัน' : 'แนวโน้มการใช้จ่าย 7 วันล่าสุด'}
+                      {viewMode === 'daily' ? (lang === 'th' ? 'สรุปค่าใช้จ่ายประจําวัน' : 'Daily Expense Summary') : (lang === 'th' ? 'แนวโน้มการใช้จ่าย 7 วันล่าสุด' : 'Spending Trend (Last 7 Days)')}
                     </p>
                     
                     {/* AI Insight Buddy */}
@@ -761,9 +1299,21 @@ export default function Home() {
                         <div style={{ background: 'var(--primary)', padding: '8px', borderRadius: '12px' }}>
                             <Sparkles size={18} color="white" />
                         </div>
-                        <div>
-                            <p style={{ fontSize: '12px', fontWeight: 600, color: '#3b82f6', marginBottom: '4px' }}>AI วิเคราะห์การเงิน</p>
-                            <p className="text-sm" style={{ lineHeight: '1.4' }}>{getAIInsight()}</p>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <p style={{ fontSize: '12px', fontWeight: 600, color: '#3b82f6' }}>Nong Remi AI Analysis</p>
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); updateAIInsight(); }} 
+                                    disabled={isAnalyzing}
+                                    style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                    {isAnalyzing ? <Loader2 size={10} className="animate-spin" /> : <TrendingUp size={10} />}
+                                    {isAnalyzing ? (lang === 'th' ? 'กำลังวิเคราะห์...' : 'Analyzing...') : (lang === 'th' ? 'รีเฟรช' : 'Refresh')}
+                                </button>
+                            </div>
+                            <p className="text-sm" style={{ lineHeight: '1.4', fontStyle: 'italic', color: 'var(--text-main)' }}>
+                                {isAnalyzing ? "กำลังประมวลผลข้อมูลการเงินของคุณ..." : (aiInsight || getAIInsight())}
+                            </p>
                         </div>
                     </div>
 
@@ -802,7 +1352,7 @@ export default function Home() {
                             <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px', padding: '4px 0' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: ['#3b82f6', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#4b5563'][index % 8] }}></div>
-                                    <span className="text-sm">{cat}</span>
+                                    <span className="text-sm">{t.categories[cat] || cat}</span>
                                 </div>
                                 <span className="text-sm" style={{ fontWeight: 600 }}>฿{total.toLocaleString()}</span>
                             </div>
@@ -834,36 +1384,36 @@ export default function Home() {
                       </div>
                     )}
                     
-                    {transactions.filter(t => t.type === 'expense').length === 0 && (
-                        <p className="text-sm" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem 0' }}>ยังไม่มีข้อมูลในระบบ</p>
+                     {transactions.filter(t => t.type === 'expense').length === 0 && (
+                        <p className="text-sm" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '1rem 0' }}>{lang === 'th' ? "ยังไม่มีข้อมูลในระบบ" : "No data available"}</p>
                     )}
                 </motion.div>
             )}
         </AnimatePresence>
 
         {transactions.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>ยังไม่มีรายการ</div>
+          <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>{t.no_transactions}</div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {transactions.map((t) => (
-              <motion.div key={t._id || t.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="transaction-item">
+            {transactions.map((txn) => (
+              <motion.div key={txn._id || txn.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="transaction-item">
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                  <div style={{ padding: "10px", borderRadius: "12px", background: t.type === "income" ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)", color: t.type === "income" ? "var(--success)" : "var(--danger)" }}>
-                    {t.type === "income" ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
+                  <div style={{ padding: "10px", borderRadius: "12px", background: txn.type === "income" ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)", color: txn.type === "income" ? "var(--success)" : "var(--danger)" }}>
+                    {txn.type === "income" ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
                   </div>
                   <div>
-                    <div style={{ fontWeight: "600" }}>{t.description}</div>
+                    <div style={{ fontWeight: "600" }}>{txn.description}</div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                       <span className="text-sm">{formatDate(t.date)}</span>
-                       <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>{t.category}</span>
+                       <span className="text-sm">{formatDate(txn.date)}</span>
+                       <span style={{ fontSize: '10px', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>{t.categories[txn.category] || txn.category}</span>
                     </div>
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                  <div style={{ fontWeight: "700", color: t.type === "income" ? "var(--success)" : "var(--danger)" }}>
-                    {t.type === "income" ? "+" : "-"} {t.amount.toLocaleString()}
+                  <div style={{ fontWeight: "700", color: txn.type === "income" ? "var(--success)" : "var(--danger)" }}>
+                    {txn.type === "income" ? "+" : "-"} {txn.amount.toLocaleString()}
                   </div>
-                  <button onClick={() => deleteTransaction(t._id || t.id)} style={{ background: "none", border: "none", color: "var(--glass-border)", cursor: "pointer" }}><Trash2 size={16} /></button>
+                  <button onClick={() => deleteTransaction(txn._id || txn.id)} style={{ background: "none", border: "none", color: "var(--glass-border)", cursor: "pointer" }}><Trash2 size={16} /></button>
                 </div>
               </motion.div>
             ))}
@@ -878,27 +1428,52 @@ export default function Home() {
                 <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="glass-card" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 110, borderRadius: '32px 32px 0 0' }}>
                     <form onSubmit={handleManualSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button type="button" onClick={() => setManualType('expense')} className="btn-primary" style={{ flex: 1, background: manualType === 'expense' ? 'var(--danger)' : 'var(--glass)' }}>รายจ่าย</button>
-                            <button type="button" onClick={() => setManualType('income')} className="btn-primary" style={{ flex: 1, background: manualType === 'income' ? 'var(--success)' : 'var(--glass)' }}>รายรับ</button>
+                            <button type="button" onClick={() => setManualType('expense')} className="btn-primary" style={{ flex: 1, background: manualType === 'expense' ? 'var(--danger)' : 'var(--glass)' }}>{t.expense}</button>
+                            <button type="button" onClick={() => setManualType('income')} className="btn-primary" style={{ flex: 1, background: manualType === 'income' ? 'var(--success)' : 'var(--glass)' }}>{t.income}</button>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '12px' }}>
                             <button type="button" onClick={() => setActiveWallet('bank')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: activeWallet === 'bank' ? '#3b82f6' : 'transparent', color: 'white', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                              <CreditCard size={12} /> ธนาคาร
+                              <CreditCard size={12} /> {t.bank}
                             </button>
                             <button type="button" onClick={() => setActiveWallet('cash')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: activeWallet === 'cash' ? '#10b981' : 'transparent', color: 'white', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                              <Banknote size={12} /> เงินสด
+                              <Banknote size={12} /> {t.cash}
                             </button>
                         </div>
-                        <input type="number" placeholder="บาท" value={manualAmount} onChange={e => setManualAmount(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} required />
-                        <input type="text" placeholder="รายละเอียด" value={manualDesc} onChange={e => setManualDesc(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} />
-                        <button type="submit" className="btn-primary">บันทึก</button>
-                        <button type="button" onClick={() => setShowManualEntry(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}>ยกเลิก</button>
+                        <input type="number" placeholder={lang === 'th' ? "บาท" : "Amount (฿)"} value={manualAmount} onChange={e => setManualAmount(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} required />
+                        <input type="text" placeholder={t.description} value={manualDesc} onChange={e => setManualDesc(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} />
+                        <button type="submit" className="btn-primary">{t.save}</button>
+                        <button type="button" onClick={() => setShowManualEntry(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}>{t.cancel}</button>
                     </form>
                 </motion.div>
             )}
         </AnimatePresence>
 
       <div className="mic-button-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
+        <AnimatePresence>
+          {/* Show interim (partial) transcript while speaking */}
+          {interimTranscript && isListening && (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="glass-card"
+              style={{ 
+                padding: '0.5rem 1rem', 
+                maxWidth: '300px', 
+                borderRadius: '16px', 
+                fontSize: '12px', 
+                textAlign: 'center', 
+                border: '1px solid rgba(139, 92, 246, 0.4)',
+                background: 'rgba(139, 92, 246, 0.1)',
+                color: 'rgba(255,255,255,0.7)',
+                marginBottom: '5px'
+              }}
+            >
+              🎤 {interimTranscript}...
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
         <AnimatePresence>
           {aiMessage && (
             <motion.div 
@@ -942,6 +1517,21 @@ export default function Home() {
               <button className={`mic-button ${isListening ? 'active' : ''}`} onClick={toggleListening}>
                   {isListening ? <MicOff size={32} /> : <Mic size={32} />}
               </button>
+              {/* Continuous mode indicator */}
+              {isListening && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-20px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '9px',
+                  color: 'var(--primary)',
+                  whiteSpace: 'nowrap',
+                  animation: 'pulse 1.5s infinite'
+                }}>
+                  {lang === 'th' ? '● ฟังอยู่...' : '● Listening...'}
+                </div>
+              )}
           </div>
           <button onClick={() => setShowSummary(!showSummary)} className="btn-outline" style={{ borderRadius: '50%', width: '56px', height: '56px' }}>
             <BarChart3 size={24} />
