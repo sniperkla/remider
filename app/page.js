@@ -220,6 +220,12 @@ export default function Home() {
   const silenceTimeoutRef = useRef(null);
   const [interimTranscript, setInterimTranscript] = useState(""); // For showing partial speech
   const isMobile = useMobileDetect();
+  const isMobileRef = useRef(false); // Ref to access latest isMobile inside closed-over callbacks
+  
+  // Sync Ref with State
+  useEffect(() => {
+    isMobileRef.current = isMobile;
+  }, [isMobile]);
 
   const lastProcessedTextRef = useRef(""); // Track last text to avoid mobile duplicates
   const lastProcessTimeRef = useRef(0); // Cooldown for processing
@@ -282,12 +288,21 @@ export default function Home() {
       // Function to reset silence timer
       const resetSilenceTimer = () => {
         if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+        
+        // Mobile: 3 seconds | Desktop: 5 seconds
+        const timeoutDuration = isMobileRef.current ? 3000 : 5000;
+        
         silenceTimeoutRef.current = setTimeout(() => {
-          console.log("Auto-stopping mic due to 5s of silence");
+          console.log("Auto-stopping mic due to silence/noise");
           isVoiceActiveRef.current = false;
           if (recognitionRef.current) recognitionRef.current.stop();
-          setAiMessage(lang === 'th' ? "เรมี่ขอหยุดฟังก่อนนะคะ เดี๋ยวพี่จะเหนื่อย (ปิดไมค์อัตโนมัติ) 🎀✨" : "I'll stop listening for now to save power! (Auto-off) 🎀✨");
-        }, 5000);
+          
+          const timeoutMsg = lang === 'th' 
+            ? "ไม่ได้ยินเสียงพูดเลยปิดก่อนนะคะ (Noise/Silence) 🎀" 
+            : "Didn't hear anything, stopping to save power! 🎀";
+            
+          setAiMessage(timeoutMsg);
+        }, timeoutDuration);
       };
 
       recognitionRef.current.onstart = () => {
@@ -301,7 +316,8 @@ export default function Home() {
         // Only set listening to false if we are actually STOPPING. 
         // If we are auto-restarting (Desktop), keep the UI in "listening" state to prevent flicker.
         // On Mobile, we always stop fully (no auto-restart).
-        if (!isVoiceActiveRef.current || isMobile) {
+        // IMPORTANT: Use Ref here because this callback is closed over initial render state!
+        if (!isVoiceActiveRef.current || isMobileRef.current) {
           setIsListening(false);
           setInterimTranscript("");
         }
@@ -309,7 +325,7 @@ export default function Home() {
         if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
         
         // Auto-restart ONLY on Desktop
-        if (isVoiceActiveRef.current && !isMobile) {
+        if (isVoiceActiveRef.current && !isMobileRef.current) {
           const now = Date.now();
           // If it restarted too fast (less than 2s), increment count
           if (now - lastRestartTimeRef.current < 2000) {
@@ -340,7 +356,6 @@ export default function Home() {
       };
       
       recognitionRef.current.onresult = (event) => {
-        resetSilenceTimer();
         let currentText = "";
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -373,6 +388,11 @@ export default function Home() {
               }
             }
           }
+        }
+        
+        // Only reset the timer if we actually heard SOME text (not just empty noise)
+        if (currentText.trim().length > 0) {
+          resetSilenceTimer();
         }
         
         // Update UI with whatever text we have (interim or final)
