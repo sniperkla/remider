@@ -2278,6 +2278,39 @@ function HomeContent() {
             </svg>
             Sign in with Google
           </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%' }}>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>OR</span>
+            <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
+          </div>
+
+          <button 
+            onClick={() => {
+              setIsNative(true);
+              if (typeof window !== 'undefined') {
+                window.localStorage.setItem('capacitor_native', 'true');
+              }
+            }} 
+            style={{ 
+              background: 'rgba(255, 255, 255, 0.05)', 
+              border: '1px solid var(--glass-border)', 
+              color: 'var(--text-muted)', 
+              padding: '0.75rem', 
+              borderRadius: '12px', 
+              fontSize: '14px', 
+              fontWeight: 600, 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              marginTop: '0'
+            }}
+          >
+            <Smartphone size={16} />
+            {lang === 'th' ? 'ใช้งานแบบออฟไลน์ (Guest)' : 'Use Offline (Guest Mode)'}
+          </button>
         </motion.div>
       </div>
     );
