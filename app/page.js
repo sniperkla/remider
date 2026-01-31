@@ -218,6 +218,9 @@ export default function Home() {
   const isVoiceActiveRef = useRef(false); // Track if voice should be actively listening
   const silenceTimeoutRef = useRef(null);
   const [interimTranscript, setInterimTranscript] = useState(""); // For showing partial speech
+  const lastProcessedTextRef = useRef(""); // Track last text to avoid mobile duplicates
+  const lastProcessTimeRef = useRef(0); // Cooldown for processing
+
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -311,16 +314,23 @@ export default function Home() {
           if (result.isFinal) {
             // Check if we've already processed this specific result index in this session
             if (i > lastSessionIndexRef.current) {
-              lastSessionIndexRef.current = i;
               const text = result[0].transcript.trim();
+              const now = Date.now();
               
-              if (text) {
+              // Mobile Optimization: Block duplicates within 1 second if text is similar
+              if (text && (text !== lastProcessedTextRef.current || now - lastProcessTimeRef.current > 1000)) {
+                lastSessionIndexRef.current = i;
+                lastProcessedTextRef.current = text;
+                lastProcessTimeRef.current = now;
+                
                 console.log("Processing final result at index:", i, text);
                 setTranscript(text);
                 setInterimTranscript("");
                 if (processVoiceRef.current) {
                   processVoiceRef.current(text);
                 }
+              } else {
+                console.log("Ignored duplicate/too-fast result:", text);
               }
             }
           } else {
@@ -944,65 +954,110 @@ export default function Home() {
   };
 
   const processOcrText = (text) => {
-    // 1. Normalize text (keep decimals and basic structure)
+    // 1. Normalize text
     let cleanedText = text.replace(/,/g, ""); 
-    const ocrTextLower = cleanedText.toLowerCase();
     
+    // Catch signed numbers before cleaning symbols (+1,400.00)
+    const signedMatches = [];
+    const signedRegex = /[+\-]\s?(\d+\.\d{2})/g;
+    let sMatch;
+    while ((sMatch = signedRegex.exec(cleanedText)) !== null) {
+      signedMatches.push({ val: parseFloat(sMatch[1]), pos: sMatch.index, priority: 3 });
+    }
+
+    // Aggressively replace Thai/English currency symbols with a clear marker
+    cleanedText = cleanedText.replace(/[฿B]\s?(\d)/g, " TXT_AMT $1");
+    const ocrTextLower = cleanedText.toLowerCase();
     console.log("Processing cleaned text:", cleanedText);
 
-    // 2. Filter out common distractions (Dates, Times, long Ref IDs)
+    // 2. Filter out common distractions
     cleanedText = cleanedText.replace(/\d{2}:\d{2}(:\d{2})?/g, " [TIME] ");
     cleanedText = cleanedText.replace(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/g, " [DATE] ");
-    cleanedText = cleanedText.replace(/\b\d{10,}\b/g, " [REF] ");
+    cleanedText = cleanedText.replace(/\b\d{9,}\b/g, " [LONGNUMBER] ");
 
     // 3. Smart Amount Detection
-    const amountKeywords = [
-      "จำนวนเงิน", "ยอดโอน", "ยอดเงิน", "จ่ายแล้ว", "สำเร็จ",
-      "ราคารวม", "รวมทั้งสิ้น", "รวมเงิน", "ยอดรวม", "เงินสด", "ยอดชำระ", "ชำระเงิน",
-      "amount", "total", "net amount", "grand total", "paid", "transfer", "total due", "balance due", "subtotal", "vat", "tax"
+    // Exclusion keywords (Balance, not transaction)
+    const ignoreKeywords = ["ยอดเงินที่ใช้ได้", "available balance", "ยอดเงินคงเหลือ", "คงเหลือ", "เงินในบัญชี"];
+    
+    // High Priority: Transaction specific
+    const highPriorityKeywords = [
+      "โอนเงินสำเร็จ", "เงินเข้า", "รับเงิน", "โอนให้", "ชำระเงินสำเร็จ", "รายการเงินเข้า", "รายการเงินออก",
+      "รวมทั้งสิ้น", "ยอดรวมสุทธิ", "สุทธิ", "ยอดชำระ", "จ่ายแล้ว", "รวมเป็นเงิน",
+      "grand total", "total due", "total amount", "net amount", "paid", "amount paid"
     ];
     
+    // Secondary: Might be an amount
+    const secondaryKeywords = [
+      "จำนวนเงิน", "ยอดโอน", "ยอดเงิน", "รวมเงิน", "ยอดรวม", "เงินสด", "ชำระเงิน", "ราคา",
+      "amount", "subtotal", "price"
+    ];
+    
+    let candidates = [...signedMatches];
+
+    // Search for keywords and pick numbers in a window
+    const allKeywords = [...highPriorityKeywords, ...secondaryKeywords];
+    
+    allKeywords.forEach(kw => {
+      let pos = ocrTextLower.indexOf(kw.toLowerCase());
+      while (pos !== -1) {
+        // Is this keyword in the ignore list?
+        const isIgnored = ignoreKeywords.some(ik => ocrTextLower.substring(Math.max(0, pos - 20), pos + 20).includes(ik));
+        
+        if (!isIgnored) {
+          const windowText = cleanedText.substring(pos, pos + 80);
+          const matches = windowText.match(/\d+\.\d{2}\b/g) || windowText.match(/\d+\.\d+\b/g);
+          
+          if (matches) {
+            const isHigh = highPriorityKeywords.includes(kw);
+            matches.forEach(m => {
+              candidates.push({
+                val: parseFloat(m),
+                priority: isHigh ? 2 : 1,
+                pos: pos
+              });
+            });
+          }
+        }
+        pos = ocrTextLower.indexOf(kw.toLowerCase(), pos + 1);
+      }
+    });
+
     let finalAmount = 0;
     let found = false;
 
-    // Search for number near keywords
-    for (const kw of amountKeywords) {
-      const idx = ocrTextLower.indexOf(kw.toLowerCase());
-      if (idx !== -1) {
-        const windowText = cleanedText.substring(idx, idx + 60);
-        const decimalMatch = windowText.match(/(\d+\.\d{2})/);
-        if (decimalMatch) {
-          finalAmount = parseFloat(decimalMatch[0]);
-          found = true;
-          break;
-        }
-        const numberMatch = windowText.match(/(\d+(\.\d+)?)/);
-        if (numberMatch) {
-          finalAmount = parseFloat(numberMatch[0]);
-          found = true;
-          break;
-        }
-      }
+    const skipYears = [2023, 2024, 2025, 2026, 2566, 2567, 2568, 2569];
+    const validCandidates = candidates.filter(c => 
+      c.val > 0 && c.val < 1000000 && !skipYears.includes(c.val) && c.val.toString().length < 9
+    );
+
+    if (validCandidates.length > 0) {
+      // Logic:
+      // 1. Prefer Signed numbers (+1,400)
+      // 2. Prefer High priority keywords
+      // 3. Prefer numbers with decimals
+      // 4. Receipts usually put the TOTAL at the BOTTOM, but Bank Slips often have TOTAL at TOP.
+      // For bank slips, the first 'high priority' match is often the correct one.
+      validCandidates.sort((a, b) => {
+        if (b.priority !== a.priority) return b.priority - a.priority;
+        return a.pos - b.pos; // Earlier in the doc (usually top for bank slips)
+      });
+      
+      finalAmount = validCandidates[0].val;
+      found = true;
     }
 
-    // Priority 2: If no keyword match, look for the most "amount-like" number
+    // fallback: Global detection if no keywords or signs found anything
     if (!found) {
-      const decimalMatches = cleanedText.match(/(\d+\.\d{2})/g);
-      if (decimalMatches) {
-        finalAmount = Math.max(...decimalMatches.map(m => parseFloat(m)));
-        found = true;
-      } else {
-        const allNumbers = cleanedText.match(/\d+(\.\d+)?/g);
-        if (allNumbers) {
-          const skipYears = [2023, 2024, 2025, 2566, 2567, 2568];
-          const candidates = allNumbers
-            .map(m => parseFloat(m))
-            .filter(n => n > 0 && n < 5000000 && !skipYears.includes(n));
-          
-          if (candidates.length > 0) {
-            finalAmount = Math.max(...candidates);
-            found = true;
-          }
+      const allNumbers = cleanedText.match(/\d+(\.\d+)?/g);
+      if (allNumbers) {
+        const globalCandidates = allNumbers
+          .map(m => parseFloat(m))
+          .filter(n => n > 0 && n < 1000000 && !skipYears.includes(n));
+        
+        if (globalCandidates.length > 0) {
+          const decimalMatches = cleanedText.match(/(\d+\.\d{2})/g);
+          finalAmount = decimalMatches ? Math.max(...decimalMatches.map(m => parseFloat(m))) : Math.max(...globalCandidates);
+          found = true;
         }
       }
     }
@@ -1011,31 +1066,59 @@ export default function Home() {
       // 4. Determine Type
       let type = "expense";
       const incomeTriggers = [
-        "รับเงิน", "เงินเข้า", "โอนเข้า", "รับโอน", "มีค่า", "เงินคืน", "ได้คืน", 
-        "receiver", "income", "credit", "topup received", "refund", "deposit"
+        "เงินเข้า", "รับเงิน", "ฝากเงิน", "โอนเข้า", "รับโอน", "income", "received", "deposit", "transfer in", "refund"
       ];
       const expenseTriggers = [
         "โอนเงินสำเร็จ", "ถอนเงิน", "ชำระค่า", "จ่ายให้", "โอนไป", "จ่ายบิล", 
         "transfer success", "withdrawal", "payment", "paid to", "bill payment"
       ];
       
-      const isIncome = incomeTriggers.some(kw => ocrTextLower.includes(kw));
-      const isExpense = expenseTriggers.some(kw => ocrTextLower.includes(kw));
+      // Explicitly check for "+" in original text near amount
+      const hasPlus = text.includes(`+${finalAmount.toLocaleString()}`) || text.includes(`+${finalAmount}`) || text.includes(`+ ${finalAmount}`);
+      
+      if (hasPlus || (incomeTriggers.some(kw => ocrTextLower.includes(kw)) && !expenseTriggers.some(kw => ocrTextLower.includes(kw)))) {
+        type = "income";
+      }
+      
+      // 5. Category detection
+      const category = detectCategory(ocrTextLower);
 
-      if (isIncome && !isExpense) type = "income";
-
-      // 6. Wallet detection
-      let wallet = defaultWallet; // Default fallback from settings
+      // 6. Wallet & Bank detection
+      let wallet = defaultWallet; 
       const cashTriggers = ["เงินสด", "cash", "receipt", "ใบเสร็จ"];
       const bankTriggers = ["โอน", "transfer", "slip", "ธนาคาร", "สลิป", "success", "สำเร็จ"];
       
       const hasCash = cashTriggers.some(kw => ocrTextLower.includes(kw));
       const hasBank = bankTriggers.some(kw => ocrTextLower.includes(kw));
 
+      // Detect Bank Name
+      const bankNames = {
+        "SCB": ["scb", "ไทยพาณิชย์"],
+        "KBank": ["kbank", "กสิกร"],
+        "K-Bank": ["กสิกรไทย"],
+        "BBL": ["bbl", "กรุงเทพ", "bangkok bank"],
+        "KTB": ["ktb", "กรุงไทย", "krungthai"],
+        "GSB": ["gsb", "ออมสิน"],
+        "Krungsri": ["krungsri", "bay", "กรุงศรี"],
+        "TTB": ["ttb", "ทีทีบี"]
+      };
+
+      let detectedBank = "";
+      for (const [name, keywords] of Object.entries(bankNames)) {
+        if (keywords.some(kw => ocrTextLower.includes(kw))) {
+          detectedBank = name;
+          break;
+        }
+      }
+
       if (hasCash && !hasBank) wallet = "cash";
       else if (hasBank) wallet = "bank";
 
-      addTransaction(finalAmount, type, t.ocr_description, category, wallet);
+      const finalDescription = detectedBank 
+        ? (lang === 'th' ? `สแกนจากสลิป ${detectedBank}` : `Scanned from ${detectedBank} slip`)
+        : t.ocr_description;
+
+      addTransaction(finalAmount, type, finalDescription, category, wallet);
     } else {
       setConfirmModal({
         show: true,
@@ -1212,15 +1295,15 @@ export default function Home() {
 
   return (
     <div className="app-container">
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <img src={session.user.image} style={{ width: '40px', height: '40px', borderRadius: '50%', border: '2px solid var(--primary)' }} />
-          <div>
-            <h1 style={{ fontSize: "1.2rem" }}>{t.greeting}, {nickname || session.user.name.split(' ')[0]}</h1>
+      <header className="header-main">
+        <div className="profile-section">
+          <img src={session.user.image} style={{ width: '45px', height: '45px', borderRadius: '50%', border: '2px solid var(--primary)' }} />
+          <div className="profile-info">
+            <h1>{t.greeting}, {nickname || session.user.name.split(' ')[0]}</h1>
             <p className="text-sm">{new Date().toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { weekday: "long", day: "numeric" })}</p>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div className="header-actions">
           <button 
             onClick={() => setLang(lang === 'th' ? 'en' : 'th')}
             title={t.language}
@@ -1283,7 +1366,7 @@ export default function Home() {
               gap: "6px"
             }}
           >
-            <Edit3 size={16} /> {t.add_manual}
+            <Edit3 size={16} /> <span className="btn-manual-text">{t.add_manual}</span>
           </button>
           <button onClick={() => signOut()} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
             <LogOut size={22} />
@@ -1468,7 +1551,7 @@ export default function Home() {
           </button>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <div className="balance-grid">
           <motion.div 
             whileTap={{ scale: 0.95 }}
             onClick={() => setActiveWallet('bank')}
@@ -1743,14 +1826,46 @@ export default function Home() {
         </AnimatePresence>
         
         <AnimatePresence>
-          {aiMessage && (
+          {aiMessage && (isListening || (aiMessage !== translations.th.ai_greeting && aiMessage !== translations.en.ai_greeting)) && (
             <motion.div 
               initial={{ opacity: 0, y: 10, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.9 }}
               className="glass-card"
-              style={{ padding: '0.75rem 1.25rem', maxWidth: '280px', borderRadius: '20px', fontSize: '13px', textAlign: 'center', border: '1px solid rgba(59, 130, 246, 0.3)', marginBottom: '5px' }}
+              style={{ 
+                padding: '0.75rem 1.25rem', 
+                maxWidth: '280px', 
+                borderRadius: '20px', 
+                fontSize: '13px', 
+                textAlign: 'center', 
+                border: '1px solid rgba(59, 130, 246, 0.3)', 
+                marginBottom: '5px',
+                position: 'relative' // Added for the close button
+              }}
             >
+              <button 
+                onClick={() => setAiMessage("")}
+                style={{ 
+                  position: 'absolute', 
+                  top: '-8px', 
+                  right: '-8px', 
+                  background: 'var(--danger)', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '50%', 
+                  width: '22px', 
+                  height: '22px', 
+                  fontSize: '10px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  zIndex: 10
+                }}
+              >
+                ✕
+              </button>
               {aiMessage}
             </motion.div>
           )}

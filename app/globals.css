@@ -276,3 +276,91 @@ h1 {
   50% { opacity: 1; }
   100% { opacity: 0.6; }
 }
+
+/* Responsive Adjustments */
+@media (max-width: 480px) {
+  .app-container {
+    padding: 1rem;
+    gap: 1.25rem;
+  }
+  
+  .header-main {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .profile-section img {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .profile-info h1 {
+    font-size: 1rem !important;
+  }
+
+  .balance-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .header-actions {
+    gap: 0.5rem !important;
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .header-actions button {
+    padding: 8px !important;
+  }
+  
+  .header-actions .btn-manual-text {
+    display: none;
+  }
+  
+  .balance-amount {
+    font-size: 2rem;
+  }
+  
+  .transaction-item {
+    padding: 0.75rem 0.5rem;
+  }
+  
+  .transaction-item > div:first-child {
+    gap: 0.5rem !important;
+  }
+  
+  .modal-content {
+    padding: 1.25rem;
+  }
+}
+
+.header-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.profile-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-info h1 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.balance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
