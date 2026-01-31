@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
+import useMobileDetect from "./hooks/useMobileDetect";
 import {
   Mic,
   MicOff,
@@ -218,6 +219,8 @@ export default function Home() {
   const isVoiceActiveRef = useRef(false); // Track if voice should be actively listening
   const silenceTimeoutRef = useRef(null);
   const [interimTranscript, setInterimTranscript] = useState(""); // For showing partial speech
+  const isMobile = useMobileDetect();
+
   const lastProcessedTextRef = useRef(""); // Track last text to avoid mobile duplicates
   const lastProcessTimeRef = useRef(0); // Cooldown for processing
   const lastRestartTimeRef = useRef(0); // Cooldown for restarts to avoid loops
@@ -296,16 +299,17 @@ export default function Home() {
       
       recognitionRef.current.onend = () => {
         // Only set listening to false if we are actually STOPPING. 
-        // If we are auto-restarting, keep the UI in "listening" state to prevent flicker.
-        if (!isVoiceActiveRef.current) {
+        // If we are auto-restarting (Desktop), keep the UI in "listening" state to prevent flicker.
+        // On Mobile, we always stop fully (no auto-restart).
+        if (!isVoiceActiveRef.current || isMobile) {
           setIsListening(false);
           setInterimTranscript("");
         }
 
         if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
         
-        // Auto-restart if voice is still meant to be active (e.g., didn't manually turn off)
-        if (isVoiceActiveRef.current) {
+        // Auto-restart ONLY on Desktop
+        if (isVoiceActiveRef.current && !isMobile) {
           const now = Date.now();
           // If it restarted too fast (less than 2s), increment count
           if (now - lastRestartTimeRef.current < 2000) {
@@ -337,40 +341,43 @@ export default function Home() {
       
       recognitionRef.current.onresult = (event) => {
         resetSilenceTimer();
-        let interimText = "";
+        let currentText = "";
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const result = event.results[i];
+          const text = result[0].transcript;
+          
+          // Always append text for display, so user sees what's happening
+          if (text) currentText += text;
+
           if (result.isFinal) {
             // Check if we've already processed this specific result index in this session
             if (i > lastSessionIndexRef.current) {
-              const text = result[0].transcript.trim();
+              const trimmedText = text.trim();
               const now = Date.now();
               
               // Mobile Optimization: Block duplicates within 1 second if text is similar
-              if (text && (text !== lastProcessedTextRef.current || now - lastProcessTimeRef.current > 1000)) {
+              if (trimmedText && (trimmedText !== lastProcessedTextRef.current || now - lastProcessTimeRef.current > 1000)) {
                 lastSessionIndexRef.current = i;
-                lastProcessedTextRef.current = text;
+                lastProcessedTextRef.current = trimmedText;
                 lastProcessTimeRef.current = now;
                 
-                console.log("Processing final result at index:", i, text);
-                setTranscript(text);
-                setInterimTranscript("");
+                console.log("Processing final result at index:", i, trimmedText);
+                setTranscript(trimmedText);
+                // We don't clear interim yet, let the UI show the full sentence for a moment
                 if (processVoiceRef.current) {
-                  processVoiceRef.current(text);
+                  processVoiceRef.current(trimmedText);
                 }
               } else {
-                console.log("Ignored duplicate/too-fast result:", text);
+                console.log("Ignored duplicate/too-fast result:", trimmedText);
               }
             }
-          } else {
-            interimText += result[0].transcript;
           }
         }
         
-        // Show interim results for feedback
-        if (interimText) {
-          setInterimTranscript(interimText);
+        // Update UI with whatever text we have (interim or final)
+        if (currentText) {
+          setInterimTranscript(currentText);
         }
       };
       recognitionRef.current.onerror = (event) => {
@@ -405,7 +412,7 @@ export default function Home() {
     } else {
       setTranscript("");
       setInterimTranscript("");
-      isVoiceActiveRef.current = true; // Enable auto-restart
+      isVoiceActiveRef.current = !isMobile; // Only auto-restart on Desktop
       try {
         recognitionRef.current.start();
       } catch (e) {
