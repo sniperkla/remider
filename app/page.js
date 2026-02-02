@@ -929,6 +929,8 @@ function HomeContent() {
             if (data.ocrProvider) setOcrProvider(data.ocrProvider);
             if (data.language) {
               setLang(data.language);
+            }
+            if (data.onboardingCompleted) {
               setLanguageReady(true);
               localStorage.setItem('languageChosen', 'true');
             }
@@ -3482,6 +3484,14 @@ function HomeContent() {
                     localStorage.setItem('languageChosen', 'true');
                     setShowLanguageModal(false);
                     setLanguageReady(true);
+                    // Save to database
+                    if (session?.user?.email) {
+                      fetch('/api/data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ language: 'th', onboardingCompleted: true })
+                      }).catch(err => console.error('Failed to save onboarding to DB:', err));
+                    }
                   }}
                   style={{
                     width: '100%',
@@ -3504,6 +3514,14 @@ function HomeContent() {
                     localStorage.setItem('languageChosen', 'true');
                     setShowLanguageModal(false);
                     setLanguageReady(true);
+                    // Save to database
+                    if (session?.user?.email) {
+                      fetch('/api/data', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ language: 'en', onboardingCompleted: true })
+                      }).catch(err => console.error('Failed to save onboarding to DB:', err));
+                    }
                   }}
                   style={{
                     width: '100%',

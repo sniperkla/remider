@@ -48,6 +48,7 @@ export async function GET() {
       language: profile.language,
       ocrProvider: profile.ocrProvider,
       aiModel: profile.aiModel,
+      onboardingCompleted: profile.onboardingCompleted,
       groqKeys: systemSetting.groqKeys,
       transactions: transactions
     });
@@ -68,7 +69,7 @@ export async function POST(request) {
     await dbConnect();
     const userId = session.user.email;
     const body = await request.json();
-    const { budget, balance, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, clearAll, language, ocrProvider, aiModel } = body;
+    const { budget, balance, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, clearAll, language, ocrProvider, aiModel, onboardingCompleted } = body;
 
     // 0. Handle Clear All Data
     if (clearAll) {
@@ -88,6 +89,7 @@ export async function POST(request) {
     if (language !== undefined) updateData.language = language;
     if (ocrProvider !== undefined) updateData.ocrProvider = ocrProvider;
     if (aiModel !== undefined) updateData.aiModel = aiModel;
+    if (onboardingCompleted !== undefined) updateData.onboardingCompleted = onboardingCompleted;
 
     const profile = await UserProfile.findOneAndUpdate(
       { userId },

@@ -28,32 +28,58 @@ async function getGroqClient() {
   const keys = setting.groqKeys;
   let attempts = 0;
   
+  // Check if we need to reset key index (new day = recycle to key 0)
+  const now = new Date();
+  const lastRotation = setting.lastKeyRotation ? new Date(setting.lastKeyRotation) : new Date(0);
+  const isNewDay = now.toDateString() !== lastRotation.toDateString();
+  
+  if (isNewDay) {
+    setting.activeKeyIndex = 0;
+    setting.lastKeyRotation = now;
+    await setting.save();
+    console.log(`[Groq] New day detected, recycling to key index 0`);
+  }
+  
   // We'll return a function that performs the completion and handles rotation internally
   return {
     async createCompletion(params) {
       let lastError;
+      const startIndex = setting.activeKeyIndex || 0;
       
       while (attempts < keys.length) {
-        const index = (setting.activeKeyIndex + attempts) % keys.length;
+        // Try keys starting from activeKeyIndex, wrapping around
+        const index = (startIndex + attempts) % keys.length;
         const currentKey = keys[index];
         const groq = new Groq({ apiKey: currentKey });
         
         try {
           const completion = await groq.chat.completions.create(params);
           
-          // If successful and we had to switch keys, update the active index for next time
-          if (attempts > 0) {
-            setting.activeKeyIndex = index;
-            await setting.save();
-          }
+          // Always rotate to next key for next request (round-robin)
+          const nextIndex = (index + 1) % keys.length;
+          setting.activeKeyIndex = nextIndex;
+          setting.lastKeyRotation = new Date();
+          await setting.save();
           
+          console.log(`[Groq] Success with key ${index}, next request will use key ${nextIndex}`);
           return completion;
         } catch (err) {
-          console.error(`Groq Key Error (Key Index ${index}):`, err.message);
+          console.error(`[Groq] Key ${index} failed:`, err.message);
           lastError = err;
           attempts++;
+          
+          // If current key failed, try next key
+          if (attempts < keys.length) {
+            console.log(`[Groq] Trying next key...`);
+          }
         }
       }
+      
+      // All keys failed, reset to 0 for next attempt
+      setting.activeKeyIndex = 0;
+      await setting.save();
+      console.error(`[Groq] All ${keys.length} keys failed, resetting to index 0`);
+      
       throw lastError || new Error("All Groq keys failed");
     }
   };

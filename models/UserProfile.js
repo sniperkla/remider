@@ -46,6 +46,10 @@ const UserProfileSchema = new mongoose.Schema({
     type: String,
     enum: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'],
     default: 'llama-3.1-8b-instant'
+  },
+  onboardingCompleted: {
+    type: Boolean,
+    default: false
   }
 }, { timestamps: true });
 

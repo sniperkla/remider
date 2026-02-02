@@ -15,6 +15,10 @@ const SystemSettingSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  lastKeyRotation: {
+    type: Date,
+    default: Date.now
+  },
   tokenUsage: {
     prompt_used: { type: Number, default: 0 },
     completion_used: { type: Number, default: 0 },
