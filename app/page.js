@@ -281,6 +281,66 @@ const getHandle = async (key) => {
 };
 
 
+// Helper Component for Debt Items
+const DebtItem = ({ debt, onToggle, onDelete, onEdit, lang, t }) => (
+  <motion.div 
+    layout 
+    className="glass-card" 
+    style={{ 
+      padding: '1rem', 
+      border: debt.status === 'paid' ? '1px solid rgba(255,255,255,0.1)' : `1px solid ${debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+      opacity: debt.status === 'paid' ? 0.6 : 1,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ 
+        width: '40px', 
+        height: '40px', 
+        borderRadius: '12px', 
+        background: debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)'
+      }}>
+        {debt.type === 'borrow' ? <ArrowDownCircle size={20} /> : <ArrowUpCircle size={20} />}
+      </div>
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span style={{ fontWeight: 700, color: 'white' }}>{debt.person}</span>
+          <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: debt.status === 'paid' ? 'rgba(255,255,255,0.1)' : (debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'), color: debt.status === 'paid' ? 'white' : (debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)') }}>
+            {debt.status === 'paid' ? t.status_paid : (debt.type === 'borrow' ? t.borrow : t.lend)}
+          </span>
+        </div>
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(debt.date).toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { day: 'numeric', month: 'short' })} • {debt.note || (lang === 'th' ? 'ไม่มีบันทึก' : 'No note')}</div>
+      </div>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={{ textAlign: 'right' }}>
+        <div style={{ fontWeight: 800, color: debt.status === 'paid' ? 'white' : (debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)') }}>฿{debt.amount.toLocaleString()}</div>
+        <button 
+          onClick={onToggle}
+          style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
+        >
+          {debt.status === 'paid' ? (lang === 'th' ? 'คืนค่า' : 'Re-activate') : (lang === 'th' ? 'คืนแล้ว' : 'Mark as Paid')}
+        </button>
+      </div>
+      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+        <button onClick={onEdit} style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', opacity: 0.6, cursor: 'pointer', padding: '4px' }}>
+          <Edit2 size={16} />
+        </button>
+        <button onClick={onDelete} style={{ background: 'none', border: 'none', color: 'var(--danger)', opacity: 0.5, cursor: 'pointer', padding: '4px' }}>
+          <Trash2 size={16} />
+        </button>
+      </div>
+    </div>
+  </motion.div>
+);
+
+
 function HomeContent() {
   const { data: session, status } = useSession();
 
@@ -328,6 +388,10 @@ function HomeContent() {
   const [aiLang, setAiLang] = useState("th"); // AI language, auto-detected per voice
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [editingReminder, setEditingReminder] = useState(null);
+  const [editingDebt, setEditingDebt] = useState(null);
+  const [editDebtPerson, setEditDebtPerson] = useState("");
+  const [editDebtAmount, setEditDebtAmount] = useState("");
+  const [editDebtNote, setEditDebtNote] = useState("");
   const [confirmModal, setConfirmModal] = useState({ show: false, title: "", onConfirm: null });
   const [expandedTransactionId, setExpandedTransactionId] = useState(null);
   const t = translations[lang];
@@ -358,6 +422,8 @@ function HomeContent() {
   const [folderHandle, setFolderHandle] = useState(null);
   const [isAutoScanning, setIsAutoScanning] = useState(false);
   const [lastAutoScan, setLastAutoScan] = useState(0); // Timestamp
+  const [isDeleteMode, setIsDeleteMode] = useState(false);
+  const [longPressTimer, setLongPressTimer] = useState(null);
 
   // Onboarding Tutorial System
   const [onboardingTasks, setOnboardingTasks] = useState({
@@ -1517,6 +1583,8 @@ function HomeContent() {
           balance, 
           budget,
           activeWallet, // Pass user's primary wallet to AI
+          activeBankAccountId, // Pass active bank account ID
+          accounts, // Pass all user accounts for bank matching
           aiModel: modelToUse, // Pass AI model (forced or selected)
           source: requestSource,
           userName,
@@ -1622,7 +1690,7 @@ function HomeContent() {
       }
 
       if (data.action === "ADD_TRANSACTION") {
-         const { amount, type, category, description, wallet, bank, icon } = data;
+         const { amount, type, category, description, wallet, bank, bankAccountId, icon } = data;
          const finalAmount = Number.isFinite(normalizedAmount) ? normalizedAmount : amount;
          if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
            setAiMessage(lang === 'th'
@@ -1630,12 +1698,50 @@ function HomeContent() {
              : "I couldn't find a clear amount from this. Please try again.");
            return;
          }
+         
+         // If AI detected a specific bank account, switch to it
+         if (bankAccountId && wallet === 'bank') {
+           const targetAccount = accounts.find(a => a.id === bankAccountId);
+           if (targetAccount) {
+             setActiveWallet('bank');
+             setActiveBankAccountId(bankAccountId);
+             
+             // Auto-rearrange: move to first
+             const bankAccounts = accounts.filter(a => a.type === 'bank');
+             const otherAccounts = accounts.filter(a => a.type !== 'bank');
+             const filtered = bankAccounts.filter(a => a.id !== bankAccountId);
+             const updatedAccounts = [targetAccount, ...filtered, ...otherAccounts];
+             setAccounts(updatedAccounts);
+             
+             // Scroll to start
+             if (bankScrollRef.current) {
+               bankScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+             }
+             
+             // Save to DB
+             fetch('/api/data', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ 
+                 activeBankAccountId: bankAccountId, 
+                 defaultWallet: 'bank',
+                 accounts: updatedAccounts 
+               })
+             });
+           }
+         }
+         
          // Use AI's detected wallet, fall back to user's primary if not specified
          const finalWallet = wallet || activeWallet;
          // Mark as tutorial if onboarding not completed (use refs to avoid stale closure)
          const isTutorialMode = !onboardingTasksRef.current.completed && showOnboardingRef.current;
          addTransaction(finalAmount, type || "expense", description, category, finalWallet, bank, icon, requestSource === "ocr", imageUrl, isTutorialMode);
-         const walletLabel = finalWallet === 'cash' ? (lang === 'th' ? 'เงินสด' : 'Cash') : (lang === 'th' ? 'ธนาคาร' : 'Bank');
+         
+         const accountName = bankAccountId ? accounts.find(a => a.id === bankAccountId)?.name : null;
+         const walletLabel = finalWallet === 'cash' 
+           ? (lang === 'th' ? 'เงินสด' : 'Cash') 
+           : (accountName || (lang === 'th' ? 'ธนาคาร' : 'Bank'));
+         
          setAiMessage(data.message || (lang === 'th' ? `✅ บันทึกแล้ว: ${description} ฿${finalAmount} (${walletLabel})` : `✅ Saved: ${description} ฿${finalAmount} (${walletLabel})`));
          
          // Complete onboarding task based on source
@@ -1645,6 +1751,64 @@ function HomeContent() {
            completeOnboardingTask('voice');
          }
       } 
+      
+      else if (data.action === "SWITCH_PRIMARY") {
+         const { wallet, bankAccountId } = data;
+         
+         if (wallet === 'cash') {
+           setActiveWallet('cash');
+           fetch('/api/data', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ defaultWallet: 'cash' })
+           });
+           setShowToast({
+             show: true,
+             title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
+             message: lang === 'th' ? '💵 ตั้งเงินสดเป็นบัญชีหลักแล้ว' : '💵 Cash set as primary',
+             type: 'success'
+           });
+           setAiMessage(data.message || (lang === 'th' ? '💵 เปลี่ยนเป็นเงินสดแล้วค่ะ' : '💵 Switched to cash'));
+         } 
+         else if (wallet === 'bank' && bankAccountId) {
+           const targetAccount = accounts.find(a => a.id === bankAccountId);
+           if (targetAccount) {
+             setActiveWallet('bank');
+             setActiveBankAccountId(bankAccountId);
+             
+             // Auto-rearrange
+             const bankAccounts = accounts.filter(a => a.type === 'bank');
+             const otherAccounts = accounts.filter(a => a.type !== 'bank');
+             const filtered = bankAccounts.filter(a => a.id !== bankAccountId);
+             const updatedAccounts = [targetAccount, ...filtered, ...otherAccounts];
+             setAccounts(updatedAccounts);
+             
+             // Scroll
+             if (bankScrollRef.current) {
+               bankScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+             }
+             
+             // Save
+             fetch('/api/data', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({ 
+                 activeBankAccountId: bankAccountId, 
+                 defaultWallet: 'bank',
+                 accounts: updatedAccounts 
+               })
+             });
+             
+             setShowToast({
+               show: true,
+               title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
+               message: lang === 'th' ? `🏦 ตั้ง${targetAccount.name}เป็นบัญชีหลักแล้ว` : `🏦 ${targetAccount.name} set as primary`,
+               type: 'success'
+             });
+             setAiMessage(data.message || (lang === 'th' ? `🏦 เปลี่ยนเป็น${targetAccount.name}แล้วค่ะ` : `🏦 Switched to ${targetAccount.name}`));
+           }
+         }
+      }
       
       else if (data.action === "TRANSFER") {
          const { amount, from_bank, to_bank, icon } = data;
@@ -3003,6 +3167,45 @@ function HomeContent() {
     }
   };
 
+  const openEditDebt = (debt) => {
+    setEditingDebt(debt);
+    setEditDebtPerson(debt.person);
+    setEditDebtAmount(debt.amount);
+    setEditDebtNote(debt.note || "");
+    setShowManualEntry(true);
+  };
+
+  const handleSaveDebt = async () => {
+    if (!editDebtPerson || !editDebtAmount) return;
+    
+    try {
+      const debtId = editingDebt._id || editingDebt.id;
+      const res = await fetch(`/api/debts?id=${debtId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          person: editDebtPerson,
+          amount: parseFloat(editDebtAmount),
+          note: editDebtNote
+        })
+      });
+      
+      if (res.ok) {
+        const updated = await res.json();
+        setDebts(prev => prev.map(d => 
+          (d._id || d.id) === debtId ? updated : d
+        ));
+        setEditingDebt(null);
+        setEditDebtPerson("");
+        setEditDebtAmount("");
+        setEditDebtNote("");
+        setShowManualEntry(false);
+      }
+    } catch (error) {
+      console.error("Failed to update debt:", error);
+    }
+  };
+
    const saveSettings = async () => {
     try {
       // Save to DB only
@@ -3230,7 +3433,10 @@ function HomeContent() {
   }
 
   return (
-    <div className="app-container">
+    <div 
+      className="app-container" 
+      onClick={() => isDeleteMode && setIsDeleteMode(false)}
+    >
       <header className="header-main">
         <div className="profile-section">
           <img src={session.user.image} style={{ width: '45px', height: '45px', borderRadius: '50%', border: '2px solid var(--primary)' }} />
@@ -4221,15 +4427,32 @@ function HomeContent() {
                       animate: { 
                         scale: activeBankAccountId === acc.id ? 1 : 0.9,
                         opacity: activeBankAccountId === acc.id ? 1 : 0.7,
+                        rotate: isDeleteMode ? [-1, 1.5, -1.5, 1, -1] : 0, 
                         boxShadow: activeWallet === 'bank' && activeBankAccountId === acc.id 
                           ? ["0 0 0 2px rgba(255,255,255,1), 0 10px 30px rgba(59, 130, 246, 0.5)", "0 0 0 2px rgba(255,255,255,1), 0 10px 50px rgba(59, 130, 246, 0.8)"]
                           : "0 4px 15px rgba(0,0,0,0.2)"
                       },
                       transition: {
+                        rotate: { duration: 0.3, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" },
                         boxShadow: { duration: 2, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" },
                         default: { duration: 0.3 }
                       },
+                      onPointerDown: () => {
+                          const timer = setTimeout(() => {
+                              setIsDeleteMode(true);
+                              if (navigator.vibrate) navigator.vibrate(50);
+                          }, 600);
+                          setLongPressTimer(timer);
+                      },
+                      onPointerUp: () => {
+                          if (longPressTimer) clearTimeout(longPressTimer);
+                      },
+                      onPointerLeave: () => {
+                          if (longPressTimer) clearTimeout(longPressTimer);
+                      },
                       onClick: () => {
+                          if (isDeleteMode) return; // Prevent selection if in delete mode
+
                           setActiveWallet('bank');
                           setActiveBankAccountId(acc.id);
                           
@@ -4266,6 +4489,50 @@ function HomeContent() {
 
                    const content = (
                        <>
+                       {/* Delete Badge w/ Animation */}
+                       <AnimatePresence>
+                        {isDeleteMode && (
+                            <motion.button
+                                initial={{ scale: 0, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0, opacity: 0 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setConfirmModal({
+                                        show: true,
+                                        title: lang === 'th' ? `ลบบัญชี ${acc.name}?` : `Delete ${acc.name}?`,
+                                        onConfirm: () => {
+                                            const updated = accounts.filter(a => a.id !== acc.id);
+                                            setAccounts(updated);
+                                            fetch('/api/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accounts: updated }) });
+                                            if (updated.length > 0 && activeBankAccountId === acc.id) setActiveBankAccountId(updated.find(a => a.type === 'bank')?.id);
+                                        }
+                                    });
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    top: '-8px',
+                                    left: '-8px',
+                                    width: '28px',
+                                    height: '28px',
+                                    borderRadius: '50%',
+                                    background: '#ef4444',
+                                    border: '2px solid white',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    zIndex: 20,
+                                    boxShadow: '0 4px 12px rgba(239, 68, 68, 0.4)',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                <X size={16} strokeWidth={3} />
+                            </motion.button>
+                        )}
+                       </AnimatePresence>
+
                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                           <span style={{ 
                             fontSize: activeBankAccountId === acc.id ? '1rem' : '0.85rem', 
@@ -4336,7 +4603,7 @@ function HomeContent() {
                           </div>
                        </div>
                        
-                        {activeWallet === 'bank' && activeBankAccountId === acc.id && (
+                        {activeWallet === 'bank' && activeBankAccountId === acc.id && !isDeleteMode && (
                           <motion.div
                             initial={{ y: -10, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
@@ -4367,16 +4634,19 @@ function HomeContent() {
                        </>
                    );
 
+                   // Extract key from commonProps
+                   const { key: itemKey, ...propsWithoutKey } = commonProps;
+
                    if (isMobile) {
                       return (
-                        <motion.div {...commonProps}>
+                        <motion.div key={itemKey} {...propsWithoutKey}>
                            {content}
                         </motion.div>
                       );
                    }
 
                    return (
-                      <Reorder.Item value={acc} drag {...commonProps}>
+                      <Reorder.Item value={acc} drag={isDeleteMode ? false : true} key={itemKey} {...propsWithoutKey}>
                          {content}
                       </Reorder.Item>
                    );
@@ -5174,68 +5444,88 @@ function HomeContent() {
       </motion.div>
     ) : activeTab === 'debts' ? (
     <motion.div key="list-debts" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-      {debts.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", background: 'rgba(255,255,255,0.02)', borderRadius: '24px' }}>
-           <ArrowRightLeft size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
-           <p>{t.no_debts}</p>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {debts.map((debt) => (
-            <motion.div 
-              key={debt._id || debt.id} 
-              layout 
-              className="glass-card" 
-              style={{ 
-                padding: '1rem', 
-                border: debt.status === 'paid' ? '1px solid rgba(255,255,255,0.1)' : `1px solid ${debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
-                opacity: debt.status === 'paid' ? 0.6 : 1,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ 
-                  width: '40px', 
-                  height: '40px', 
-                  borderRadius: '12px', 
-                  background: debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)'
-                }}>
-                  {debt.type === 'borrow' ? <ArrowDownCircle size={20} /> : <ArrowUpCircle size={20} />}
+      {(() => {
+        const activeLends = debts.filter(d => d.type === 'lend' && d.status !== 'paid');
+        const activeBorrows = debts.filter(d => d.type === 'borrow' && d.status !== 'paid');
+        const historyDebts = debts.filter(d => d.status === 'paid');
+        
+        const totalLend = activeLends.reduce((sum, d) => sum + d.amount, 0);
+        const totalBorrow = activeBorrows.reduce((sum, d) => sum + d.amount, 0);
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Summary Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                <div style={{ fontSize: '12px', color: '#10b981', marginBottom: '4px', fontWeight: 600 }}>
+                  {lang === 'th' ? 'คนอื่นค้างเรา' : 'Others Owe Me'}
                 </div>
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontWeight: 700, color: 'white' }}>{debt.person}</span>
-                    <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: debt.status === 'paid' ? 'rgba(255,255,255,0.1)' : (debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'), color: debt.status === 'paid' ? 'white' : (debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)') }}>
-                      {debt.status === 'paid' ? t.status_paid : (debt.type === 'borrow' ? t.borrow : t.lend)}
-                    </span>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981' }}>฿{totalLend.toLocaleString()}</div>
+                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>{activeLends.length} {lang === 'th' ? 'รายการ' : 'items'}</div>
+              </div>
+              <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '16px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                <div style={{ fontSize: '12px', color: '#ef4444', marginBottom: '4px', fontWeight: 600 }}>
+                  {lang === 'th' ? 'เราค้างเขา' : 'I Owe Others'}
+                </div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444' }}>฿{totalBorrow.toLocaleString()}</div>
+                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>{activeBorrows.length} {lang === 'th' ? 'รายการ' : 'items'}</div>
+              </div>
+            </div>
+
+            {debts.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", background: 'rgba(255,255,255,0.02)', borderRadius: '24px' }}>
+                <ArrowRightLeft size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                <p>{t.no_debts}</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                
+                {/* Active Lends (People owe me) */}
+                {activeLends.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <ArrowUpCircle size={14} color="#10b981" /> {lang === 'th' ? 'คนอื่นติดเงินเรา' : 'Who Owes Me'}
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {activeLends.map(debt => (
+                        <DebtItem key={debt._id || debt.id} debt={debt} onToggle={() => toggleDebtStatus(debt._id || debt.id)} onDelete={() => deleteDebt(debt._id || debt.id)} onEdit={() => openEditDebt(debt)} lang={lang} t={t} />
+                      ))}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(debt.date).toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { day: 'numeric', month: 'short' })} • {debt.note || (lang === 'th' ? 'ไม่มีบันทึก' : 'No note')}</div>
-                </div>
+                )}
+
+                {/* Active Borrows (I owe others) */}
+                {activeBorrows.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <ArrowDownCircle size={14} color="#ef4444" /> {lang === 'th' ? 'เราติดเงินคนอื่น' : 'Who I Owe'}
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {activeBorrows.map(debt => (
+                        <DebtItem key={debt._id || debt.id} debt={debt} onToggle={() => toggleDebtStatus(debt._id || debt.id)} onDelete={() => deleteDebt(debt._id || debt.id)} onEdit={() => openEditDebt(debt)} lang={lang} t={t} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* History */}
+                {historyDebts.length > 0 && (
+                  <div>
+                    <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.7 }}>
+                      <History size={14} /> {lang === 'th' ? 'ประวัติ (เคลียร์แล้ว)' : 'History (Completed)'}
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', opacity: 0.6 }}>
+                      {historyDebts.map(debt => (
+                         <DebtItem key={debt._id || debt.id} debt={debt} onToggle={() => toggleDebtStatus(debt._id || debt.id)} onDelete={() => deleteDebt(debt._id || debt.id)} onEdit={() => openEditDebt(debt)} lang={lang} t={t} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontWeight: 800, color: debt.status === 'paid' ? 'white' : (debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)') }}>฿{debt.amount.toLocaleString()}</div>
-                  <button 
-                    onClick={() => toggleDebtStatus(debt._id || debt.id)}
-                    style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
-                  >
-                    {debt.status === 'paid' ? (lang === 'th' ? 'คืนค่า' : 'Re-activate') : (lang === 'th' ? 'คืนแล้ว' : 'Mark as Paid')}
-                  </button>
-                </div>
-                <button onClick={() => deleteDebt(debt._id || debt.id)} style={{ background: 'none', border: 'none', color: 'var(--danger)', opacity: 0.5, cursor: 'pointer' }}>
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
     </motion.div>
     ) : (
       <motion.div key="list-reminders" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
@@ -5332,8 +5622,40 @@ function HomeContent() {
                   }}
                 >
                     <div style={{ textAlign: 'center', marginBottom: '1rem', fontWeight: 700, fontSize: '1.1rem' }}>
-                      {editingTransaction ? (lang === 'th' ? 'แก้ไขรายการ' : 'Edit Transaction') : (editingReminder ? (lang === 'th' ? 'แก้ไขการแจ้งเตือน' : 'Edit Reminder') : t.add_manual)}
+                      {editingDebt ? (lang === 'th' ? 'แก้ไขการยืม/ให้ยืม' : 'Edit Borrow/Lend') : 
+                       (editingTransaction ? (lang === 'th' ? 'แก้ไขรายการ' : 'Edit Transaction') : 
+                       (editingReminder ? (lang === 'th' ? 'แก้ไขการแจ้งเตือน' : 'Edit Reminder') : t.add_manual))}
                     </div>
+                    
+                    {editingDebt ? (
+                      <form onSubmit={(e) => { e.preventDefault(); handleSaveDebt(); }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <input 
+                          type="text" 
+                          placeholder={lang === 'th' ? "ชื่อคน (เช่น ส้ม, แม่)" : "Person's name (e.g. Mom, Friend)"} 
+                          value={editDebtPerson} 
+                          onChange={e => setEditDebtPerson(e.target.value)} 
+                          style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} 
+                          required 
+                        />
+                        <input 
+                          type="number" 
+                          placeholder={lang === 'th' ? "จำนวนเงิน (บาท)" : "Amount (฿)"} 
+                          value={editDebtAmount} 
+                          onChange={e => setEditDebtAmount(e.target.value)} 
+                          style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} 
+                          required 
+                        />
+                        <input 
+                          type="text" 
+                          placeholder={lang === 'th' ? "บันทึก (ถ้ามี)" : "Note (optional)"} 
+                          value={editDebtNote} 
+                          onChange={e => setEditDebtNote(e.target.value)} 
+                          style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} 
+                        />
+                        <button type="submit" className="btn-primary">{t.save}</button>
+                        <button type="button" onClick={() => { setShowManualEntry(false); setEditingDebt(null); setEditDebtPerson(""); setEditDebtAmount(""); setEditDebtNote(""); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}>{t.cancel}</button>
+                      </form>
+                    ) : (
                     <form onSubmit={handleManualSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button type="button" onClick={() => setManualType('expense')} className="btn-primary" style={{ flex: 1, background: manualType === 'expense' ? 'var(--danger)' : 'var(--glass)' }}>{t.expense}</button>
@@ -5368,6 +5690,7 @@ function HomeContent() {
                         <button type="submit" className="btn-primary">{editingTransaction ? t.save : (editingReminder ? t.save : t.save)}</button>
                         <button type="button" onClick={() => { setShowManualEntry(false); setEditingTransaction(null); setEditingReminder(null); setManualReminderDate(""); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}>{t.cancel}</button>
                     </form>
+                    )}
                 </motion.div>
             )}
         </AnimatePresence>
@@ -5948,7 +6271,7 @@ function HomeContent() {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
             className="modal-overlay"
-            style={{ zIndex: 2100 }}
+            style={{ zIndex: 10001 }}
           >
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
@@ -6464,9 +6787,48 @@ function HomeContent() {
                   />
                </div>
                
+               {editingAccount && (
+                   <div style={{ marginBottom: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.5rem' }}>
+                      <button
+                        onClick={() => {
+                           setConfirmModal({
+                              show: true,
+                              title: lang === 'th' ? `ยืนยันลบบัญชี ${editingAccount.name}?` : `Delete ${editingAccount.name}?`,
+                              onConfirm: () => {
+                                 const updated = accounts.filter(a => a.id !== editingAccount.id);
+                                 setAccounts(updated);
+                                 fetch('/api/data', { 
+                                    method: 'POST', 
+                                    headers: { 'Content-Type': 'application/json' }, 
+                                    body: JSON.stringify({ accounts: updated }) 
+                                 });
+                                 if (updated.length > 0 && activeBankAccountId === editingAccount.id) {
+                                    setActiveBankAccountId(updated.find(a => a.type === 'bank')?.id);
+                                 }
+                                 setShowAddAccountModal(false);
+                                 setEditingAccount(null);
+                              }
+                           });
+                        }}
+                        style={{
+                           width: '100%', padding: '10px', borderRadius: '12px',
+                           background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', 
+                           border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '0.9rem', fontWeight: 600,
+                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
+                        }}
+                      >
+                         <Trash2 size={16} />
+                         {lang === 'th' ? 'ลบบัญชีนี้' : 'Delete Account'}
+                      </button>
+                   </div>
+                )}
+                
                <div style={{ display: 'flex', gap: '10px' }}>
                   <button
-                    onClick={() => setShowAddAccountModal(false)}
+                    onClick={() => {
+                       setShowAddAccountModal(false);
+                       setEditingAccount(null);
+                    }}
                     style={{
                        flex: 1, padding: '12px', borderRadius: '12px',
                        background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none'
