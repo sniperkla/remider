@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import useMobileDetect from "./hooks/useMobileDetect";
 import { useSearchParams } from 'next/navigation';
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic,
   MicOff,
@@ -40,11 +41,16 @@ import {
   Scan,
   Bell,
   Clock,
+  Download,
+  Languages,
+  CreditCard,
+  Banknote,
+  History,
+  MessageCircle,
+  Image
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import Tesseract from "tesseract.js";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
-import { Download, CreditCard, Banknote, History, Languages, MessageCircle } from "lucide-react";
 import { translations } from "@/lib/translations";
 
 // --- Smart Categorization & Visuals ---
@@ -283,31 +289,57 @@ function HomeContent() {
   const [nickname, setNickname] = useState("");
   const [groqKeys, setGroqKeys] = useState([]); // System AI Key Pool
   const [transactions, setTransactions] = useState([]);
+  const transactionsRef = useRef(transactions);
+  useEffect(() => { transactionsRef.current = transactions; }, [transactions]);
   const [debts, setDebts] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [preventDelete, setPreventDelete] = useState(false);
   const [activeWallet, setActiveWallet] = useState("bank"); // Default wallet for manual entry
   const [viewMode, setViewMode] = useState("daily"); // daily or monthly
   const [visibleCount, setVisibleCount] = useState(10);
+
+  const truncateText = (text, maxLength) => {
+    if (!text || text.length <= maxLength) return text;
+    return text.slice(0, Math.max(0, maxLength - 3)) + "...";
+  };
   const [activeTab, setActiveTab] = useState("transactions"); // transactions or debts
   
   const processedFilesRef = useRef(new Set()); // Prevent double-processing
   
   const [isListening, setIsListening] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [showHelp, setShowHelp] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [lang, setLang] = useState("th"); // 'th' or 'en'
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [lang, setLang] = useState("th"); // UI language
+  const [aiLang, setAiLang] = useState("th"); // AI language, auto-detected per voice
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [editingReminder, setEditingReminder] = useState(null);
   const [confirmModal, setConfirmModal] = useState({ show: false, title: "", onConfirm: null });
+  const [expandedTransactionId, setExpandedTransactionId] = useState(null);
   const t = translations[lang];
+  // Helper: detect language from text (simple heuristic)
+  function detectLangFromText(text) {
+    if (!text) return "th";
+    // If contains mostly English letters, use 'en', else 'th'
+    const en = /[a-zA-Z]/g;
+    const th = /[ก-๙]/g;
+    const enCount = (text.match(en) || []).length;
+    const thCount = (text.match(th) || []).length;
+    if (enCount > thCount) return "en";
+    if (thCount > enCount) return "th";
+    // fallback to UI lang
+    return lang;
+  }
   
   const [manualAmount, setManualAmount] = useState("");
   const [manualDesc, setManualDesc] = useState("");
   const [manualType, setManualType] = useState("expense");
+  const [manualReminderDate, setManualReminderDate] = useState("");
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [isAILoading, setIsAILoading] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
@@ -318,6 +350,81 @@ function HomeContent() {
   const [isAutoScanning, setIsAutoScanning] = useState(false);
   const [lastAutoScan, setLastAutoScan] = useState(0); // Timestamp
 
+  // Onboarding Tutorial System
+  const [onboardingTasks, setOnboardingTasks] = useState({
+    voice: false,      // Try voice command
+    scan: false,       // Try scanning receipt
+    manual: false,     // Try manual entry
+    completed: false   // All tasks done
+  });
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const showOnboardingRef = useRef(false);
+  useEffect(() => { showOnboardingRef.current = showOnboarding; }, [showOnboarding]);
+  const [showCongrats, setShowCongrats] = useState(false);
+  const [showBalanceSetup, setShowBalanceSetup] = useState(false);
+  const [balanceBankInput, setBalanceBankInput] = useState("");
+  const [balanceCashInput, setBalanceCashInput] = useState("");
+  const [budgetDailyInput, setBudgetDailyInput] = useState("");
+  const [budgetMonthlyInput, setBudgetMonthlyInput] = useState("");
+  const [isSavingBalance, setIsSavingBalance] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(null); // 'voice' | 'scan' | 'manual' | null
+  const [tutorialHighlight, setTutorialHighlight] = useState(null); // { top, left, width, height }
+  const [highlightedTxnId, setHighlightedTxnId] = useState(null); // For highlighting tutorial result
+  const onboardingTasksRef = useRef({ voice: false, scan: false, manual: false, completed: false });
+  useEffect(() => { onboardingTasksRef.current = onboardingTasks; }, [onboardingTasks]);
+  
+  // Refs for tutorial button positions
+  const micButtonRef = useRef(null);
+  const cameraButtonRef = useRef(null);
+  const manualButtonRef = useRef(null);
+
+  // Update highlight position when tutorialStep changes
+  useEffect(() => {
+    if (!tutorialStep) {
+      setTutorialHighlight(null);
+      return;
+    }
+    
+    const updateHighlight = () => {
+      let buttonRef = null;
+      if (tutorialStep === 'voice') buttonRef = micButtonRef;
+      else if (tutorialStep === 'scan') buttonRef = cameraButtonRef;
+      else if (tutorialStep === 'manual') buttonRef = manualButtonRef;
+      
+      if (buttonRef?.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setTutorialHighlight({
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height
+        });
+      }
+    };
+    
+    // Initial update
+    updateHighlight();
+    
+    // Update again after a short delay (for layout settling)
+    const timer = setTimeout(updateHighlight, 100);
+    
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [tutorialStep]);
+
+  // Prevent scrolling when tutorial is active
+  useEffect(() => {
+    if (tutorialStep && showOnboarding && !onboardingTasks.completed) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [tutorialStep, showOnboarding, onboardingTasks.completed]);
+
   // Refs for background scanning to avoid stale closures
   const folderHandleRef = useRef(null);
   const lastAutoScanRef = useRef(0);
@@ -326,6 +433,14 @@ function HomeContent() {
   useEffect(() => { folderHandleRef.current = folderHandle; }, [folderHandle]);
   useEffect(() => { lastAutoScanRef.current = lastAutoScan; }, [lastAutoScan]);
   useEffect(() => { isAutoScanningRef.current = isAutoScanning; }, [isAutoScanning]);
+
+  useEffect(() => {
+    if (!aiMessage) return;
+    const timer = setTimeout(() => {
+      setAiMessage("");
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [aiMessage]);
 
 
   useEffect(() => {
@@ -366,6 +481,23 @@ function HomeContent() {
   const disconnectFolder = async () => {
     setFolderHandle(null);
     await storeHandle("billingFolder", null);
+  };
+
+  const uploadImageToCloudinary = async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch("/api/upload/cloudinary", {
+        method: "POST",
+        body: formData
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data.url || null;
+    } catch (err) {
+      console.warn("Cloudinary upload failed", err);
+      return null;
+    }
   };
 
   const scanFolderTransactions = async (handle = folderHandleRef.current, since = lastAutoScanRef.current, forceAll = false) => {
@@ -409,11 +541,34 @@ function HomeContent() {
           await new Promise(r => setTimeout(r, forceAll ? 10 : 1500));
 
           try {
-            const result = await Tesseract.recognize(file, "tha+eng");
-            const ocrText = result.data.text;
+            let ocrText = "";
+            const imageUrl = await uploadImageToCloudinary(file);
+            
+            if (ocrProvider === "google") {
+              // Use Google Cloud Vision API
+              const formData = new FormData();
+              formData.append('image', file);
+              
+              const response = await fetch('/api/ocr/google-vision', {
+                method: 'POST',
+                body: formData
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                ocrText = data.text || "";
+              } else {
+                throw new Error('Google Vision API failed');
+              }
+            } else {
+              // Use Tesseract.js
+              const result = await Tesseract.recognize(file, "tha+eng");
+              ocrText = result.data.text;
+            }
+            
             if (ocrText.trim()) {
               console.log(`✅ OCR Success for ${entry.name}`);
-              processOcrText(ocrText);
+              processOcrText(ocrText, imageUrl);
               newItemsCount++;
             }
           } catch (ocrErr) {
@@ -478,11 +633,108 @@ function HomeContent() {
   const [aiInsight, setAiInsight] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [useSmartAI, setUseSmartAI] = useState(true); // Toggle for Smart Agent (Default ON)
+  const [ocrProvider, setOcrProvider] = useState("google"); // "tesseract" or "google"
+  const [aiModel, setAiModel] = useState("llama-3.1-8b-instant"); // AI Model selection
+  const [isAIToggleBlink, setIsAIToggleBlink] = useState(false);
+  const aiToggleRef = useRef(null);
   const [showToast, setShowToast] = useState({ show: false, title: "", message: "", type: "info" });
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [languageReady, setLanguageReady] = useState(false);
+  const [pendingInstallPrompt, setPendingInstallPrompt] = useState(false);
+  const [pendingTutorialStart, setPendingTutorialStart] = useState(false);
+  const languageReadyRef = useRef(false);
+  useEffect(() => { languageReadyRef.current = languageReady; }, [languageReady]);
 
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    const savedLang = localStorage.getItem("appLanguage");
+    const languageChosen = localStorage.getItem("languageChosen") === "true";
+    if (savedLang === "th" || savedLang === "en") {
+      setLang(savedLang);
+    }
+
+    if (languageChosen && (savedLang === "th" || savedLang === "en")) {
+      setLanguageReady(true);
+    } else {
+      setLanguageReady(false);
+      setShowLanguageModal(true);
+      setShowInstallModal(false);
+      setShowOnboarding(false);
+      setTutorialStep(null);
+      setTutorialHighlight(null);
+    }
+    
+    const savedProvider = localStorage.getItem("ocrProvider");
+    if (savedProvider === "tesseract" || savedProvider === "google") {
+      setOcrProvider(savedProvider);
+    }
+    
+    const savedSmartAI = localStorage.getItem("useSmartAI");
+    if (savedSmartAI === "true" || savedSmartAI === "false") {
+      setUseSmartAI(savedSmartAI === "true");
+    }
+    
+    const savedAIModel = localStorage.getItem("aiModel");
+    if (savedAIModel) {
+      setAiModel(savedAIModel);
+    }
+  }, []);
+
+  // Save language to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("appLanguage", lang);
+    
+    // Save to database if user is logged in
+    if (session?.user?.email) {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: lang })
+      }).catch(err => console.error('Failed to save language to DB:', err));
+    }
+  }, [lang, session]);
+
+  // Save OCR provider to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("ocrProvider", ocrProvider);
+    
+    // Save to database if user is logged in
+    if (session?.user?.email) {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ocrProvider })
+      }).catch(err => console.error('Failed to save OCR provider to DB:', err));
+    }
+  }, [ocrProvider, session]);
+
+  // Save Smart AI toggle to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("useSmartAI", useSmartAI.toString());
+  }, [useSmartAI]);
+
+  // Save AI Model to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem("aiModel", aiModel);
+    
+    // Save to database if user is logged in
+    if (session?.user?.email) {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aiModel })
+      }).catch(err => console.error('Failed to save AI model to DB:', err));
+    }
+  }, [aiModel, session]);
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -500,7 +752,8 @@ function HomeContent() {
 
   const isMobile = useMobileDetect();
   const isMobileRef = useRef(false); // Ref to access latest isMobile inside closed-over callbacks
-  
+  // Android detection
+  const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
   // Sync Ref with State
   useEffect(() => {
     isMobileRef.current = isMobile;
@@ -516,18 +769,85 @@ function HomeContent() {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').then(
-          (registration) => console.log('SW registered:', registration.scope),
+          (registration) => {
+            console.log('SW registered:', registration.scope);
+            // Register periodic background sync (check reminders every 15 minutes)
+            if ('periodicSync' in registration) {
+              registration.periodicSync.register('check-reminders', {
+                minInterval: 15 * 60 * 1000 // 15 minutes
+              }).catch(err => console.log('Periodic sync registration failed:', err));
+            }
+            
+            // Also set up a manual check every 5 minutes when app is open
+            setInterval(() => {
+              if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({
+                  type: 'CHECK_REMINDERS'
+                });
+              }
+            }, 5 * 60 * 1000); // 5 minutes
+            
+            // Send all current reminders to service worker for scheduling
+            if (navigator.serviceWorker.controller) {
+              setTimeout(() => {
+                fetch('/api/reminders')
+                  .then(res => res.json())
+                  .then(reminders => {
+                    reminders.forEach(reminder => {
+                      navigator.serviceWorker.controller.postMessage({
+                        type: 'SCHEDULE_REMINDER',
+                        reminder
+                      });
+                    });
+                  })
+                  .catch(e => console.log('Could not fetch reminders for scheduling'));
+              }, 2000); // Wait 2 seconds after SW registration
+            }
+          },
           (err) => console.log('SW registration failed:', err)
         );
       });
     }
 
-    // 2. Listen for Install Prompt
+    // Keep service worker alive with periodic "pings" using a hidden iframe trick
+    const keepAliveInterval = setInterval(() => {
+      if (navigator.serviceWorker.controller) {
+        // Send ping to keep SW awake
+        navigator.serviceWorker.controller.postMessage({ type: 'PING' });
+        
+        // Also make a lightweight fetch to wake it up
+        fetch('/manifest.json', { cache: 'no-store' }).catch(() => {});
+      }
+    }, 25 * 1000); // Every 25 seconds while app is open
+    
+    // Wake service worker when user returns to the app
+    const handleVisibilityChange = () => {
+      if (!document.hidden && navigator.serviceWorker.controller) {
+        console.log('App became visible, checking reminders...');
+        navigator.serviceWorker.controller.postMessage({ type: 'CHECK_REMINDERS' });
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    // 2. Request Notification Permission
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        console.log('Notification permission:', permission);
+      });
+    }
+
+    // 3. Listen for Install Prompt
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
       // Automatically show the overlay if we have a prompt and aren't installed
       if (!window.matchMedia('(display-mode: standalone)').matches) {
+        if (!languageReadyRef.current) {
+          setPendingInstallPrompt(true);
+          return;
+        }
         setShowInstallModal(true);
       }
     };
@@ -549,6 +869,9 @@ function HomeContent() {
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+      if (keepAliveInterval) clearInterval(keepAliveInterval);
     };
   }, []);
 
@@ -603,6 +926,13 @@ function HomeContent() {
             if (data.nickname) setNickname(data.nickname);
             if (data.groqKeys) setGroqKeys(data.groqKeys);
             if (data.preventDelete !== undefined) setPreventDelete(data.preventDelete);
+            if (data.ocrProvider) setOcrProvider(data.ocrProvider);
+            if (data.language) {
+              setLang(data.language);
+              setLanguageReady(true);
+              localStorage.setItem('languageChosen', 'true');
+            }
+            if (data.aiModel) setAiModel(data.aiModel);
             if (data.transactions) setTransactions(data.transactions);
             if (data.debts) setDebts(data.debts);
             
@@ -622,6 +952,51 @@ function HomeContent() {
                 localStorage.setItem(onboardingKey, 'true');
               }, 1500); // Small delay for smoother entrance
             }
+            
+            // Load onboarding tasks progress
+            const onboardingTasksKey = `onboardingTasks_${session.user.email}`;
+            const savedTasks = localStorage.getItem(onboardingTasksKey);
+            const tutorialCompletedKey = `tutorialCompleted_${session.user.email}`;
+            const hasCompletedTutorial = localStorage.getItem(tutorialCompletedKey) === 'true';
+            if (hasCompletedTutorial) {
+              setOnboardingTasks({ voice: true, scan: true, manual: true, completed: true });
+            } else if (savedTasks) {
+              const parsed = JSON.parse(savedTasks);
+              setOnboardingTasks(parsed);
+              // If no install modal, start tutorial directly
+              if (!parsed.completed) {
+                setTimeout(() => {
+                  const hasLang = localStorage.getItem("appLanguage");
+                  if (!hasLang) {
+                    setPendingTutorialStart(true);
+                    return;
+                  }
+                  // Check if install modal is not showing (already installed)
+                  const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+                                     window.navigator.standalone === true;
+                  if (isInstalled) {
+                    setShowOnboarding(true);
+                    advanceToNextTutorialStep(parsed);
+                  }
+                  // Otherwise, tutorial will start when install modal is dismissed
+                }, 2000);
+              }
+            } else {
+              // First time user - start tutorial if already installed
+              setTimeout(() => {
+                const hasLang = localStorage.getItem("appLanguage");
+                if (!hasLang) {
+                  setPendingTutorialStart(true);
+                  return;
+                }
+                const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+                                   window.navigator.standalone === true;
+                if (isInstalled) {
+                  startTutorial();
+                }
+                // Otherwise, tutorial will start when install modal is dismissed
+              }, 2000);
+            }
           }
         } catch (error) {
           console.error("Failed to load data from MongoDB:", error);
@@ -639,12 +1014,25 @@ function HomeContent() {
       const today = reminders.filter(r => new Date(r.date).toDateString() === new Date().toDateString());
       if (today.length > 0) {
         setTimeout(() => {
+          // Show inside-app toast
           setShowToast({
             show: true,
             title: lang === 'th' ? "มีรายการค้างชำระวันนี้ค่ะ! 🔔" : "You have payments due today!",
             message: today.map(r => `• ${r.description} (฿${r.amount})`).join("\n"),
             type: "urgent"
           });
+          
+          // Send web notification (works outside app + on all devices)
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('Reminder.me - การแจ้งเตือน', {
+              body: today.map(r => `${r.description} ฿${r.amount}`).join(', '),
+              icon: '/icon-192.png',
+              badge: '/icon-192.png',
+              tag: 'reminder-alert',
+              requireInteraction: true
+            });
+          }
+          
           // Play a gentle sound if possible
           try {
             const context = new (window.AudioContext || window.webkitAudioContext)();
@@ -663,7 +1051,7 @@ function HomeContent() {
         }, 2000);
       }
     }
-  }, [reminders, isLoading]);
+  }, [reminders, isLoading, lang]);
 
 
   // Fix Closure Bug for Voice Recognition:
@@ -677,8 +1065,8 @@ function HomeContent() {
     if (typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      // Android Chrome bug: 'continuous: true' is unstable. Use 'false' and manual restart.
-      recognitionRef.current.continuous = false; 
+      // Allow continuous speech to capture longer sentences with pauses
+      recognitionRef.current.continuous = true; 
       recognitionRef.current.interimResults = true; // Show partial results
       recognitionRef.current.lang = lang === 'th' ? "th-TH" : "en-US";
       recognitionRef.current.maxAlternatives = 1;
@@ -690,8 +1078,9 @@ function HomeContent() {
       const resetSilenceTimer = () => {
         if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
         
-        // Mobile: 5 seconds | Desktop: 8 seconds (Longer for stability)
-        const timeoutDuration = isMobileRef.current ? 5000 : 8000;
+        // Allow longer pauses between words - more time to speak
+        // Mobile: 6 seconds | Desktop: 8 seconds
+        const timeoutDuration = isMobileRef.current ? 6000 : 8000;
         
         silenceTimeoutRef.current = setTimeout(() => {
           // Check if we are actually still hearing speech
@@ -700,45 +1089,134 @@ function HomeContent() {
             return;
           }
           
-          console.log("Auto-stopping mic due to silence/noise");
-          isVoiceActiveRef.current = false;
-          if (recognitionRef.current) recognitionRef.current.stop();
-          
-          const timeoutMsg = lang === 'th' 
-            ? "ไม่ได้ยินเสียงพูดเลยปิดก่อนนะคะ (Noise/Silence) 🎀" 
-            : "Didn't hear anything, stopping to save power! 🎀";
-            
-          // ONLY show silence message if the current message is a greeting or another silence message
-          // This prevents overwriting a successful AI transaction response.
-          const currentMsg = aiMessageRef.current;
-          const isDefault = currentMsg === translations.th.ai_greeting || currentMsg === translations.en.ai_greeting;
-          const isSilence = currentMsg?.includes("Noise") || currentMsg?.includes("ไม่ได้ยินเสียง");
-          
-          if (isDefault || isSilence) {
-            setAiMessage(timeoutMsg);
+          console.log("Silence detected - restarting listening for continuous input");
+          // Don't stop, just restart to keep listening
+          if (recognitionRef.current) {
+            try {
+              recognitionRef.current.stop();
+              // Restart immediately for continuous listening
+              setTimeout(() => {
+                try {
+                  if (isVoiceActiveRef.current && !isRecognitionRunningRef.current) {
+                    recognitionRef.current.start();
+                  }
+                } catch (e) {
+                  console.log('Could not restart recognition:', e);
+                }
+              }, 150);
+            } catch (e) {
+              console.log('Error in silence handler:', e);
+            }
           }
+          
+          // Don't show silence message - keep user listening silently
+          // const timeoutMsg = lang === 'th' 
+          //   ? "ไม่ได้ยินเสียงพูดเลยปิดก่อนนะคะ (Noise/Silence) 🎀" 
+          //   : "Didn't hear anything, stopping to save power! 🎀";
         }, timeoutDuration);
       };
 
+      // Track recognition running state to prevent double-start errors
+      let isRecognitionRunningRef = { current: false };
+      
+      // Watchdog timer to detect frozen state
+      let watchdogRef = { current: null };
+      let lastActivityRef = { current: Date.now() };
+      
+      const startWatchdog = () => {
+        if (watchdogRef.current) clearInterval(watchdogRef.current);
+        lastActivityRef.current = Date.now();
+        
+        watchdogRef.current = setInterval(() => {
+          const timeSinceActivity = Date.now() - lastActivityRef.current;
+          // If no activity for 12 seconds while listening, restart
+          if (timeSinceActivity > 12000 && isVoiceActiveRef.current) {
+            console.log('Watchdog: Recognition seems frozen, restarting...');
+            isRecognitionRunningRef.current = false; // Force reset the flag
+            try {
+              recognitionRef.current.abort(); // Use abort() instead of stop() for immediate termination
+            } catch (e) {
+              console.log('Watchdog abort error:', e);
+            }
+            // Wait longer before restart to ensure clean state
+            setTimeout(() => {
+              if (isVoiceActiveRef.current && !isRecognitionRunningRef.current) {
+                try {
+                  recognitionRef.current.start();
+                  lastActivityRef.current = Date.now();
+                } catch (e) {
+                  console.log('Watchdog restart failed:', e);
+                  // If still fails, create new recognition instance
+                  if (e.message?.includes('already started')) {
+                    console.log('Creating new recognition instance...');
+                    recognitionRef.current.abort();
+                    setTimeout(() => {
+                      try {
+                        recognitionRef.current.start();
+                      } catch (e2) {
+                        setIsListening(false);
+                        isVoiceActiveRef.current = false;
+                      }
+                    }, 300);
+                  } else {
+                    setIsListening(false);
+                    isVoiceActiveRef.current = false;
+                  }
+                }
+              }
+            }, 300);
+          }
+        }, 5000); // Check every 5 seconds
+      };
+      
+      const stopWatchdog = () => {
+        if (watchdogRef.current) {
+          clearInterval(watchdogRef.current);
+          watchdogRef.current = null;
+        }
+      };
+
       recognitionRef.current.onstart = () => {
+        console.log('Recognition started');
+        isRecognitionRunningRef.current = true;
         setIsListening(true);
         isVoiceActiveRef.current = true;
         lastSessionIndexRef.current = -1;
+        lastActivityRef.current = Date.now();
         resetSilenceTimer();
+        startWatchdog();
       };
       
       recognitionRef.current.onend = () => {
-        // Only set listening to false if we are actually STOPPING. 
-        // If we are auto-restarting (Desktop), keep the UI in "listening" state to prevent flicker.
-        // On Mobile, we always stop fully (no auto-restart).
-        // IMPORTANT: Use Ref here because this callback is closed over initial render state!
-        setIsListening(false);
-        setInterimTranscript("");
-        if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+        console.log('Recognition ended');
+        isRecognitionRunningRef.current = false;
+        stopWatchdog();
+        
+        // Auto-restart if user hasn't manually stopped
+        if (isVoiceActiveRef.current) {
+          console.log('Auto-restarting recognition...');
+          setTimeout(() => {
+            if (!isRecognitionRunningRef.current && isVoiceActiveRef.current) {
+              try {
+                recognitionRef.current.start();
+              } catch (e) {
+                console.log('Auto-restart failed:', e);
+                setIsListening(false);
+                isVoiceActiveRef.current = false;
+                setInterimTranscript("");
+              }
+            }
+          }, 150);
+        } else {
+          setIsListening(false);
+          setInterimTranscript("");
+          if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+        }
       };
 
       recognitionRef.current.onspeechstart = () => {
         console.log("Speech started detection");
+        lastActivityRef.current = Date.now();
         resetSilenceTimer();
       };
 
@@ -747,7 +1225,15 @@ function HomeContent() {
         // Don't stop here, let onresult or silence handle it
       };
       
+      // Accumulate all text until user is truly done
+      let accumulatedTextRef = { current: "" };
+      let processTimeoutRef = { current: null };
+      let lastFinalTextRef = { current: "" };
+      
       recognitionRef.current.onresult = (event) => {
+        // Update activity tracker
+        lastActivityRef.current = Date.now();
+        
         let currentText = "";
         
         for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -758,26 +1244,31 @@ function HomeContent() {
           if (text) currentText += text;
 
           if (result.isFinal) {
-            // Check if we've already processed this specific result index in this session
-            if (i > lastSessionIndexRef.current) {
-              const trimmedText = text.trim();
-              const now = Date.now();
+            const trimmedText = text.trim();
+            // Prevent duplicate - only add if different from last final text
+            if (trimmedText && trimmedText !== lastFinalTextRef.current) {
+              lastFinalTextRef.current = trimmedText;
+              accumulatedTextRef.current = trimmedText; // Replace instead of append
+              console.log("Final text:", accumulatedTextRef.current);
               
-              // Mobile Optimization: Block duplicates within 1 second if text is similar
-              if (trimmedText && (trimmedText !== lastProcessedTextRef.current || now - lastProcessTimeRef.current > 1000)) {
-                lastSessionIndexRef.current = i;
-                lastProcessedTextRef.current = trimmedText;
-                lastProcessTimeRef.current = now;
-                
-                console.log("Processing final result at index:", i, trimmedText);
-                setTranscript(trimmedText);
-                // We don't clear interim yet, let the UI show the full sentence for a moment
-                if (processVoiceRef.current) {
-                  processVoiceRef.current(trimmedText);
-                }
-              } else {
-                console.log("Ignored duplicate/too-fast result:", trimmedText);
+              // Clear any pending process timeout
+              if (processTimeoutRef.current) {
+                clearTimeout(processTimeoutRef.current);
               }
+              
+              // Wait 1.5 seconds of silence after last speech to process
+              // This gives time for user to think and continue but is fast enough to feel responsive
+              processTimeoutRef.current = setTimeout(() => {
+                if (accumulatedTextRef.current) {
+                  console.log("Processing text after pause:", accumulatedTextRef.current);
+                  setTranscript(accumulatedTextRef.current);
+                  if (processVoiceRef.current) {
+                    processVoiceRef.current(accumulatedTextRef.current);
+                  }
+                  accumulatedTextRef.current = ""; // Reset for next command
+                  lastFinalTextRef.current = ""; // Reset duplicate check
+                }
+              }, 1500); // 1.5 seconds wait after last speech - faster response
             }
           }
         }
@@ -787,21 +1278,52 @@ function HomeContent() {
           resetSilenceTimer();
         }
         
-        // Update UI with whatever text we have (interim or final)
-        if (currentText) {
-          setInterimTranscript(currentText);
+        // Update UI with current text being spoken
+        if (currentText.trim()) {
+          setInterimTranscript(currentText.trim());
         }
       };
       recognitionRef.current.onerror = (event) => {
-        console.error("Speech recognition error", event.error);
-        if (event.error === 'no-speech' || event.error === 'aborted') {
+        // Ignore aborted errors - these are intentional (from abort() calls)
+        if (event.error === 'aborted') {
+          // Silent ignore - this is expected when we stop/restart
           return;
         }
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+        
+        console.error("Speech recognition error", event.error);
+        
+        // Clear any pending timeouts
+        if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+        
+        if (event.error === 'no-speech') {
+          setAiMessage(lang === 'th' ? 'ไม่ได้ยินเสียงค่ะ ลองพูดใหม่นะคะ 🎤' : 'No speech detected. Please try again 🎤');
+          setIsListening(false);
+          return;
+        }
+        
+        if (event.error === 'audio-capture') {
+          setAiMessage(lang === 'th' ? 'ไม่สามารถใช้งานไมค์ได้ กรุณาตรวจสอบการอนุญาต 🎤' : 'Cannot access microphone. Please check permissions 🎤');
           isVoiceActiveRef.current = false;
           setIsListening(false);
-          if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
+          return;
         }
+        
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setAiMessage(lang === 'th' ? 'กรุณาอนุญาตการใช้งานไมค์ก่อนค่ะ 🎤' : 'Please allow microphone access 🎤');
+          isVoiceActiveRef.current = false;
+          setIsListening(false);
+          return;
+        }
+        
+        if (event.error === 'network') {
+          setAiMessage(lang === 'th' ? 'เกิดปัญหาการเชื่อมต่อค่ะ ลองใหม่อีกครั้งนะคะ' : 'Network error. Please try again');
+          setIsListening(false);
+          return;
+        }
+        
+        // Other errors
+        console.log('Recognition error:', event.error);
+        setIsListening(false);
       };
     }
 
@@ -811,6 +1333,7 @@ function HomeContent() {
   }, []);
 
   // Update speech recognition language when app language changes
+  // Dynamically set recognition language based on detected spoken language
   useEffect(() => {
     if (recognitionRef.current) {
       recognitionRef.current.lang = lang === 'th' ? "th-TH" : "en-US";
@@ -820,28 +1343,75 @@ function HomeContent() {
   const toggleListening = () => {
     if (isListening) {
       isVoiceActiveRef.current = false; // Stop auto-restart
-      recognitionRef.current.stop();
+      try {
+        if (recognitionRef.current) {
+          recognitionRef.current.abort(); // Use abort for immediate stop
+        }
+      } catch (e) {
+        console.log('Stop recognition error:', e);
+      }
+      setIsListening(false);
+      setInterimTranscript("");
+      if (silenceTimeoutRef.current) clearTimeout(silenceTimeoutRef.current);
     } else {
       setTranscript("");
       setInterimTranscript("");
-      isVoiceActiveRef.current = true; // One-shot by default across all platforms for predictable behavior
-      try {
-        recognitionRef.current.start();
-      } catch (e) {
-        // Already started
+      isVoiceActiveRef.current = true;
+      
+      // Use abort to ensure clean state before starting
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.abort();
+        } catch (e) {
+          // Ignore
+        }
       }
+      
+      // Small delay to ensure clean start
+      setTimeout(() => {
+        try {
+          if (recognitionRef.current) {
+            recognitionRef.current.start();
+          }
+        } catch (e) {
+          console.log('Start recognition error:', e);
+          // If already started, just continue
+          if (e.message && e.message.includes('already started')) {
+            setIsListening(true);
+          } else {
+            setIsListening(false);
+            setAiMessage(lang === 'th' ? 'ไม่สามารถเปิดไมค์ได้ กรุณาลองอีกครั้งค่ะ' : 'Cannot start microphone. Please try again.');
+          }
+        }
+      }, 150); // Slightly longer delay after abort
     }
   };
 
   const lastProcessedRef = useRef({ text: "", time: 0 });
 
   // --- AI Agent Logic ---
-  async function processAICommand(text) {
+  async function processAICommand(text, detectedLang = null, imageUrl = null, forceModel = null, source = "voice", ocrRawText = "") {
     setTranscript("");
     setInterimTranscript("");
     setAiMessage(lang === 'th' ? "กำลังคิด... 🧠" : "Thinking... 🧠");
     setIsAILoading(true);
     try {
+      // Use forced model (for scan operations) or user's selected model
+      const modelToUse = forceModel || aiModel;
+      const userName = nickname || session?.user?.name?.split(' ')[0] || "";
+      const fullName = session?.user?.name || "";
+      const emailAlias = session?.user?.email ? session.user.email.split('@')[0] : "";
+      
+      // Build comprehensive alias list including individual name parts
+      const allNameParts = [userName, fullName, emailAlias]
+        .filter(Boolean)
+        .flatMap(name => name.split(/\s+/))
+        .map(part => part.toLowerCase().trim())
+        .filter(part => part.length > 2);
+      
+      const userAliases = [...new Set(allNameParts)];
+      
+      const requestSource = source || "voice";
       const res = await fetch('/api/ai/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -849,7 +1419,13 @@ function HomeContent() {
           text, 
           lang, 
           balance, 
-          budget 
+          budget,
+          activeWallet, // Pass user's primary wallet to AI
+          aiModel: modelToUse, // Pass AI model (forced or selected)
+          source: requestSource,
+          userName,
+          userAliases,
+          detectedLang // Pass the detected language from speech
         })
       });
       const data = await res.json();
@@ -857,11 +1433,78 @@ function HomeContent() {
       
       if (!res.ok) throw new Error(data.message || "AI Error");
       
+      const normalizedAmount = typeof data.amount === "string"
+        ? parseFloat(data.amount.replace(/,/g, ""))
+        : data.amount;
+      const hasValidAmount = Number.isFinite(normalizedAmount) && normalizedAmount > 0;
+
+      if (requestSource === "ocr") {
+        const ocrTextLower = (ocrRawText || text).toLowerCase();
+        
+        // Expanded keywords for better detection
+        const senderKeywords = ["from", "sender", "ผู้โอน", "ผู้สั่งโอน", "โอนจาก", "ผู้ส่ง"];
+        const receiverKeywords = ["to", "receiver", "beneficiary", "ผู้รับ", "ผู้รับเงิน", "โอนให้", "ถึง"];
+        
+        // Check if any user alias appears in OCR text
+        const foundAlias = userAliases.find(alias => alias && ocrTextLower.includes(alias));
+        
+        if (foundAlias) {
+          console.log(`[OCR] Found user alias in slip: "${foundAlias}"`);
+          
+          // Find position of user's name in the text
+          const aliasIndex = ocrTextLower.indexOf(foundAlias);
+          const textBeforeAlias = ocrTextLower.substring(0, aliasIndex);
+          const textAfterAlias = ocrTextLower.substring(aliasIndex + foundAlias.length);
+          
+          // Check if sender keywords appear before the user's name
+          const hasSenderBefore = senderKeywords.some(k => textBeforeAlias.includes(k));
+          
+          // Check if "to" or receiver keywords appear after the user's name
+          const hasReceiverAfter = receiverKeywords.some(k => textAfterAlias.includes(k));
+          
+          // If user name appears with sender keyword OR before "to/receiver" = user is sender (expense)
+          if (hasSenderBefore || hasReceiverAfter) {
+            console.log(`[OCR] User is sender → expense`);
+            data.type = "expense";
+          } 
+          // If receiver keyword before user name = user is receiver (income)
+          else if (receiverKeywords.some(k => textBeforeAlias.includes(k))) {
+            console.log(`[OCR] User is receiver → income`);
+            data.type = "income";
+          }
+          // Default: if we see "transfer to" anywhere, it's likely an expense
+          else if (ocrTextLower.includes("transfer to") || ocrTextLower.includes("โอนให้")) {
+            console.log(`[OCR] Contains 'transfer to' → expense`);
+            data.type = "expense";
+          }
+        }
+      }
+
+      if (requestSource === "ocr" && data.action !== "ADD_TRANSACTION") {
+        if (hasValidAmount) {
+          data.action = "ADD_TRANSACTION";
+          data.amount = normalizedAmount;
+          data.type = data.type || "expense";
+          data.category = data.category || (lang === 'th' ? "อื่นๆ" : "Other");
+          data.description = data.description || (lang === 'th' ? "สแกนใบเสร็จ" : "Receipt scan");
+        } else {
+          setAiMessage(lang === 'th'
+            ? "สแกนสำเร็จแต่ไม่พบยอดชัดเจน กรุณาลองใหม่อีกครั้งค่ะ"
+            : "Scan completed but I couldn't find a clear total. Please try again.");
+          return;
+        }
+      }
+
       // Safety Interceptor: If input is clearly a question, override any transaction action
       const voiceTextLower = text.toLowerCase();
-      const isQuestion = ["ได้ไหม", "พอไหม", "หรือเปล่า", "เหรอ", "ไหม", "มั้ย", "?", "ได้บ้าง", "กี่บาท", "เท่าไหร่", "ยังไง"].some(q => voiceTextLower.includes(q));
+      const questionPatterns = [
+        "ได้ไหม", "พอไหม", "หรือเปล่า", "เหรอ", "ไหม", "มั้ย", "?", 
+        "ได้บ้าง", "กี่บาท", "เท่าไหร่", "ยังไง", "อะไร",
+        "ควรจะ", "น่าจะ", "แนะนำ", "ช่วย", "วางแผน"
+      ];
+      const isQuestion = questionPatterns.some(q => voiceTextLower.includes(q));
       
-      if (isQuestion && data.action !== "PLANNING") {
+      if (requestSource !== "ocr" && isQuestion && data.action !== "PLANNING" && data.action !== "SHOW_SUMMARY" && data.action !== "SHOW_DEBTS") {
         console.log("Forcing PLANNING action for question:", text);
         data.action = "PLANNING";
         data.thought = lang === 'th' 
@@ -877,23 +1520,40 @@ function HomeContent() {
       
       console.log("AI Action:", data);
 
-      // Step 2: Show Detailed Analysis ("Thinking first")
+      // Step 2: Internal analysis only (do not show thought to user)
       if (data.thought) {
-        setAiMessage(lang === 'th' ? `🧠 กำลังวิเคราะห์: ${data.thought}` : `🧠 Analyzing: ${data.thought}`);
-        const readingTime = Math.max(3500, data.thought.length * 60); // Sufficient time to read
-        await new Promise(r => setTimeout(r, readingTime));
+        console.log("AI Thought:", data.thought);
       }
 
       if (data.action === "ADD_TRANSACTION") {
          const { amount, type, category, description, wallet, bank, icon } = data;
-         addTransaction(amount, type, description, category, wallet || activeWallet, bank, icon);
-         setAiMessage(data.message || (lang === 'th' ? `บันทึกแล้ว: ${description} ${amount}฿` : `Saved: ${description} ${amount}฿`));
+         const finalAmount = Number.isFinite(normalizedAmount) ? normalizedAmount : amount;
+         if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
+           setAiMessage(lang === 'th'
+             ? "ไม่พบยอดที่ชัดเจนจากข้อมูลนี้ กรุณาลองใหม่อีกครั้งค่ะ"
+             : "I couldn't find a clear amount from this. Please try again.");
+           return;
+         }
+         // Use AI's detected wallet, fall back to user's primary if not specified
+         const finalWallet = wallet || activeWallet;
+         // Mark as tutorial if onboarding not completed (use refs to avoid stale closure)
+         const isTutorialMode = !onboardingTasksRef.current.completed && showOnboardingRef.current;
+         addTransaction(finalAmount, type || "expense", description, category, finalWallet, bank, icon, requestSource === "ocr", imageUrl, isTutorialMode);
+         const walletLabel = finalWallet === 'cash' ? (lang === 'th' ? 'เงินสด' : 'Cash') : (lang === 'th' ? 'ธนาคาร' : 'Bank');
+         setAiMessage(data.message || (lang === 'th' ? `✅ บันทึกแล้ว: ${description} ฿${finalAmount} (${walletLabel})` : `✅ Saved: ${description} ฿${finalAmount} (${walletLabel})`));
+         
+         // Complete onboarding task based on source
+         if (requestSource === "ocr") {
+           completeOnboardingTask('scan');
+         } else {
+           completeOnboardingTask('voice');
+         }
       } 
       
       else if (data.action === "TRANSFER") {
          const { amount, from_bank, to_bank, icon } = data;
          const bankPath = from_bank && to_bank ? `${from_bank} ➔ ${to_bank}` : (from_bank || to_bank);
-         addTransaction(amount, "expense", lang === 'th' ? "โอนเงิน" : "Transfer", "เงินโอน", "bank", bankPath, icon || "ArrowRightLeft");
+         addTransaction(amount, "expense", lang === 'th' ? "โอนเงิน" : "Transfer", "เงินโอน", "bank", bankPath, icon || "ArrowRightLeft", false, imageUrl);
          setAiMessage(data.message || (lang === 'th' ? `บันทึกรายการโอน ฿${amount} (${bankPath}) แล้วค่ะ` : `Recorded transfer of ฿${amount} (${bankPath})`));
       }
       
@@ -994,495 +1654,568 @@ function HomeContent() {
 
   const processVoiceCommand = (text) => {
     if (!text || !text.trim()) return;
+    // Show processing state
+    setIsProcessing(true);
     
-    // Stop mic immediately once we have a final command
-    isVoiceActiveRef.current = false;
-    if (recognitionRef.current) recognitionRef.current.stop();
-    
-    // Immediate feedback: clear transcripts
-    setTranscript("");
-    setInterimTranscript("");
-
-    const voiceTextLower = text.toLowerCase();
-
-    // AI AGENT MODE
-    if (useSmartAI) {
-      processAICommand(text);
-      return;
-    }
-
-    
-    // Strengthen Duplicate prevention for Mobile:
-    // 1. Ignore if same as last text within 3 seconds
-    // 2. Ignore if new text is a substring of last processed text within 2.5 seconds
-    const nowTime = Date.now();
-    const timeDiff = nowTime - lastProcessedRef.current.time;
-    const lastText = lastProcessedRef.current.text;
-    
-    if (text === lastText && timeDiff < 3000) {
-      console.log("Ignoring exact duplicate:", text);
-      return;
-    }
-    
-    if (lastText.includes(text) && text.length > 2 && timeDiff < 2500) {
-      console.log("Ignoring cached / partial duplicate:", text);
-      return;
-    }
-
-    lastProcessedRef.current = { text, time: nowTime };
-
-    // 1. Check for Summary Commands (Today, Week, Month) - No amount needed
-    const summaryKeywords = ["สรุป", "รายงาน", "summary", "report", "total", "รวมทั้งหมด", "ใช้ไปเท่าไหร่"];
-    const isSummaryRequest = summaryKeywords.some(kw => voiceTextLower.includes(kw));
-
-    if (isSummaryRequest) {
-      const now = new Date();
-      let startDate = new Date();
-      let periodLabel = lang === 'th' ? "วันนี้" : "Today";
-
-      if (voiceTextLower.includes("อาทิตย์") || voiceTextLower.includes("สัปดาห์") || voiceTextLower.includes("week")) {
-        startDate.setDate(now.getDate() - 7);
-        periodLabel = lang === 'th' ? "7 วันที่ผ่านมา" : "Last 7 days";
-      } else if (voiceTextLower.includes("เดือน") || voiceTextLower.includes("month")) {
-        startDate.setMonth(now.getMonth() - 1);
-        periodLabel = lang === 'th' ? "เดือนนี้" : "This month";
-      } else if (voiceTextLower.includes("ปี") || voiceTextLower.includes("year")) {
-        startDate.setFullYear(now.getFullYear() - 1);
-        periodLabel = lang === 'th' ? "ปีนี้" : "This year";
-      } else {
-        startDate.setHours(0, 0, 0, 0);
+    // Add a small delay to show processing UI
+    setTimeout(() => {
+      // Detect language from spoken text
+      const detectedLang = detectLangFromText(text);
+      setAiLang(detectedLang);
+      // Dynamically update recognition language for next utterance
+      if (recognitionRef.current) {
+        recognitionRef.current.lang = detectedLang === 'th' ? "th-TH" : "en-US";
+      }
+      // Stop mic immediately once we have a final command
+      isVoiceActiveRef.current = false;
+      if (recognitionRef.current) recognitionRef.current.stop();
+      // Immediate feedback: clear transcripts
+      setTranscript("");
+      setInterimTranscript("");
+      const voiceTextLower = text.toLowerCase();
+      const isNormalMode = !useSmartAI; // Flag for normal mode
+      
+      // AI AGENT MODE
+      if (useSmartAI) {
+        processAICommand(text, detectedLang);
+        setIsProcessing(false);
+        return;
+      }
+      
+      // =====================================================
+      // NORMAL MODE - Enhanced Processing Without AI
+      // =====================================================
+      
+      // Clear any AI message first
+      setAiMessage("");
+      
+      // Strengthen Duplicate prevention for Mobile:
+      const nowTime = Date.now();
+      const timeDiff = nowTime - lastProcessedRef.current.time;
+      const lastText = lastProcessedRef.current.text;
+      
+      if (text === lastText && timeDiff < 3000) {
+        console.log("Ignoring exact duplicate:", text);
+        setIsProcessing(false);
+        return;
+      }
+      
+      if (lastText.includes(text) && text.length > 2 && timeDiff < 2500) {
+        console.log("Ignoring cached / partial duplicate:", text);
+        setIsProcessing(false);
+        return;
       }
 
-      const filtered = transactions.filter(t => new Date(t.date) >= startDate);
-      const income = filtered.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-      const expense = filtered.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-      const net = income - expense;
-
-      setAiMessage(t.voice_summary(periodLabel, income.toLocaleString(), expense.toLocaleString(), net.toLocaleString()));
-      return;
-    }
-
-    // 2. Check for Balance Inquiry Commands - No amount needed
-    const inquiryKeywords = ["เงินเหลือเท่าไหร่", "มีเงินเท่าไหร่", "ยอดเงิน", "เช็คยอด", "balance info", "how much money", "my balance", "how much i have"];
-    const isInquiry = inquiryKeywords.some(kw => voiceTextLower.includes(kw));
-
-    if (isInquiry) {
-      setAiMessage(t.voice_balance((balance.bank || 0).toLocaleString(), (balance.cash || 0).toLocaleString(), ((balance.bank || 0) + (balance.cash || 0)).toLocaleString()));
-      return;
-    }
-
-    // 3. Identify Amount (Robust Thai support)
-    const amount = parseThaiNumber(text);
-
-    // 4. Global Question Check for Manual Mode
-    const isQuestion = ["ได้ไหม", "พอไหม", "หรือเปล่า", "เหรอ", "ไหม", "มั้ย", "?", "can i", "is it enough", "possible"].some(q => voiceTextLower.includes(q));
-    
-    if (isQuestion) {
-      setAiMessage(lang === 'th' 
-        ? "นี่เป็นคำถามใช่ไหมคะ? รบกวนเปิดโหมด 'AI อัจฉริยะ' (Smart AI) เพื่อให้เรมี่ช่วยตอบหรือวางแผนให้นะคะ ✨" 
-        : "Is this a question? Please turn on 'Smart AI Agent' mode so I can help you plan or answer! ✨");
-      return;
-    }
-
-    if (amount === 0) {
-      setAiMessage(lang === 'th' ? `เรมี่ไม่เห็นจำนวนเงินในประโยค "${text}" เลยค่ะ 😅` : `I couldn't find an amount in "${text}" 😅`);
-      return;
-    }
-    
-    // Pattern to clean up description by removing amount-related parts
-    let cleanedText = text;
-    // Remove digits and common Thai units
-    cleanedText = cleanedText.replace(/\d+[\d,.]*/g, "");
-    ["ล้าน", "แสน", "หมื่น", "พัน", "ร้อย", "สิบ", "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า", "บาท", "baht"].forEach(w => {
-       cleanedText = cleanedText.replace(new RegExp(w, 'g'), "");
-    });
-    cleanedText = cleanedText.trim();
-    
-    // 4. Detect Target Wallet from Context
-    let wallet = activeWallet;
-    if (voiceTextLower.includes("เงินสด") || voiceTextLower.includes("ถอน") || voiceTextLower.includes("cash")) wallet = "cash";
-    if (voiceTextLower.includes("ธนาคาร") || voiceTextLower.includes("โอน") || voiceTextLower.includes("bank") || voiceTextLower.includes("card")) wallet = "bank";
-
-    // 1.5.1 Check for Transfers (Between bank and cash)
-    const isWithdraw = voiceTextLower.includes("ถอน") || voiceTextLower.includes("atm") || voiceTextLower.includes("withdraw");
-    const isDeposit = voiceTextLower.includes("ฝากเงิน") || voiceTextLower.includes("deposit");
-
-    if (isWithdraw) {
-      const newBank = balance.bank - amount;
-      const newCash = balance.cash + amount;
-      setBalance({ bank: newBank, cash: newCash });
+      lastProcessedRef.current = { text, time: nowTime };
       
-      // Sync to DB
-      fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ balance: { bank: newBank, cash: newCash } })
-      });
-
-      setAiMessage(t.voice_withdraw(amount.toLocaleString()));
-      return;
-    }
-
-    // 1.5.2 Check for Borrow/Lend
-    const borrowKeywords = ["ยืมเงิน", "ยืม", "borrow"];
-    const lendKeywords = ["ให้ยืม", "ปล่อยกู้", "lend"];
-    const isBorrow = borrowKeywords.some(kw => voiceTextLower.includes(kw));
-    const isLend = lendKeywords.some(kw => voiceTextLower.includes(kw));
-
-    if (isBorrow || isLend) {
-      const debtType = isBorrow ? "borrow" : "lend";
-      let person = lang === 'th' ? "คนอื่น" : "Others";
+      // ============ NORMAL MODE COMMAND DETECTION ============
       
-      // Try to extract person name: "ยืมเงินพี่ 500" -> "พี่"
-      const nameMatch = text.match(/(?:ยืมเงิน|ยืม|ให้ยืม)\s*([^\d\s]+)/);
-      if (nameMatch && nameMatch[1]) {
-        person = nameMatch[1].replace(/บาท|baht/g, "").trim();
+      // 1. Check for Summary Commands (works in normal mode too)
+      const summaryKeywords = ["สรุป", "รายงาน", "summary", "report", "total", "รวมทั้งหมด", "ใช้ไปเท่าไหร่", "ใช้ไปเท่าไร่"];
+      const isSummaryRequest = summaryKeywords.some(kw => voiceTextLower.includes(kw));
+
+      if (isSummaryRequest) {
+        const now = new Date();
+        let startDate = new Date();
+        let periodLabel = lang === 'th' ? "วันนี้" : "Today";
+
+        if (voiceTextLower.includes("อาทิตย์") || voiceTextLower.includes("สัปดาห์") || voiceTextLower.includes("week")) {
+          startDate.setDate(now.getDate() - 7);
+          periodLabel = lang === 'th' ? "7 วันที่ผ่านมา" : "Last 7 days";
+        } else if (voiceTextLower.includes("เดือน") || voiceTextLower.includes("month")) {
+          startDate.setMonth(now.getMonth() - 1);
+          periodLabel = lang === 'th' ? "เดือนนี้" : "This month";
+        } else if (voiceTextLower.includes("ปี") || voiceTextLower.includes("year")) {
+          startDate.setFullYear(now.getFullYear() - 1);
+          periodLabel = lang === 'th' ? "ปีนี้" : "This year";
+        } else {
+          startDate.setHours(0, 0, 0, 0);
+        }
+      
+        const filtered = transactions.filter(t => new Date(t.date) >= startDate);
+        const income = filtered.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+        const expense = filtered.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+        const net = income - expense;
+        const totalBalance = (balance.bank || 0) + (balance.cash || 0);
+
+        const summaryMsg = lang === 'th' 
+          ? `📊 สรุป${periodLabel}:\n💰 รายรับ ฿${income.toLocaleString()}\n💸 รายจ่าย ฿${expense.toLocaleString()}\n📈 สุทธิ ฿${net.toLocaleString()}\n\n💳 คงเหลือ:\n🏦 ธนาคาร ฿${(balance.bank || 0).toLocaleString()}\n💵 เงินสด ฿${(balance.cash || 0).toLocaleString()}\n📊 รวม ฿${totalBalance.toLocaleString()}`
+          : `📊 ${periodLabel} Summary:\n💰 Income ฿${income.toLocaleString()}\n💸 Expense ฿${expense.toLocaleString()}\n📈 Net ฿${net.toLocaleString()}\n\n💳 Balance:\n🏦 Bank ฿${(balance.bank || 0).toLocaleString()}\n💵 Cash ฿${(balance.cash || 0).toLocaleString()}\n📊 Total ฿${totalBalance.toLocaleString()}`;
+
+        setAiMessage(summaryMsg);
+        setShowSummary(true);
+        setIsProcessing(false);
+        return;
       }
 
-      // Add to Debts API
-      fetch('/api/debts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, person, type: debtType, note: text })
-      }).then(res => res.json()).then(newDebt => {
-        setDebts(prev => [newDebt, ...prev]);
-        
-        // Add as Transaction
-        const txnType = debtType === "borrow" ? "income" : "expense";
-        const txnDesc = debtType === "borrow" 
-          ? (lang === 'th' ? `ยืมจาก ${person}` : `Borrowed from ${person}`)
-          : (lang === 'th' ? `ให้ ${person} ยืม` : `Lent to ${person}`);
-        
-        addTransaction(amount, txnType, txnDesc, "การเงิน", wallet, null, "ArrowRightLeft");
+      // 2. Check for Balance Inquiry Commands
+      const inquiryKeywords = ["เงินเหลือเท่าไหร่", "มีเงินเท่าไหร่", "ยอดเงิน", "เช็คยอด", "balance", "how much money", "my balance", "เหลือเท่าไหร่"];
+      const isInquiry = inquiryKeywords.some(kw => voiceTextLower.includes(kw));
+
+      if (isInquiry) {
+        const bankStr = (balance.bank || 0).toLocaleString();
+        const cashStr = (balance.cash || 0).toLocaleString();
+        const totalStr = ((balance.bank || 0) + (balance.cash || 0)).toLocaleString();
         
         setAiMessage(lang === 'th' 
-          ? `บันทึกรายการ${debtType === 'borrow' ? 'ยืม' : 'ให้ยืม'} ฿${amount} (${person}) แล้วค่ะ` 
-          : `Recorded ${debtType} of ฿${amount} (${person})`);
-        
-        setActiveTab("debts");
-      });
-      return;
-    }
-
-    if (isDeposit) {
-      const newBank = balance.bank + amount;
-      const newCash = balance.cash - amount;
-      setBalance({ bank: newBank, cash: newCash });
-      
-      // Sync to DB
-      fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ balance: { bank: newBank, cash: newCash } })
-      });
-
-      setAiMessage(t.voice_deposit(amount.toLocaleString()));
-      return;
-    }
-
-    // 1.6 Check for Balance Adjustment Commands (Set real money)
-    const adjustKeywords = [
-      "ปรับเงิน", "แก้เงิน", "แก้เป็น", "ปรับยอด", "เปลี่ยนเงิน", 
-      "set balance", "update balance", "now have", "balance is", 
-      "มีเงินอยู่", "มีเงิน", "มีอยู่", "ตอนนี้มี", "currently have", "i have", "is now"
-    ];
-    const isAdjustment = adjustKeywords.some(kw => voiceTextLower.includes(kw));
-
-    if (isAdjustment && !isQuestion) {
-      console.log("=== VOICE COMMAND DEBUG ===");
-      console.log("Raw text:", text);
-      console.log("Lower text:", voiceTextLower);
-      
-      // Check for multi-wallet balance setting (e.g., "มีเงินในธนาคารห้าพันบาท และ เงินสดสองพันบาท")
-      // This handles sentences that contain BOTH bank and cash amounts
-      const hasBankMention = voiceTextLower.includes("ธนาคาร") || voiceTextLower.includes("bank");
-      const hasCashMention = voiceTextLower.includes("เงินสด") || voiceTextLower.includes("cash");
-      
-      if (hasBankMention && hasCashMention) {
-        // Multi-wallet balance adjustment
-        let bankAmount = 0;
-        let cashAmount = 0;
-        
-        // Helper function to parse Thai amount text
-        const parseThaiAmount = (segment) => parseThaiNumber(segment);
-        
-        // Split by common connectors and find amounts for each wallet
-        const segments = text.split(/และ|และก็|กับ|,|and/i);
-        
-        for (const seg of segments) {
-          const segLower = seg.toLowerCase();
-          if ((segLower.includes("ธนาคาร") || segLower.includes("bank")) && bankAmount === 0) {
-            bankAmount = parseThaiAmount(seg);
-            console.log("Bank segment:", seg, "-> Amount:", bankAmount);
-          }
-          if ((segLower.includes("เงินสด") || segLower.includes("cash")) && cashAmount === 0) {
-            cashAmount = parseThaiAmount(seg);
-            console.log("Cash segment:", seg, "-> Amount:", cashAmount);
-          }
-        }
-        
-        // If segment splitting didn't work, try extracting amounts from full text
-        // and assign based on position relative to wallet keywords
-        if (bankAmount === 0 || cashAmount === 0) {
-          console.log("Fallback parsing for text:", text);
-          
-          // Find all Thai number amounts in the text
-          const findAllAmounts = (str) => {
-            const amounts = [];
-            const thaiDigits = {
-              "หนึ่ง": 1, "เอ็ด": 1, "สอง": 2, "ยี่": 2, "สาม": 3,
-              "สี่": 4, "ห้า": 5, "หก": 6, "เจ็ด": 7, "แปด": 8, "เก้า": 9
-            };
-            const thaiMults = { "ล้าน": 1000000, "แสน": 100000, "หมื่น": 10000, "พัน": 1000, "ร้อย": 100 };
-            
-            // Look for patterns like "ห้าพัน", "เจ็ดพัน", etc.
-            for (const [multWord, multValue] of Object.entries(thaiMults)) {
-              let searchFrom = 0;
-              while (true) {
-                const multIdx = str.indexOf(multWord, searchFrom);
-                if (multIdx === -1) break;
-                
-                // Look backwards from the multiplier to find a digit word
-                const beforeMult = str.substring(Math.max(0, multIdx - 10), multIdx);
-                let digitValue = 1;
-                
-                for (const [digitWord, digitVal] of Object.entries(thaiDigits)) {
-                  if (beforeMult.includes(digitWord)) {
-                    digitValue = digitVal;
-                    break;
-                  }
-                }
-                
-                amounts.push({ index: multIdx, amount: digitValue * multValue });
-                searchFrom = multIdx + 1;
-              }
-            }
-            
-            // Also check for numeric values
-            const numRegex = /(\d+)/g;
-            let match;
-            while ((match = numRegex.exec(str)) !== null) {
-              const num = parseInt(match[1]);
-              if (num >= 100) { // Only consider significant amounts
-                amounts.push({ index: match.index, amount: num });
-              }
-            }
-            
-            return amounts.sort((a, b) => a.index - b.index);
-          };
-          
-          const allAmounts = findAllAmounts(text);
-          console.log("Found amounts:", allAmounts);
-          
-          // Find wallet keyword positions
-          const bankIdx = voiceTextLower.indexOf("ธนาคาร") !== -1 ? voiceTextLower.indexOf("ธนาคาร") : voiceTextLower.indexOf("bank");
-          const cashIdx = voiceTextLower.indexOf("เงินสด") !== -1 ? voiceTextLower.indexOf("เงินสด") : voiceTextLower.indexOf("cash");
-          
-          console.log("Wallet positions - bank:", bankIdx, "cash:", cashIdx);
-          
-          // Assign amounts to the nearest wallet keyword
-          for (const a of allAmounts) {
-            const distToBank = bankIdx !== -1 ? Math.abs(a.index - bankIdx) : Infinity;
-            const distToCash = cashIdx !== -1 ? Math.abs(a.index - cashIdx) : Infinity;
-            
-            if (distToBank < distToCash && bankAmount === 0) {
-              bankAmount = a.amount;
-            } else if (distToCash <= distToBank && cashAmount === 0) {
-              cashAmount = a.amount;
-            }
-          }
-        }
-        
-        // If we got both amounts, update both wallets
-        if (bankAmount > 0 || cashAmount > 0) {
-          const newBalance = { 
-            bank: bankAmount > 0 ? bankAmount : balance.bank, 
-            cash: cashAmount > 0 ? cashAmount : balance.cash 
-          };
-          setBalance(newBalance);
-          
-          // Sync to DB
-          fetch('/api/data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ balance: newBalance })
-          });
-
-          // Build feedback message
-          let msg = lang === 'th' ? "ปรับยอดเงินแล้ว: " : "Balance updated: ";
-          if (bankAmount > 0) msg += `${t.bank} ฿${bankAmount.toLocaleString()}`;
-          if (bankAmount > 0 && cashAmount > 0) msg += lang === 'th' ? " และ " : " & ";
-          if (cashAmount > 0) msg += `${t.cash} ฿${cashAmount.toLocaleString()}`;
-          
-          setAiMessage(msg);
-          return;
-        }
+          ? `💳 เงินคงเหลือของคุณ:\n🏦 ธนาคาร ฿${bankStr}\n💵 เงินสด ฿${cashStr}\n📊 รวมทั้งหมด ฿${totalStr}`
+          : `💳 Your Balance:\n🏦 Bank ฿${bankStr}\n💵 Cash ฿${cashStr}\n📊 Total ฿${totalStr}`
+        );
+        setIsProcessing(false);
+        return;
       }
       
-      // Single wallet adjustment (original logic)
-      const oldAmount = balance[wallet];
-      const newBalance = { ...balance, [wallet]: amount };
-      setBalance(newBalance);
+      // 3. Check for QUESTION patterns (should NOT record as transaction)
+      const questionPatterns = [
+        "ไหม", "มั้ย", "เหรอ", "หรือเปล่า", "ได้ไหม", "พอไหม", 
+        "เท่าไหร่", "กี่บาท", "ยังไง", "อะไร", "?", "ได้บ้าง",
+        "ควรจะ", "น่าจะ", "แนะนำ", "ช่วย", "วางแผน"
+      ];
+      const isQuestion = questionPatterns.some(kw => voiceTextLower.includes(kw));
       
-      // Sync to DB
-      fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ balance: newBalance })
-      });
+      if (isQuestion) {
+        setAiMessage(lang === 'th' 
+          ? `❓ ดูเหมือนคุณถามคำถาม - เปิดโหมด AI เพื่อรับคำแนะนำได้นะคะ\n\nหรือพูดคำสั่งตรงๆ เช่น "ซื้อข้าว 50"` 
+          : `❓ That looks like a question - enable AI mode for advice!\n\nOr say a direct command like "lunch 50"`
+        );
+        setIsProcessing(false);
+        return;
+      }
 
-      setAiMessage(t.voice_adjusted(oldAmount.toLocaleString(), amount.toLocaleString(), t[wallet]));
-      return;
-    }
-    
-    // 2. CHECK FOR MULTI-TRANSACTION (e.g., "ซื้อกาแฟ 50 และ ข้าว 80")
-    // Split by connectors and check if multiple segments have amounts
-    const connectorPattern = /\s*(?:และ|และก็|กับ|and)\s*|,\s*(?!\d)/gi;
-    const segments = text.split(connectorPattern).filter(s => s.trim());
-    
-    console.log("=== MULTI-TRANSACTION CHECK ===");
-    console.log("Segments:", segments);
-    
-    // Helper function to parse Thai numbers
-    // Helper function to parse Thai numbers
+      // 4. Parse Amount from text
+      const amount = parseThaiNumber(text);
 
-  const parseThaiNumberInContext = (str) => parseThaiNumber(str);
+      if (amount === 0) {
+        setAiMessage(lang === 'th' 
+          ? `ไม่เจอจำนวนเงินค่ะ ลองพูดใหม่ เช่น "ซื้อข้าว 50" หรือ "กินกาแฟ 80"` 
+          : `No amount found. Try: "lunch 50" or "coffee 80"`
+        );
+        setIsProcessing(false);
+        return;
+      }
 
-    
-    // Helper function to detect transaction type for a segment
-    const detectSegmentType = (segText) => {
-      const segLower = segText.toLowerCase();
-      const incomeKw = ["ได้", "เข้า", "รับ", "ขาย", "รายได้", "income", "receive", "got", "earn"];
-      const expenseKw = ["จ่าย", "ซื้อ", "ค่า", "กิน", "เติม", "buy", "pay", "spent", "purchase"];
+      // 5. Detect Payment Method (wallet) - Enhanced detection
+      let wallet = activeWallet; // Default to user's primary
       
-      const hasIncome = incomeKw.some(kw => segLower.includes(kw));
-      const hasExpense = expenseKw.some(kw => segLower.includes(kw));
-      
-      if (hasIncome && !hasExpense) return "income";
-      return "expense"; // Default
-    };
-    
-    // Helper function to detect category for a segment
-    const detectSegmentCategory = (segText) => detectCategory(segText);
-    
-    // Parse amounts for each segment
-    const parsedSegments = segments.map(seg => ({
-      text: seg.trim(),
-      amount: parseThaiNumberInContext(seg),
-      type: detectSegmentType(seg),
-      category: detectSegmentCategory(seg)
-    })).filter(s => s.amount > 0);
-    
-    console.log("Parsed segments:", parsedSegments);
-    
-    // If we have multiple segments with amounts, process as multi-transaction
-    if (parsedSegments.length > 1) {
-      console.log("Processing as MULTI-TRANSACTION");
-      
-      let totalAmount = 0;
-      const descriptions = [];
-      
-      for (const seg of parsedSegments) {
-        // Clean description
-        let desc = seg.text.replace(/\d+[\d,.]*/g, "").trim();
-        desc = desc.replace(/บาท|baht/gi, "").trim();
-        if (!desc) desc = seg.type === "income" ? "รายรับ" : "รายจ่าย";
-        
-        // Add transaction
-        addTransaction(seg.amount, seg.type, desc, seg.category, activeWallet);
-        
-        totalAmount += seg.amount;
-        descriptions.push(`${desc} ฿${seg.amount.toLocaleString()}`);
+      // Cash indicators
+      const cashKeywords = ["เงินสด", "สด", "จ่ายสด", "ด้วยเงินสด", "ใช้เงินสด", "ถอน", "ถอนเงิน", "cash", "แบงค์"];
+      if (cashKeywords.some(kw => voiceTextLower.includes(kw))) {
+        wallet = "cash";
       }
       
-      // Show confirmation message
-      const msg = lang === 'th' 
-        ? `บันทึก ${parsedSegments.length} รายการ: ${descriptions.join(", ")}`
-        : `Recorded ${parsedSegments.length} items: ${descriptions.join(", ")}`;
+      // Bank/Transfer indicators
+      const bankKeywords = ["โอน", "จากการโอน", "ผ่านแอป", "สแกน", "สแกนจ่าย", "qr", "คิวอาร์", "ธนาคาร", "บัตร", "เดบิต", "เครดิต", "transfer", "bank", "card", "app"];
+      if (bankKeywords.some(kw => voiceTextLower.includes(kw))) {
+        wallet = "bank";
+      }
+
+      // 6. Detect Transaction Type (income vs expense)
+      const incomeKeywords = [
+        "ได้", "ได้เงิน", "รับ", "รับเงิน", "เงินเข้า", "โอนเข้า", "เงินเดือน", "โบนัส", "ขาย", "คืนเงิน", "ยืมมา",
+        "income", "receive", "salary", "bonus", "refund", "cashback", "got", "earned"
+      ];
+      const expenseKeywords = [
+        "ซื้อ", "จ่าย", "เสีย", "ใช้", "ค่า", "หมด", "ออก", "โอนออก", "โอนให้", "เติม", "ชำระ", "กิน", "ทาน",
+        "pay", "paid", "buy", "bought", "purchase", "spent", "expense", "bill", "fee", "ate", "drink"
+      ];
+
+      const hasIncomeKeyword = incomeKeywords.some(kw => voiceTextLower.includes(kw));
+      const hasExpenseKeyword = expenseKeywords.some(kw => voiceTextLower.includes(kw));
+
+      let type = "expense"; // Default to expense
+      if (hasIncomeKeyword && !hasExpenseKeyword) {
+        type = "income";
+      }
+
+      // 7. Detect Category
+      let category = detectCategory(text);
+
+      // 8. Extract Description - Clean up the text
+      let description = text;
       
-      setAiMessage(msg);
+      // Remove amount patterns
+      const amountPatterns = [
+        /\d+(\.\d+)?/g,
+        /[\d,]+/g
+      ];
+      amountPatterns.forEach(pattern => {
+        description = description.replace(pattern, "");
+      });
+      
+      // Remove common filler words
+      const filterWords = [
+        "บาท", "วันนี้", "เมื่อกี้", "เมื่อวาน", "baht", "today", "yesterday",
+        "เงินสด", "ด้วยเงินสด", "จ่ายสด", "โอน", "จากการโอน", "ผ่านแอป", "สแกน",
+        "ซื้อ", "จ่าย", "กิน", "ใช้", "ค่า", "ได้", "รับ",
+        "cash", "bank", "transfer", "pay", "paid", "buy", "bought"
+      ];
+      filterWords.forEach(word => {
+        description = description.replace(new RegExp(word, 'gi'), "");
+      });
+      
+      description = description.replace(/\s+/g, " ").trim();
+      
+      // If description is empty, use a default
+      if (!description || description.length < 2) {
+        description = type === "income" 
+          ? (lang === 'th' ? "รายรับ" : "Income") 
+          : (lang === 'th' ? "รายจ่าย" : "Expense");
+      }
+
+      // 9. Add the transaction (mark as tutorial if onboarding not completed)
+      const isTutorialMode = !onboardingTasksRef.current.completed && showOnboardingRef.current;
+      addTransaction(amount, type, description, category, wallet, null, null, false, null, isTutorialMode);
+      
+      // Complete voice onboarding task (normal mode)
+      completeOnboardingTask('voice');
+      
+      // 10. Show confirmation message
+      const walletLabel = wallet === 'cash' 
+        ? (lang === 'th' ? 'เงินสด' : 'Cash') 
+        : (lang === 'th' ? 'ธนาคาร' : 'Bank');
+      const typeLabel = type === 'income'
+        ? (lang === 'th' ? '💰 รายรับ' : '💰 Income')
+        : (lang === 'th' ? '💸 รายจ่าย' : '💸 Expense');
+        
+      setAiMessage(lang === 'th'
+        ? `✅ บันทึกแล้ว!\n${typeLabel}: ${description}\n💵 จำนวน: ฿${amount.toLocaleString()}\n💳 จาก: ${walletLabel}`
+        : `✅ Recorded!\n${typeLabel}: ${description}\n💵 Amount: ฿${amount.toLocaleString()}\n💳 From: ${walletLabel}`
+      );
+      
+      setIsProcessing(false);
+    }, 600); // 600ms delay for processing feedback
+  };
+
+  // Onboarding task completion handler
+  const completeOnboardingTask = (taskName) => {
+    if (!session?.user?.email) return;
+    
+    // Skip if tutorial already completed
+    if (onboardingTasksRef.current.completed || !showOnboardingRef.current) {
       return;
     }
     
-    // SINGLE TRANSACTION PROCESSING (original logic)
-    // Use the already parsed amount from earlier, or parse again
-    let singleAmount = amount; // Reuse the amount parsed earlier
+    // Hide tutorial overlay temporarily to show result
+    setTutorialStep(null);
+    setTutorialHighlight(null);
     
-    // If we don't have an amount yet (shouldn't happen, but safety check)
-    if (singleAmount === 0) {
-      singleAmount = parseThaiNumber(text);
-      if (singleAmount === 0) return;
-    }
+    // Show success message
+    const stepName = taskName === 'voice' 
+      ? (lang === 'th' ? '🎤 คำสั่งเสียง' : '🎤 Voice Command')
+      : taskName === 'scan'
+      ? (lang === 'th' ? '📸 สแกนใบเสร็จ' : '📸 Scan Receipt')
+      : (lang === 'th' ? '✍️ จดรายการเอง' : '✍️ Manual Entry');
     
-    // Wallet was already detected earlier, reuse it
-    // (wallet variable already exists from earlier in the function)
+    setAiMessage(lang === 'th' 
+      ? `✅ เยี่ยม! ${stepName} สำเร็จ!\n👇 ดูผลลัพธ์ในตารางด้านล่าง`
+      : `✅ Great! ${stepName} completed!\n👇 See the result below`
+    );
+    
+    // Delay highlight to allow state to update with new transaction
+    setTimeout(() => {
+      // Double check tutorial is still active before highlighting
+      if (!onboardingTasksRef.current.completed && showOnboardingRef.current) {
+        const latestTxn = transactionsRef.current[0];
+        if (latestTxn) {
+          setHighlightedTxnId(latestTxn._id || latestTxn.id);
+          
+          // Scroll to the highlighted transaction after a short delay
+          setTimeout(() => {
+            const txnElement = document.querySelector(`[data-txn-id="${latestTxn._id || latestTxn.id}"]`);
+            if (txnElement) {
+              txnElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 200);
+        }
+      }
+    }, 500);
+    
+    setOnboardingTasks(prev => {
+      const updated = { ...prev, [taskName]: true };
+      
+      // Check if all main tasks are done
+      const allDone = updated.voice && updated.scan && updated.manual;
+      
+      // Wait 3 seconds then advance or show congrats
+      setTimeout(() => {
+        setHighlightedTxnId(null); // Clear highlight
+        setAiMessage(""); // Remove success popup before next step
+        
+        if (allDone) {
+          setOnboardingTasks(u => ({ ...u, completed: true }));
+          setShowOnboarding(false);
+          setAiMessage("");
+          setShowCongrats(true);
+        } else {
+          // Move to next step
+          advanceToNextTutorialStep(updated);
+        }
+      }, 3000);
+      
+      // Save to localStorage
+      const onboardingTasksKey = `onboardingTasks_${session.user.email}`;
+      localStorage.setItem(onboardingTasksKey, JSON.stringify(updated));
+      
+      return updated;
+    });
+  };
 
-    // 5. Identify Transaction Type (Income vs Expense)
-    const incomeKeywords = [
-      "ได้", "เข้า", "บวก", "ขาย", "รายได้", "รับ", "โอนเข้า", "มาให้", "ให้มา", "ตกมา", "หยิบมา", "เจอ", "พบ", "เก็บได้",
-      "เงินเดือน", "เบิก", "ค่าจ้าง", "ค่าแรง", "โอที", "เบี้ยเลี้ยง", "คอมมิชชั่น", "ค่าคอม", "โบนัส", "เงินรางวัล",
-      "ถูกหวย", "ถูกรางวัล", "รางวัล", "อั่งเปา", "ของขวัญ", "เงินช่วย", "เงินอุดหนุน", "ทุน", "เงินทุน",
-      "กำไร", "ปันผล", "ดอกเบี้ย", "ผลตอบแทน", "เงินปันผล", "ขายหุ้น", "ขายกองทุน",
-      "กู้", "ยืมมา", "คืน", "ได้คืน", "เงินคืน", "รับคืน", "โอนคืน", "ทอน", "เงินทอน",
-      "โอนมา", "ส่งมา", "ฝากมา", "เหลือ", "ประหยัด", "ลดราคา", "ส่วนลด",
-      "get", "got", "received", "receive", "income", "plus", "add", "deposit", "credited",
-      "salary", "wage", "bonus", "commission", "overtime", "allowance", "paycheck", "payroll",
-      "win", "won", "prize", "reward", "gift", "lottery", "jackpot", "lucky",
-      "profit", "dividend", "interest", "return", "yield", "gain", "capital gain",
-      "borrow", "borrowed", "refund", "cashback", "rebate", "reimbursement", "returned",
-      "earn", "earned", "collect", "save", "saved", "discount"
-    ];
-    const expenseKeywords = [
-      "จ่าย", "ซื้อ", "เสีย", "ลบ", "ออก", "ค่า", "หมด", "ไป", "โอนออก", "โอนไป", "ส่งไป",
-      "ชำระ", "จ่ายค่า", "จ่ายเงิน", "จ่ายบิล", "เสียค่า", "เสียเงิน", "หักเงิน",
-      "ช้อป", "ช้อปปิ้ง", "สั่งซื้อ", "กดซื้อ", "เหมา", "ตุน",
-      "เติม", "เติมเงิน", "เติมน้ำมัน", "เติมเครดิต", "ท็อปอัพ",
-      "หาย", "สูญ", "เสียหาย", "โดนโกง", "โดนขโมย",
-      "ทำบุญ", "บริจาค", "ใส่บาตร", "ถวาย", "ให้ทาน",
-      "ผ่อน", "งวด", "หนี้", "ใช้หนี้", "คืนเงิน", "ชำระหนี้", "ติดหนี้",
-      "ภาษี", "ปรับ", "ค่าปรับ", "โดนปรับ", "เสียภาษี",
-      "ค่าน้ำ", "ค่าไฟ", "ค่าเน็ต", "ค่าโทร", "ค่าเช่า", "ค่าประกัน", "ค่าบริการ",
-      "pay", "paid", "buy", "bought", "purchase", "spent", "spend", "loss", "minus", "out", "cost",
-      "bill", "fee", "charge", "debit", "debited", "checkout", "invoice",
-      "shop", "shopping", "order", "ordered",
-      "topup", "top up", "reload", "recharge",
-      "lost", "lose", "stolen", "scam", "scammed",
-      "donate", "donated", "donation", "charity", "tip", "tipped",
-      "loan", "installment", "debt", "repay", "repayment", "mortgage",
-      "tax", "fine", "penalty", "surcharge",
-      "subscription", "subscribe", "membership", "premium", "renewal",
-      "expense", "withdrawal", "transfer"
-    ];
-    
-    const isIncome = incomeKeywords.some((kw) => voiceTextLower.includes(kw));
-    const isExpense = expenseKeywords.some((kw) => voiceTextLower.includes(kw));
+  const handleCongratsConfirm = () => {
+    if (!session?.user?.email) return;
 
-    let type = "expense"; // Default to expense
-    if (isIncome && !isExpense) type = "income";
-    // 6. Identify Category (Smart unified detection)
-    let category = detectCategory(text);
+    const onboardingTasksKey = `onboardingTasks_${session.user.email}`;
+    const tutorialCompletedKey = `tutorialCompleted_${session.user.email}`;
+    localStorage.removeItem(onboardingTasksKey);
+    localStorage.setItem(tutorialCompletedKey, 'true');
 
-    // 7. Construct Description (Clean up the text)
-    const originalNumberMatch = text.match(/[\d,.]+/);
-    let description = text;
-    if (originalNumberMatch) {
-      description = description.replace(originalNumberMatch[0], "");
-    }
+    // Clear only tutorial demo transactions (not real ones)
+    const tutorialTxns = transactionsRef.current.filter(t => t.isTutorial);
+    const realTxns = transactionsRef.current.filter(t => !t.isTutorial);
     
-    // Remove common filter words
-    const filterWords = ["บาท", "วันนี้", "เมื่อกี้", "เมื่อวาน", "baht", "today", "yesterday", "this"];
-    filterWords.forEach(word => {
-      description = description.replace(word, "");
+    // Restore balance by reversing tutorial transactions
+    let balanceAdjust = { bank: 0, cash: 0 };
+    tutorialTxns.forEach(txn => {
+      if (txn.type === 'income') {
+        balanceAdjust[txn.wallet] -= txn.amount;
+      } else {
+        balanceAdjust[txn.wallet] += txn.amount;
+      }
     });
     
-    description = description.trim();
-    if (!description) description = type === "income" ? "รายรับ" : "รายจ่าย";
+    setBalance(prev => ({
+      bank: prev.bank + balanceAdjust.bank,
+      cash: prev.cash + balanceAdjust.cash
+    }));
+    
+    setTransactions(realTxns);
 
-    addTransaction(singleAmount, type, description, category, wallet);
-    setAiMessage(t.voice_recorded(type, description, singleAmount.toLocaleString(), t[wallet]));
-  }
+    setOnboardingTasks({ voice: true, scan: true, manual: true, completed: true });
+    setShowCongrats(false);
+    setShowOnboarding(false);
+    setTutorialStep(null);
+    setTutorialHighlight(null);
+    setAiMessage(lang === 'th' ? t.ai_greeting : t.ai_greeting);
+    setInterimTranscript("");
+    setManualAmount("");
+    setManualDesc("");
+    setShowManualEntry(false);
+    setEditingTransaction(null);
 
-  const addTransaction = async (amount, type, description, category = "อื่นๆ", wallet = "bank", bank = null, icon = null, isScanned = false) => {
+    // Force balance setup after tutorial reset
+    setBalance({ bank: 0, cash: 0 });
+    openBalanceSetup();
+  };
+
+  const openBalanceSetup = () => {
+    setBalanceBankInput("0");
+    setBalanceCashInput("0");
+    setBudgetDailyInput((budget ?? 0).toString());
+    setBudgetMonthlyInput((monthlyBudget ?? 0).toString());
+    setShowBalanceSetup(true);
+  };
+
+  const handleBalanceSetupSave = async () => {
+    if (isSavingBalance) return;
+    const bank = Math.max(0, parseFloat(balanceBankInput || "0"));
+    const cash = Math.max(0, parseFloat(balanceCashInput || "0"));
+    const daily = Math.max(0, parseFloat(budgetDailyInput || "0"));
+    const monthly = Math.max(0, parseFloat(budgetMonthlyInput || "0"));
+
+    setIsSavingBalance(true);
+    try {
+      const newBal = { bank, cash };
+      setBalance(newBal);
+      setBudget(daily);
+      setMonthlyBudget(monthly);
+      setTransactions([]);
+      setDebts([]);
+
+      await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clearAll: true,
+          balance: newBal,
+          budget: daily,
+          monthlyBudget: monthly
+        })
+      });
+      setShowBalanceSetup(false);
+    } catch (error) {
+      console.warn("Failed to save balance", error);
+      setShowBalanceSetup(false);
+    } finally {
+      setIsSavingBalance(false);
+    }
+  };
+
+  // Advance to next tutorial step with spotlight
+  const advanceToNextTutorialStep = (tasks = onboardingTasks) => {
+    if (tasks.completed) {
+      setTutorialStep(null);
+      setTutorialHighlight(null);
+      return;
+    }
+    
+    // Determine next step
+    let nextStep = null;
+    let buttonRef = null;
+    
+    if (!tasks.voice) {
+      nextStep = 'voice';
+      buttonRef = micButtonRef;
+    } else if (!tasks.scan) {
+      nextStep = 'scan';
+      buttonRef = cameraButtonRef;
+    } else if (!tasks.manual) {
+      nextStep = 'manual';
+      buttonRef = manualButtonRef;
+    }
+    
+    if (nextStep && buttonRef?.current) {
+      // Scroll to button smoothly
+      buttonRef.current.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center',
+        inline: 'center'
+      });
+      
+      // Set step and highlight after scroll settles
+      setTimeout(() => {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setTutorialStep(nextStep);
+        setTutorialHighlight({
+          top: rect.top,
+          left: rect.left,
+          width: rect.width,
+          height: rect.height
+        });
+      }, 500);
+    } else {
+      setTutorialStep(nextStep);
+    }
+  };
+
+  // Start tutorial with spotlight
+  const startTutorial = () => {
+    setShowOnboarding(true);
+    // Small delay to ensure refs are ready
+    setTimeout(() => {
+      advanceToNextTutorialStep();
+    }, 300);
+  };
+
+  // Resume install prompt and tutorial after language is selected
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!languageReady) return;
+
+    if (pendingInstallPrompt && deferredPrompt && !isAppInstalled) {
+      setShowInstallModal(true);
+      setPendingInstallPrompt(false);
+    }
+
+    if (pendingTutorialStart && session?.user?.email) {
+      const onboardingTasksKey = `onboardingTasks_${session.user.email}`;
+      const savedTasks = localStorage.getItem(onboardingTasksKey);
+      const tutorialCompletedKey = `tutorialCompleted_${session.user.email}`;
+      const hasCompletedTutorial = localStorage.getItem(tutorialCompletedKey) === 'true';
+
+      if (!hasCompletedTutorial) {
+        const parsed = savedTasks ? JSON.parse(savedTasks) : null;
+        const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+                           window.navigator.standalone === true;
+        if (isInstalled) {
+          if (parsed && !parsed.completed) {
+            setShowOnboarding(true);
+            advanceToNextTutorialStep(parsed);
+          } else if (!parsed) {
+            startTutorial();
+          }
+        }
+      }
+
+      setPendingTutorialStart(false);
+    }
+  }, [languageReady, pendingInstallPrompt, pendingTutorialStart, deferredPrompt, isAppInstalled, session]);
+
+  // Get tutorial content for current step
+  const getTutorialContent = () => {
+    if (tutorialStep === 'voice') return {
+      title: lang === 'th' ? "🎤 ขั้นตอนที่ 1: ลองพูดคำสั่ง" : "🎤 Step 1: Try Voice Command",
+      instruction: lang === 'th' 
+        ? "กดปุ่มไมค์แล้วพูดตามตัวอย่าง" 
+        : "Tap the mic button and speak the example below",
+      example: lang === 'th' ? 'ซื้อกาแฟ 50 บาท' : 'coffee 50 baht',
+      prompt: lang === 'th' 
+        ? 'ลองพูด: "ซื้อกาแฟ 50 บาท" หรือ "ส่งเงินให้ปิยะพันธ์ 2000 บาท"' 
+        : 'Try saying: "coffee 50 baht" or "transfer to john 1000 baht"',
+      buttonLabel: lang === 'th' ? "กดที่ปุ่มไมค์ ↓" : "Tap the mic button ↓"
+    };
+    if (tutorialStep === 'scan') return {
+      title: lang === 'th' ? "📸 ขั้นตอนที่ 2: สแกนใบเสร็จ" : "📸 Step 2: Scan Receipt",
+      instruction: lang === 'th' 
+        ? "กดปุ่มกล้องแล้วเลือกรูปสลิป/ใบเสร็จ" 
+        : "Tap the camera button and select a receipt image",
+      example: lang === 'th' ? "เลือกรูปสลิปโอนเงิน หรือ ใบเสร็จ" : "Select a transfer slip or receipt image",
+      prompt: lang === 'th'
+        ? 'AI จะอ่านข้อมูลจากรูปและบันทึกอัตโนมัติ'
+        : 'AI will read the image and record automatically',
+      buttonLabel: lang === 'th' ? "กดที่ปุ่มกล้อง ↓" : "Tap the camera button ↓"
+    };
+    if (tutorialStep === 'manual') return {
+      title: lang === 'th' ? "✍️ ขั้นตอนที่ 3: จดรายการเอง" : "✍️ Step 3: Manual Entry",
+      instruction: lang === 'th' 
+        ? "กดปุ่มด้านบนเพื่อเปิดฟอร์มจดรายการ" 
+        : "Tap the button above to open entry form",
+      example: lang === 'th' ? "กรอก: 100 บาท + กาแฟ" : "Enter: 100 baht + coffee",
+      prompt: lang === 'th'
+        ? '💡 กรอกจำนวนเงิน เลือกหมวดหมู่ แล้วกดบันทึก'
+        : '💡 Enter amount, select category, then save',
+      buttonLabel: lang === 'th' ? "กดที่ปุ่ม 'จดเอง' ↑" : "Tap 'Manual Entry' ↑"
+    };
+    return null;
+  };
+
+  // Get current uncompleted onboarding task (for panel view)
+  const getNextOnboardingTask = () => {
+    if (!onboardingTasks.voice) return {
+      id: 'voice',
+      title: lang === 'th' ? "🎤 ลองพูดคำสั่งแรก" : "🎤 Try Your First Voice Command",
+      description: lang === 'th' 
+        ? "กดปุ่มไมค์แล้วลองพูด:" 
+        : "Tap the mic button and say:",
+      example: lang === 'th' ? "ซื้อกาแฟ 50 บาท" : "coffee 50 baht",
+      hint: lang === 'th' 
+        ? "💡 พูดตามธรรมชาติได้เลย AI จะเข้าใจเอง" 
+        : "💡 Speak naturally, AI will understand"
+    };
+    if (!onboardingTasks.scan) return {
+      id: 'scan',
+      title: lang === 'th' ? "📸 ลองสแกนใบเสร็จ" : "📸 Try Scanning a Receipt",
+      description: lang === 'th' 
+        ? "กดปุ่มกล้องแล้วเลือกรูปสลิป/ใบเสร็จ" 
+        : "Tap the camera button and select a receipt image",
+      example: lang === 'th' ? "เลือกรูปสลิปโอนเงินหรือใบเสร็จ" : "Select a transfer slip or receipt",
+      hint: lang === 'th' 
+        ? "💡 AI จะอ่านข้อมูลจากรูปและบันทึกให้อัตโนมัติ" 
+        : "💡 AI will read the data and record automatically"
+    };
+    if (!onboardingTasks.manual) return {
+      id: 'manual',
+      title: lang === 'th' ? "✍️ ลองจดเอง" : "✍️ Try Manual Entry",
+      description: lang === 'th' 
+        ? "กดปุ่ม 'จดเอง' เพื่อบันทึกรายการด้วยตัวเอง" 
+        : "Tap 'Manual Entry' to record manually",
+      example: lang === 'th' ? "ใส่จำนวนเงินและรายละเอียด" : "Enter amount and description",
+      hint: lang === 'th' 
+        ? "💡 เหมาะสำหรับบันทึกรายการย้อนหลัง" 
+        : "💡 Great for backdated entries"
+    };
+    return null;
+  };
+
+  const addTransaction = async (amount, type, description, category = "อื่นๆ", wallet = "bank", bank = null, icon = null, isScanned = false, imageUrl = null, isTutorial = false) => {
     const data = {
       amount,
       type,
@@ -1492,7 +2225,9 @@ function HomeContent() {
       bank,
       icon,
       isScanned,
+      imageUrl,
       date: new Date().toISOString(),
+      isTutorial, // Mark as tutorial transaction
     };
 
     // Update UI Optimistically
@@ -1507,6 +2242,12 @@ function HomeContent() {
       }
       return updated;
     });
+
+    // Skip MongoDB save for tutorial transactions
+    if (isTutorial) {
+      console.log("📚 Tutorial transaction - not saving to DB");
+      return;
+    }
 
     // Save to MongoDB
     try {
@@ -1596,21 +2337,37 @@ function HomeContent() {
       updateReminder(editingReminder._id || editingReminder.id, {
         description: data.description,
         amount: data.amount,
-        wallet: data.wallet
+        wallet: data.wallet,
+        date: manualReminderDate ? new Date(manualReminderDate).toISOString() : editingReminder.date
       });
     } else {
-      addTransaction(data.amount, data.type, data.description, data.category, data.wallet);
+      // Mark as tutorial if onboarding not completed (use refs to avoid stale closure)
+      const isTutorialMode = !onboardingTasksRef.current.completed && showOnboardingRef.current;
+      addTransaction(data.amount, data.type, data.description, data.category, data.wallet, null, null, false, null, isTutorialMode);
+      // Complete manual entry onboarding task
+      completeOnboardingTask('manual');
     }
 
     setManualAmount("");
     setManualDesc("");
     setManualType("expense");
+    setManualReminderDate("");
     setEditingTransaction(null);
     setEditingReminder(null);
     setShowManualEntry(false);
   };
 
   const handleImageUpload = async (e) => {
+    if (!useSmartAI) {
+      setAiMessage(lang === 'th' ? 'กรุณาเปิดโหมด AI ก่อนใช้งานการสแกนค่ะ 🤖' : 'Please enable AI mode first to use scan 🤖');
+      // Navigate to AI toggle and blink
+      if (aiToggleRef.current) {
+        aiToggleRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setIsAIToggleBlink(true);
+        setTimeout(() => setIsAIToggleBlink(false), 3000);
+      }
+      return;
+    }
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
 
@@ -1621,20 +2378,54 @@ function HomeContent() {
       setBatchProgress(prev => ({ ...prev, current: i + 1 }));
       setScanProgress(0);
       
+      let progressTimer = null;
       try {
-        const result = await Tesseract.recognize(files[i], "tha+eng", {
-          logger: (m) => {
-            if (m.status === "recognizing text") {
-              setScanProgress(Math.round(m.progress * 100));
-            }
-          },
-        });
+        let text = "";
+        const imageUrl = await uploadImageToCloudinary(files[i]);
+        
+        if (ocrProvider === "google") {
+          // Simulate progress while waiting for Google Vision
+          setScanProgress(5);
+          let simulated = 5;
+          progressTimer = setInterval(() => {
+            simulated = Math.min(simulated + Math.floor(Math.random() * 7 + 3), 90);
+            setScanProgress(simulated);
+          }, 250);
 
-        const text = result.data.text;
+          // Use Google Cloud Vision API
+          const formData = new FormData();
+          formData.append('image', files[i]);
+          
+          const response = await fetch('/api/ocr/google-vision', {
+            method: 'POST',
+            body: formData
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            text = data.text || "";
+            setScanProgress(100);
+          } else {
+            throw new Error('Google Vision API failed');
+          }
+        } else {
+          // Use Tesseract.js
+          const result = await Tesseract.recognize(files[i], "tha+eng", {
+            logger: (m) => {
+              if (m.status === "recognizing text") {
+                setScanProgress(Math.round(m.progress * 100));
+              }
+            },
+          });
+          text = result.data.text;
+        }
+
         console.log(`OCR Result (File ${i + 1}):`, text);
-        processOcrText(text);
+        processOcrText(text, imageUrl);
       } catch (error) {
         console.error(`OCR Error (File ${i + 1}):`, error);
+      } finally {
+        if (progressTimer) clearInterval(progressTimer);
       }
     }
 
@@ -1642,12 +2433,20 @@ function HomeContent() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const processOcrText = (text) => {
+  const processOcrText = (text, imageUrl = null) => {
     // AI AGENT MODE FOR IMAGES
     if (useSmartAI) {
         // Clean up text slightly to save tokens but keep structure
         const compactText = text.replace(/\s+/g, " ").trim();
-        processAICommand(lang === 'th' ? `ช่วยดูข้อมูลจากสลิป/ใบเสร็จนี้หน่อย: ${compactText}` : `Scan this receipt/slip text: ${compactText}`);
+        // Force 70B model for scanning (best accuracy for OCR parsing)
+        processAICommand(
+          lang === 'th' ? `ช่วยดูข้อมูลจากสลิป/ใบเสร็จนี้หน่อย: ${compactText}` : `Scan this receipt/slip text: ${compactText}`,
+          null,
+          imageUrl,
+          "llama-3.3-70b-versatile",
+          "ocr",
+          text
+        );
         return;
     }
 
@@ -1819,7 +2618,7 @@ function HomeContent() {
         ? (lang === 'th' ? `สแกนจากสลิป ${detectedBank}` : `Scanned from ${detectedBank} slip`)
         : t.ocr_description;
 
-      addTransaction(finalAmount, type, finalDescription, category, wallet, detectedBank, null, true);
+      addTransaction(finalAmount, type, finalDescription, category, wallet, detectedBank, null, true, imageUrl);
     } else {
       setConfirmModal({
         show: true,
@@ -1830,31 +2629,58 @@ function HomeContent() {
   };
 
   const getAIInsight = (customTransactions = transactions) => {
-    const todayExpenses = customTransactions.filter(t => t.type === 'expense');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayTx = customTransactions.filter(t => new Date(t.date) >= today);
+    const todayExpenses = todayTx.filter(t => t.type === 'expense');
+    const todayIncome = todayTx.filter(t => t.type === 'income');
+
     const totalSpent = todayExpenses.reduce((acc, t) => acc + t.amount, 0);
-    const topCategory = Object.entries(todayExpenses.reduce((acc, t) => { acc[t.category] = (acc[t.category] || 0) + t.amount; return acc; }, {}))
-      .sort((a, b) => b[1] - a[1])[0];
+    const totalIncome = todayIncome.reduce((acc, t) => acc + t.amount, 0);
+    const net = totalIncome - totalSpent;
 
-    if (totalSpent === 0) return t.local_insight_zero;
-    
-    let base = "";
-    if (totalSpent > budget) {
-      base = t.local_insight_over((totalSpent - budget).toLocaleString(), topCategory?.[0] || (lang === 'th' ? 'อื่นๆ' : 'Other'));
-    } else if (totalSpent > budget * 0.8) {
-      base = t.local_insight_limit;
-    } else {
-      base = t.local_insight_good;
-    }
+    const categoryTotals = todayExpenses.reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
+      return acc;
+    }, {});
 
-    if (topCategory && (topCategory[0] === 'อาหาร' || topCategory[0] === 'Food') && topCategory[1] > budget * 0.5) {
-      base += t.local_insight_food;
-    }
+    const topCategories = Object.entries(categoryTotals)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
 
-    return base;
+    if (totalSpent === 0 && totalIncome === 0) return t.local_insight_zero;
+
+    const budgetLeft = budget - totalSpent;
+    const budgetText = budgetLeft >= 0
+      ? (lang === 'th' ? `งบวันนี้เหลือ ฿${budgetLeft.toLocaleString()} ค่ะ` : `Daily budget left: ฿${budgetLeft.toLocaleString()}`)
+      : (lang === 'th' ? `เกินงบวันนี้ ฿${Math.abs(budgetLeft).toLocaleString()} ค่ะ` : `Over daily budget by ฿${Math.abs(budgetLeft).toLocaleString()}`);
+
+    const topCatText = topCategories.length > 0
+      ? (lang === 'th'
+          ? `หมวดที่ใช้เยอะสุด: ${topCategories.map(([c, v]) => `${c} ฿${v.toLocaleString()}`).join(', ')}`
+          : `Top spend categories: ${topCategories.map(([c, v]) => `${c} ฿${v.toLocaleString()}`).join(', ')}`)
+      : (lang === 'th' ? 'วันนี้ยังไม่มีหมวดรายจ่ายเด่นค่ะ' : 'No top expense categories today');
+
+    const totalText = lang === 'th'
+      ? `วันนี้ใช้ไป ฿${totalSpent.toLocaleString()} รายรับ ฿${totalIncome.toLocaleString()} ยอดสุทธิ ฿${net.toLocaleString()} ค่ะ`
+      : `Today: Spent ฿${totalSpent.toLocaleString()}, Income ฿${totalIncome.toLocaleString()}, Net ฿${net.toLocaleString()}`;
+
+    const balanceText = lang === 'th'
+      ? `เงินคงเหลือ: ธนาคาร ฿${(balance.bank || 0).toLocaleString()} เงินสด ฿${(balance.cash || 0).toLocaleString()} รวม ฿${((balance.bank || 0) + (balance.cash || 0)).toLocaleString()} ค่ะ`
+      : `Balance: Bank ฿${(balance.bank || 0).toLocaleString()}, Cash ฿${(balance.cash || 0).toLocaleString()}, Total ฿${((balance.bank || 0) + (balance.cash || 0)).toLocaleString()}`;
+
+    const tip = totalSpent > budget * 0.8
+      ? (lang === 'th' ? 'แนะนำลดค่าใช้จ่ายในหมวดที่สูงสุดลงอีกนิดนะคะ 💖' : 'Try trimming the top category a bit today 💖')
+      : (lang === 'th' ? 'วันนี้คุมงบได้ดีมากเลยค่ะ ✨' : 'Great job staying on budget today ✨');
+
+    return `${totalText}\n${topCatText}\n${budgetText}\n${balanceText}\n${tip}`;
   };
 
-  const updateAIInsight = async () => {
+  const updateAIInsight = async (options = {}) => {
+    if (!useSmartAI) return "";
     setIsAnalyzing(true);
+    let insightText = "";
     try {
       const res = await fetch('/api/ai/analyze', {
         method: 'POST',
@@ -1862,22 +2688,24 @@ function HomeContent() {
         body: JSON.stringify({ transactions, budget, monthlyBudget, balance, lang })
       });
       const data = await res.json();
-      if (data.insight) {
-        setAiInsight(data.insight);
-      } else {
-        setAiInsight(getAIInsight());
-      }
+      insightText = data.insight || getAIInsight();
     } catch (error) {
-      setAiInsight(getAIInsight());
+      insightText = getAIInsight();
+    }
+
+    setAiInsight(insightText);
+    if (options.setMessage) {
+      setAiMessage(insightText);
     }
     setIsAnalyzing(false);
+    return insightText;
   };
 
   useEffect(() => {
-    if (showSummary && !aiInsight) {
+    if (useSmartAI && showSummary && !aiInsight) {
       updateAIInsight();
     }
-  }, [showSummary]);
+  }, [showSummary, useSmartAI]);
 
   const deleteTransaction = async (id, force = false) => {
     if (preventDelete && !force) {
@@ -1938,21 +2766,30 @@ function HomeContent() {
   const toggleDebtStatus = async (id) => {
     const debt = debts.find(d => (d._id || d.id) === id);
     if (!debt) return;
-    
     const newStatus = debt.status === 'active' ? 'paid' : 'active';
-    
     // Optimistic update
     setDebts(prev => prev.map(d => (d._id || d.id) === id ? { ...d, status: newStatus } : d));
-    
     try {
       await fetch(`/api/debts?id=${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-      
-      // If paid, maybe prompt to add counter-transaction?
-      // For now just keep it simple.
+      if (newStatus === 'paid') {
+        // For borrow: add expense (repayment), for lend: add income (repayment received)
+        const txnType = debt.type === 'borrow' ? 'expense' : 'income';
+        const txnDesc = debt.type === 'borrow'
+          ? (lang === 'th' ? `คืน ${debt.person}` : `Paid back to ${debt.person}`)
+          : (lang === 'th' ? `รับคืนจาก ${debt.person}` : `Received back from ${debt.person}`);
+        addTransaction(debt.amount, txnType, txnDesc, 'การเงิน', debt.wallet || activeWallet, null, 'ArrowRightLeft');
+      } else if (newStatus === 'active') {
+        // If re-activating, reverse the transaction
+        const txnType = debt.type === 'borrow' ? 'income' : 'expense';
+        const txnDesc = debt.type === 'borrow'
+          ? (lang === 'th' ? `ยกเลิกคืน ${debt.person}` : `Undo paid back to ${debt.person}`)
+          : (lang === 'th' ? `ยกเลิกรับคืนจาก ${debt.person}` : `Undo received back from ${debt.person}`);
+        addTransaction(debt.amount, txnType, txnDesc, 'การเงิน', debt.wallet || activeWallet, null, 'ArrowRightLeft');
+      }
     } catch (error) {
       console.warn("Failed to update debt status");
     }
@@ -1969,11 +2806,16 @@ function HomeContent() {
 
    const saveSettings = async () => {
     try {
+      // Save to DB
       await fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ budget, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete })
+        body: JSON.stringify({ budget, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, ocrProvider, lang, useSmartAI })
       });
+      // Also save to localStorage for instant access
+      localStorage.setItem("appLanguage", lang);
+      localStorage.setItem("ocrProvider", ocrProvider);
+      localStorage.setItem("useSmartAI", useSmartAI.toString());
     } catch (error) {
       console.error("Failed to save settings");
     }
@@ -1988,6 +2830,14 @@ function HomeContent() {
       });
       const data = await res.json();
       setReminders(prev => [data, ...prev].sort((a, b) => new Date(a.date) - new Date(b.date)));
+      
+      // Schedule notification in service worker
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SCHEDULE_REMINDER',
+          reminder: data
+        });
+      }
     } catch (error) {
        console.error("Failed to add reminder");
     }
@@ -2044,6 +2894,12 @@ function HomeContent() {
     setManualDesc(reminder.description);
     setManualType('expense');
     setActiveWallet(reminder.wallet);
+    // Format date to datetime-local format in Thai timezone (YYYY-MM-DDTHH:mm)
+    const reminderDate = new Date(reminder.date);
+    // Convert to Thai timezone (UTC+7)
+    const thaiDate = new Date(reminderDate.getTime() + (7 * 60 * 60 * 1000));
+    const localDate = thaiDate.toISOString().slice(0, 16);
+    setManualReminderDate(localDate);
     setShowManualEntry(true);
   };
 
@@ -2207,16 +3063,26 @@ function HomeContent() {
             <Languages size={18} />
           </button>
           {/* Smart AI Toggle with Glow */}
-          <motion.button 
+          <motion.button
+            ref={aiToggleRef}
             whileTap={{ scale: 0.9 }}
-            animate={useSmartAI ? {
+            animate={isAIToggleBlink ? {
+              scale: [1, 1.1, 1, 1.1, 1],
+              boxShadow: [
+                "0 0 20px rgba(139, 92, 246, 0.8)",
+                "0 0 40px rgba(139, 92, 246, 1)",
+                "0 0 20px rgba(139, 92, 246, 0.8)",
+                "0 0 40px rgba(139, 92, 246, 1)",
+                "0 0 20px rgba(139, 92, 246, 0.8)"
+              ]
+            } : useSmartAI ? {
               boxShadow: [
                 "0 0 0px rgba(139, 92, 246, 0)",
                 "0 0 15px rgba(139, 92, 246, 0.6)",
                 "0 0 0px rgba(139, 92, 246, 0)"
               ]
             } : {}}
-            transition={{ repeat: Infinity, duration: 2 }}
+            transition={isAIToggleBlink ? { duration: 1.5 } : { repeat: Infinity, duration: 2 }}
             onClick={() => setUseSmartAI(!useSmartAI)}
             style={{ 
               background: useSmartAI ? "linear-gradient(135deg, #8b5cf6, #d946ef)" : "rgba(255, 255, 255, 0.05)", 
@@ -2249,52 +3115,11 @@ function HomeContent() {
             )}
           </motion.button>
 
-          <button 
-            onClick={() => { setShowSummary(true); updateAIInsight(); }} 
-            className={`btn-icon-ai ${isAnalyzing ? 'analyzing' : ''}`}
-            style={{ 
-              background: "rgba(139, 92, 246, 0.1)", 
-              border: "1px solid rgba(139, 92, 246, 0.3)", 
-              color: "var(--primary)", 
-              padding: "8px",
-              borderRadius: "12px",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center"
-            }}
-          >
-            <BarChart3 size={20} className={isAnalyzing ? "animate-pulse" : ""} />
-          </button>
           <button onClick={() => setShowSettings(!showSettings)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
             <Settings size={22} />
           </button>
           <button onClick={() => setShowHelp(!showHelp)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
             <HelpCircle size={22} />
-          </button>
-          <button 
-            onClick={() => {
-              setEditingTransaction(null);
-              setManualAmount("");
-              setManualDesc("");
-              setActiveWallet(defaultWallet);
-              setShowManualEntry(true);
-            }} 
-            style={{ 
-              background: "rgba(255, 255, 255, 0.05)", 
-              border: "1px solid var(--glass-border)", 
-              color: "white", 
-              padding: "8px 12px",
-              borderRadius: "12px",
-              cursor: "pointer",
-              fontSize: "12px",
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: "6px"
-            }}
-          >
-            <Edit3 size={16} /> <span className="btn-manual-text">{t.add_manual}</span>
           </button>
           <button onClick={() => signOut()} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
             <LogOut size={22} />
@@ -2410,7 +3235,7 @@ function HomeContent() {
                 </div>
 
                 {/* 6. Default Wallet */}
-                <div>
+                {/* <div>
                   <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                     {lang === 'th' ? "กระเป๋าเงินเริ่มต้น" : "Default Wallet"}
                   </label>
@@ -2422,61 +3247,127 @@ function HomeContent() {
                       <Banknote size={14} /> {t.cash}
                     </button>
                   </div>
+                </div> */}
+
+                {/* 7. OCR Provider Selection */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {lang === 'th' ? "เครื่องมือสแกนภาพ (OCR)" : "OCR Provider"}
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      onClick={() => setOcrProvider('tesseract')} 
+                      style={{ 
+                        flex: 1, 
+                        padding: '0.75rem', 
+                        borderRadius: '12px', 
+                        border: 'none', 
+                        background: ocrProvider === 'tesseract' ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
+                        color: 'white', 
+                        fontSize: '13px',
+                        fontWeight: 600 
+                      }}
+                    >
+                      Tesseract
+                      <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>
+                        {lang === 'th' ? 'ฟรี' : 'Free'}
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => setOcrProvider('google')} 
+                      style={{ 
+                        flex: 1, 
+                        padding: '0.75rem', 
+                        borderRadius: '12px', 
+                        border: 'none', 
+                        background: ocrProvider === 'google' ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
+                        color: 'white', 
+                        fontSize: '13px',
+                        fontWeight: 600 
+                      }}
+                    >
+                      Google Vision
+                      <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>
+                        {lang === 'th' ? 'แม่นยำกว่า' : 'More Accurate'}
+                      </div>
+                    </button>
+                  </div>
                 </div>
                 
-                {/* 7. Auto-Billing Folder Link */}
-                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--glass-border)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                    <Scan size={18} color="#8b5cf6" />
-                    <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{t.auto_billing}</span>
-                  </div>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '12px' }}>{t.auto_billing_desc}</p>
-                  
-                  {!folderHandle ? (
-                    <button 
-                      onClick={connectFolder}
-                      className="btn-primary"
-                      style={{ width: '100%', fontSize: '13px', background: 'rgba(139, 92, 246, 0.2)', border: '1px solid rgba(139, 92, 246, 0.4)', color: 'white' }}
-                    >
-                      {t.link_folder}
-                    </button>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--success)', background: 'rgba(16, 185, 129, 0.1)', padding: '6px 10px', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)', wordBreak: 'break-all' }}>
-                        {t.folder_connected} {folderHandle.name}
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button 
-                          onClick={() => scanFolderTransactions()}
-                          disabled={isAutoScanning}
-                          style={{ flex: 1, padding: '8px', borderRadius: '8px', background: 'var(--primary)', color: 'white', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                        >
-                          {isAutoScanning ? <Loader2 size={12} className="animate-spin" /> : <Scan size={12} />}
-                          {t.scan_now}
-                        </button>
-                        <button 
-                          onClick={disconnectFolder}
-                          style={{ padding: '8px', borderRadius: '8px', background: 'rgba(255,255,255,0.05)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.2)', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
-                        >
-                          {t.disconnect}
-                        </button>
-                      </div>
-                      
-                      {/* TEST FORCE BUTTON */}
-                      <button 
-                         onClick={() => {
-                           if (confirm(lang === 'th' ? "คำเตือน: การสแกนทั้งหมดอาจทำให้รายการซ้ำได้ ใช้สำหรับทดสอบเท่านั้น ตกลงไหมคะ?" : "Warning: Force reading all files may cause duplicates. Use for testing only. Proceed?")) {
-                             scanFolderTransactions(folderHandle, 0, true);
-                           }
-                         }}
-                         disabled={isAutoScanning}
-                         style={{ width: '100%', padding: '8px', borderRadius: '8px', background: 'rgba(255,165,0,0.1)', color: '#f59e0b', border: '1px dashed #f59e0b', fontSize: '11px', fontWeight: 600, cursor: 'pointer', marginTop: '4px' }}
-                      >
-                         ⚠️ {t.force_scan}
-                      </button>
+                {/* 7. AI Model Selection */}
+                <div>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                    {lang === 'th' ? "โมเดล AI" : "AI Model"}
+                    <div style={{ fontSize: '0.75rem', marginTop: '2px', opacity: 0.7 }}>
+                      {lang === 'th' ? "(เลือกแบบเก่าเพื่อประหยัด Token)" : "(Choose 8B for lower token usage)"}
                     </div>
-                  )}
+                    <div style={{ fontSize: '0.75rem', marginTop: '4px', opacity: 0.6, color: '#fbbf24' }}>
+                      {lang === 'th' ? "📸 สแกนใบเสร็จใช้ 70B ทุกครั้ง (แม่นยำสูง)" : "📸 Receipt scans always use 70B (best accuracy)"}
+                    </div>
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <button 
+                      onClick={() => setAiModel('llama-3.3-70b-versatile')} 
+                      style={{ 
+                        width: '100%', 
+                        padding: '0.75rem', 
+                        borderRadius: '12px', 
+                        border: 'none', 
+                        background: aiModel === 'llama-3.3-70b-versatile' ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
+                        color: 'white', 
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        textAlign: 'left'
+                      }}
+                    >
+                      LLaMA 3.3-70B (Default)
+                      <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>
+                        {lang === 'th' ? '🎯 ทำงานได้ดีเยี่ยม | Token: สูง' : '🎯 Best quality | Tokens: High'}
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => setAiModel('llama-3.1-8b-instant')} 
+                      style={{ 
+                        width: '100%', 
+                        padding: '0.75rem', 
+                        borderRadius: '12px', 
+                        border: 'none', 
+                        background: aiModel === 'llama-3.1-8b-instant' ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
+                        color: 'white', 
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        textAlign: 'left'
+                      }}
+                    >
+                      LLaMA 3.1-8B (Fast)
+                      <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>
+                        {lang === 'th' ? '⚡ เร็ว | Token: น้อย (ประหยัด 60%)' : '⚡ Faster | Tokens: 60% lower'}
+                      </div>
+                    </button>
+                    <button 
+                      onClick={() => setAiModel('mixtral-8x7b-32768')} 
+                      style={{ 
+                        width: '100%', 
+                        padding: '0.75rem', 
+                        borderRadius: '12px', 
+                        border: 'none', 
+                        background: aiModel === 'mixtral-8x7b-32768' ? 'var(--primary)' : 'rgba(255,255,255,0.05)', 
+                        color: 'white', 
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        textAlign: 'left'
+                      }}
+                    >
+                      Mixtral 8x7B (Balanced)
+                      <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '2px' }}>
+                        {lang === 'th' ? '⚖️ สมดุล | Token: ปานกลาง' : '⚖️ Balanced | Tokens: Medium'}
+                      </div>
+                    </button>
+                  </div>
                 </div>
+                
+                {/* 8. Auto-Billing Folder Link */}
+            
 
                 {!isAppInstalled && deferredPrompt && (
                   <button 
@@ -2543,6 +3434,98 @@ function HomeContent() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {showLanguageModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10680,
+              background: 'rgba(7, 10, 19, 0.92)',
+              backdropFilter: 'blur(18px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '2rem',
+              textAlign: 'center'
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              style={{
+                maxWidth: '420px',
+                width: '100%',
+                background: 'rgba(15, 23, 42, 0.98)',
+                borderRadius: '20px',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                padding: '2rem',
+                boxShadow: '0 20px 60px -10px rgba(0, 0, 0, 0.6)'
+              }}
+            >
+              <div style={{ fontSize: '40px', marginBottom: '0.5rem' }}>🌐</div>
+              <h2 style={{ color: 'white', marginBottom: '0.5rem', fontSize: '1.4rem' }}>
+                เลือกภาษา / Choose Language
+              </h2>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: '1.6', fontSize: '13px' }}>
+                เลือกภาษาก่อนเริ่มใช้งาน เพื่อให้การติดตั้งและ Tutorial แสดงถูกต้อง
+              </p>
+
+              <div style={{ display: 'grid', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    setLang('th');
+                    setAiLang('th');
+                    localStorage.setItem('languageChosen', 'true');
+                    setShowLanguageModal(false);
+                    setLanguageReady(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '14px',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  ภาษาไทย
+                </button>
+                <button
+                  onClick={() => {
+                    setLang('en');
+                    setAiLang('en');
+                    localStorage.setItem('languageChosen', 'true');
+                    setShowLanguageModal(false);
+                    setLanguageReady(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    borderRadius: '14px',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: 'rgba(255,255,255,0.08)',
+                    color: 'white',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  English
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {showInstallModal && !isAppInstalled && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -2551,7 +3534,7 @@ function HomeContent() {
             style={{
               position: 'fixed',
               inset: 0,
-              zIndex: 10000,
+              zIndex: 10500,
               background: 'rgba(7, 10, 19, 0.98)',
               backdropFilter: 'blur(20px)',
               display: 'flex',
@@ -2608,6 +3591,17 @@ function HomeContent() {
                   onClick={() => {
                     handleInstallClick();
                     setShowInstallModal(false);
+                    // Start tutorial after install modal closes
+                    if (!onboardingTasks.completed) {
+                      setTimeout(() => {
+                        if (onboardingTasks.voice || onboardingTasks.scan || onboardingTasks.manual) {
+                          setShowOnboarding(true);
+                          advanceToNextTutorialStep(onboardingTasks);
+                        } else {
+                          startTutorial();
+                        }
+                      }, 1000);
+                    }
                   }}
                   style={{ 
                     width: '100%', 
@@ -2625,7 +3619,20 @@ function HomeContent() {
                   {lang === 'th' ? "ติดตั้งเลยตอนนี้ 🚀" : "Install Now 🚀"}
                 </button>
                 <button 
-                  onClick={() => setShowInstallModal(false)}
+                  onClick={() => {
+                    setShowInstallModal(false);
+                    // Start tutorial after install modal closes
+                    if (!onboardingTasks.completed) {
+                      setTimeout(() => {
+                        if (onboardingTasks.voice || onboardingTasks.scan || onboardingTasks.manual) {
+                          setShowOnboarding(true);
+                          advanceToNextTutorialStep(onboardingTasks);
+                        } else {
+                          startTutorial();
+                        }
+                      }, 1000);
+                    }
+                  }}
                   style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '14px', cursor: 'pointer' }}
                 >
                   {lang === 'th' ? "ไว้ทีหลัง" : "Maybe Later"}
@@ -2739,79 +3746,362 @@ function HomeContent() {
         )}
       </AnimatePresence>
 
-      <motion.div layout className="glass-card" style={{ padding: '1.5rem', background: "linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))" }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ textAlign: 'left' }}>
-            <span className="text-sm">{t.total_balance}</span>
-            <div className="balance-amount" style={{ fontSize: '1.8rem' }}>฿{(balance.bank + balance.cash).toLocaleString(undefined, { minimumFractionDigits: 2 })}</div>
-          </div>
-          <motion.button 
-            whileTap={{ scale: 0.95 }}
-            onClick={exportToCSV} 
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: isMobile ? '6px' : '8px', 
-              padding: isMobile ? '6px 12px' : '8px 16px', 
-              fontSize: '12px',
-              borderRadius: '10px',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              background: 'rgba(255, 255, 255, 0.1)',
-              color: 'white',
-              cursor: 'pointer',
-              fontWeight: 500,
-              backdropFilter: 'blur(4px)'
+      {/* Onboarding Tutorial Banner - Shows only when not in spotlight mode */}
+      <AnimatePresence>
+        {showOnboarding && !tutorialStep && !onboardingTasks.completed && getNextOnboardingTask() && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            style={{
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(217, 70, 239, 0.15))',
+              border: '1px solid rgba(139, 92, 246, 0.5)',
+              borderRadius: '16px',
+              padding: '1rem 1.25rem',
+              marginBottom: '1rem',
+              position: 'relative'
             }}
           >
-            <Download size={14} /> {isMobile ? "CSV" : t.export}
-          </motion.button>
+            {/* Close button */}
+            <button
+              onClick={() => setShowOnboarding(false)}
+              style={{
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                background: 'rgba(255,255,255,0.1)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '24px',
+                height: '24px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-muted)'
+              }}
+            >
+              ✕
+            </button>
+
+            {/* Progress dots */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', alignItems: 'center' }}>
+              {['voice', 'scan', 'manual'].map((task) => (
+                <div
+                  key={task}
+                  style={{
+                    width: onboardingTasks[task] ? '20px' : '8px',
+                    height: '8px',
+                    borderRadius: '4px',
+                    background: onboardingTasks[task] ? '#22c55e' : 'rgba(255,255,255,0.2)',
+                    transition: 'all 0.3s'
+                  }}
+                />
+              ))}
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '8px' }}>
+                {['voice', 'scan', 'manual'].filter(t => onboardingTasks[t]).length}/3 {lang === 'th' ? 'เสร็จแล้ว' : 'completed'}
+              </span>
+            </div>
+
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'white', marginBottom: '8px' }}>
+              🎓 {lang === 'th' ? 'Tutorial: เรียนรู้การใช้งาน' : 'Tutorial: Learn How to Use'}
+            </div>
+            <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+              {lang === 'th' 
+                ? 'มี 3 ขั้นตอนง่ายๆ ให้ลองทำตาม เพื่อเรียนรู้การใช้งานแอป' 
+                : '3 simple steps to learn how to use the app'}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  advanceToNextTutorialStep();
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: 'linear-gradient(135deg, #8b5cf6, #d946ef)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(139, 92, 246, 0.4)'
+                }}
+              >
+                {lang === 'th' ? '🚀 เริ่มเลย!' : '🚀 Start Now!'}
+              </motion.button>
+              
+              <button
+                onClick={() => {
+                  const all = { voice: true, scan: true, manual: true, completed: true };
+                  setOnboardingTasks(all);
+                  setShowOnboarding(false);
+                  setTutorialStep(null);
+                  if (session?.user?.email) {
+                    localStorage.setItem(`onboardingTasks_${session.user.email}`, JSON.stringify(all));
+                  }
+                }}
+                style={{
+                  padding: '12px 16px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: 'rgba(255,255,255,0.6)',
+                  fontSize: '13px',
+                  cursor: 'pointer'
+                }}
+              >
+                {lang === 'th' ? 'ข้าม' : 'Skip'}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <motion.div layout className="glass-card" style={{ padding: '1.5rem', background: "linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9))" }}>
+        {/* Main Balance Section */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <span className="text-sm" style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{t.total_balance}</span>
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
+              onClick={exportToCSV} 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px', 
+                padding: '6px 12px', 
+                fontSize: '11px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                fontWeight: 500,
+                backdropFilter: 'blur(4px)'
+              }}
+            >
+              <Download size={13} /> {t.export}
+            </motion.button>
+          </div>
+          <div className="balance-amount" style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '1rem' }}>
+            ฿{(balance.bank + balance.cash).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </div>
+
+          {/* Today's Summary Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.25rem' }}>
+            <div style={{ 
+              background: 'rgba(16, 185, 129, 0.1)', 
+              padding: '1rem', 
+              borderRadius: '12px',
+              border: '1px solid rgba(16, 185, 129, 0.2)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></div>
+                <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {lang === 'th' ? 'ยอดต้นวัน' : 'Started With'}
+                </span>
+              </div>
+              <div style={{ fontSize: '1.3rem', color: '#10b981', fontWeight: 800 }}>
+                ฿{(() => {
+                  const todayExpense = transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((sum, t) => sum + t.amount, 0);
+                  const todayIncome = transactions.filter(t => t.type === 'income' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((sum, t) => sum + t.amount, 0);
+                  const startingBalance = (balance.bank + balance.cash) + todayExpense - todayIncome;
+                  return startingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
+                })()}
+              </div>
+            </div>
+
+            <div style={{ 
+              background: 'rgba(239, 68, 68, 0.1)', 
+              padding: '1rem', 
+              borderRadius: '12px',
+              border: '1px solid rgba(239, 68, 68, 0.2)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }}></div>
+                <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {lang === 'th' ? 'ใช้ไปแล้ว' : 'Spent'}
+                </span>
+              </div>
+              <div style={{ fontSize: '1.3rem', color: '#ef4444', fontWeight: 800 }}>
+                ฿{transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((sum, t) => sum + t.amount, 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="balance-grid">
+        {/* Primary Wallet Selection */}
+        <div style={{ marginBottom: '0.5rem' }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+            {lang === 'th' ? '💳 เลือกบัญชีหลัก (Primary)' : '💳 Select Primary Account'}
+          </span>
+        </div>
+        <div className="balance-grid" style={{ marginBottom: '1.25rem' }}>
           <motion.div 
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveWallet('bank')}
+            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.02 }}
+            onClick={() => {
+              setActiveWallet('bank');
+              setShowToast({
+                show: true,
+                title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
+                message: lang === 'th' ? '🏦 ตั้งธนาคารเป็นบัญชีหลักแล้ว' : '🏦 Bank set as primary',
+                type: 'success'
+              });
+              setTimeout(() => setShowToast({ show: false, title: '', message: '', type: 'info' }), 2000);
+            }}
             style={{ 
-              background: activeWallet === 'bank' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.03)', 
-              padding: '1.25rem', 
-              borderRadius: '20px', 
-              border: `1px solid ${activeWallet === 'bank' ? '#3b82f6' : 'var(--glass-border)'}`,
-              transition: 'all 0.3s ease'
+              background: activeWallet === 'bank' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.04)', 
+              padding: '1rem', 
+              borderRadius: '16px', 
+              border: `2px solid ${activeWallet === 'bank' ? '#3b82f6' : 'rgba(255,255,255,0.08)'}`,
+              transition: 'all 0.3s ease',
+              cursor: 'pointer',
+              position: 'relative'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#3b82f6', marginBottom: '8px' }}>
-              <CreditCard size={16} /> <span style={{ fontSize: '13px', fontWeight: 600 }}>{t.bank}</span>
+            {activeWallet === 'bank' && (
+              <div style={{ 
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                fontSize: '9px',
+                padding: '3px 6px',
+                background: '#3b82f6',
+                color: 'white',
+                borderRadius: '6px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                {lang === 'th' ? 'บัญชีหลัก' : 'Primary'}
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CreditCard size={14} style={{ color: '#3b82f6' }} />
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#3b82f6' }}>{t.bank}</span>
+              </div>
+              {activeWallet === 'bank' && (
+                <div style={{ 
+                  width: '6px', 
+                  height: '6px', 
+                  borderRadius: '50%', 
+                  background: '#3b82f6',
+                  boxShadow: '0 0 8px #3b82f6'
+                }}></div>
+              )}
             </div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'white' }}>฿{balance.bank.toLocaleString()}</div>
-            {activeWallet === 'bank' && <div style={{ fontSize: '10px', color: '#3b82f6', marginTop: '4px' }}>● {t.active_wallet}</div>}
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'white' }}>
+              ฿{balance.bank.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </div>
           </motion.div>
 
           <motion.div 
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setActiveWallet('cash')}
+            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.02 }}
+            onClick={() => {
+              setActiveWallet('cash');
+              setShowToast({
+                show: true,
+                title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
+                message: lang === 'th' ? '💵 ตั้งเงินสดเป็นบัญชีหลักแล้ว' : '💵 Cash set as primary',
+                type: 'success'
+              });
+              setTimeout(() => setShowToast({ show: false, title: '', message: '', type: 'info' }), 2000);
+            }}
             style={{ 
-              background: activeWallet === 'cash' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.03)', 
-              padding: '1.25rem', 
-              borderRadius: '20px', 
-              border: `1px solid ${activeWallet === 'cash' ? '#10b981' : 'var(--glass-border)'}`,
-              transition: 'all 0.3s ease'
+              background: activeWallet === 'cash' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.04)', 
+              padding: '1rem', 
+              borderRadius: '16px', 
+              border: `2px solid ${activeWallet === 'cash' ? '#10b981' : 'rgba(255,255,255,0.08)'}`,
+              transition: 'all 0.3s ease',
+              cursor: 'pointer',
+              position: 'relative'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#10b981', marginBottom: '8px' }}>
-              <Banknote size={16} /> <span style={{ fontSize: '13px', fontWeight: 600 }}>{t.cash}</span>
+            {activeWallet === 'cash' && (
+              <div style={{ 
+                position: 'absolute',
+                top: '8px',
+                right: '8px',
+                fontSize: '9px',
+                padding: '3px 6px',
+                background: '#10b981',
+                color: 'white',
+                borderRadius: '6px',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                {lang === 'th' ? 'บัญชีหลัก' : 'Primary'}
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Banknote size={14} style={{ color: '#10b981' }} />
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#10b981' }}>{t.cash}</span>
+              </div>
+              {activeWallet === 'cash' && (
+                <div style={{ 
+                  width: '6px', 
+                  height: '6px', 
+                  borderRadius: '50%', 
+                  background: '#10b981',
+                  boxShadow: '0 0 8px #10b981'
+                }}></div>
+              )}
             </div>
-            <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'white' }}>฿{balance.cash.toLocaleString()}</div>
-            {activeWallet === 'cash' && <div style={{ fontSize: '10px', color: '#10b981', marginTop: '4px' }}>● {t.active_wallet}</div>}
+            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'white' }}>
+              ฿{balance.cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </div>
           </motion.div>
         </div>
         
-        <div style={{ marginTop: '1.5rem', textAlign: 'left' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-            <span className="text-sm">{lang === 'th' ? "งบวันนี้" : "Today's Budget"} ({Math.min(100, Math.round((transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0) / budget) * 100))}%)</span>
-            <span className="text-sm">฿{transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0).toLocaleString()} / ฿{budget.toLocaleString()}</span>
+        {/* Budget Progress */}
+        <div style={{ 
+          background: 'rgba(139, 92, 246, 0.1)', 
+          padding: '1rem', 
+          borderRadius: '12px',
+          border: '1px solid rgba(139, 92, 246, 0.2)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <div>
+              <span style={{ fontSize: '11px', color: '#a78bfa', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {lang === 'th' ? "งบประมาณวันนี้" : "Today's Budget"}
+              </span>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                {Math.min(100, Math.round((transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0) / budget) * 100))}% {lang === 'th' ? 'ใช้ไปแล้ว' : 'used'}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '1.1rem', fontWeight: 700, color: transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0) > budget ? '#ef4444' : '#a78bfa' }}>
+                ฿{transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0).toLocaleString()}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                / ฿{budget.toLocaleString()}
+              </div>
+            </div>
           </div>
-          <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
-            <motion.div initial={{ width: 0 }} animate={{ width: `${Math.min(100, (transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0) / budget) * 100)}%` }} style={{ height: '100%', background: transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0) > budget ? 'var(--danger)' : 'linear-gradient(to right, var(--primary), var(--accent-pink))' }} />
+          <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+            <motion.div 
+              initial={{ width: 0 }} 
+              animate={{ width: `${Math.min(100, (transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0) / budget) * 100)}%` }} 
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              style={{ 
+                height: '100%', 
+                background: transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0) > budget 
+                  ? 'linear-gradient(to right, #ef4444, #dc2626)' 
+                  : 'linear-gradient(to right, #8b5cf6, #a78bfa)',
+                boxShadow: transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0) > budget 
+                  ? '0 0 10px rgba(239, 68, 68, 0.5)' 
+                  : '0 0 10px rgba(139, 92, 246, 0.5)'
+              }} 
+            />
           </div>
         </div>
       </motion.div>
@@ -2895,9 +4185,40 @@ function HomeContent() {
             </span>
           </div>
           {activeTab === 'transactions' && (
-            <button onClick={() => setShowSummary(!showSummary)} style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
-              <BarChart3 size={18} /> <span className="text-sm">{lang === 'th' ? "ดูรายงาน" : "View Report"}</span>
-            </button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button onClick={() => setShowSummary(!showSummary)} style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                <BarChart3 size={18} /> <span className="text-sm">{lang === 'th' ? "ดูรายงาน" : "View Report"}</span>
+              </button>
+              <button 
+                ref={manualButtonRef}
+                onClick={() => {
+                  setEditingTransaction(null);
+                  setManualAmount("");
+                  setManualDesc("");
+                  setActiveWallet(defaultWallet);
+                  setShowManualEntry(true);
+                }} 
+                style={{ 
+                  background: tutorialStep === 'manual' ? "rgba(139, 92, 246, 0.3)" : "rgba(255, 255, 255, 0.05)", 
+                  border: tutorialStep === 'manual' ? "2px solid #a855f7" : "1px solid var(--glass-border)", 
+                  color: "white", 
+                  padding: "6px 10px",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                  zIndex: tutorialStep === 'manual' ? 10705 : 'auto',
+                  position: 'relative',
+                  pointerEvents: 'auto',
+                  boxShadow: tutorialStep === 'manual' ? '0 0 20px rgba(168, 85, 247, 0.5)' : 'none'
+                }}
+              >
+                <Edit3 size={14} /> {t.add_manual}
+              </button>
+            </div>
           )}
         </div>
 
@@ -2917,36 +4238,202 @@ function HomeContent() {
                     </p>
                     
                     {/* AI Insight Buddy */}
-                    <div style={{ 
-                        padding: '1rem', 
-                        background: 'rgba(59, 130, 246, 0.1)', 
-                        borderRadius: '16px', 
-                        border: '1px solid rgba(59, 130, 246, 0.2)',
-                        display: 'flex',
-                        gap: '12px',
-                        alignItems: 'flex-start',
-                        marginBottom: '1.5rem'
-                    }}>
-                        <div style={{ background: 'var(--primary)', padding: '8px', borderRadius: '12px' }}>
-                            <Sparkles size={18} color="white" />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                                <p style={{ fontSize: '12px', fontWeight: 600, color: '#3b82f6' }}>Nong Remi AI Analysis</p>
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); updateAIInsight(); }} 
-                                    disabled={isAnalyzing}
-                                    style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                                >
-                                    {isAnalyzing ? <Loader2 size={10} className="animate-spin" /> : <TrendingUp size={10} />}
-                                    {isAnalyzing ? (lang === 'th' ? 'กำลังวิเคราะห์...' : 'Analyzing...') : (lang === 'th' ? 'รีเฟรช' : 'Refresh')}
-                                </button>
+                    {useSmartAI && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }} 
+                        animate={{ opacity: 1, y: 0 }}
+                        style={{ 
+                          padding: '1.25rem', 
+                          background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.1))', 
+                          borderRadius: '16px', 
+                          border: '1px solid rgba(139, 92, 246, 0.3)',
+                          marginBottom: '1.5rem',
+                          position: 'relative',
+                          overflow: 'hidden'
+                        }}
+                      >
+                        {/* Decorative background pattern */}
+                        <div style={{ 
+                          position: 'absolute', 
+                          top: 0, 
+                          right: 0, 
+                          width: '120px', 
+                          height: '120px',
+                          background: 'radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%)',
+                          pointerEvents: 'none'
+                        }}></div>
+                        
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                          {/* Header Section - Compact */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div style={{ 
+                                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)', 
+                                padding: '8px', 
+                                borderRadius: '10px',
+                                boxShadow: '0 2px 8px rgba(139, 92, 246, 0.3)'
+                              }}>
+                                <Sparkles size={16} color="white" />
+                              </div>
+                              <div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <h3 style={{ 
+                                    fontSize: '13px', 
+                                    fontWeight: 700, 
+                                    background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    margin: 0
+                                  }}>
+                                    Nong Remi AI
+                                  </h3>
+                                  <div style={{
+                                    fontSize: '8px',
+                                    padding: '2px 6px',
+                                    background: 'rgba(139, 92, 246, 0.2)',
+                                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                                    borderRadius: '4px',
+                                    color: '#a78bfa',
+                                    fontWeight: 600,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.3px'
+                                  }}>
+                                    AI
+                                  </div>
+                                </div>
+                              </div>
                             </div>
-                            <p className="text-sm" style={{ lineHeight: '1.4', fontStyle: 'italic', color: 'var(--text-main)' }}>
-                                {isAnalyzing ? "กำลังประมวลผลข้อมูลการเงินของคุณ..." : (aiInsight || getAIInsight())}
-                            </p>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); updateAIInsight(); }} 
+                              disabled={isAnalyzing}
+                              style={{ 
+                                background: isAnalyzing ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.2)', 
+                                border: '1px solid rgba(139, 92, 246, 0.3)', 
+                                color: '#a78bfa', 
+                                fontSize: '10px', 
+                                padding: '6px 10px',
+                                borderRadius: '6px',
+                                cursor: isAnalyzing ? 'wait' : 'pointer', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '4px',
+                                fontWeight: 600,
+                                transition: 'all 0.2s ease',
+                                flexShrink: 0
+                              }}
+                            >
+                              {isAnalyzing ? <Loader2 size={11} className="animate-spin" /> : <TrendingUp size={11} />}
+                              {isAnalyzing ? (lang === 'th' ? 'วิเคราะห์' : 'Analyzing') : (lang === 'th' ? 'รีเฟรช' : 'Refresh')}
+                            </button>
+                          </div>
+
+                          {/* Content Section */}
+                          <div style={{ 
+                            background: 'rgba(15, 23, 42, 0.6)', 
+                            padding: '0',
+                            borderRadius: '12px',
+                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                            overflow: 'hidden'
+                          }}>
+                            {isAnalyzing ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '1rem' }}>
+                                <Loader2 size={16} className="animate-spin" style={{ color: '#8b5cf6' }} />
+                                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, fontStyle: 'italic' }}>
+                                  {lang === 'th' ? 'กำลังประมวลผลข้อมูลการเงินของคุณ...' : 'Analyzing your financial data...'}
+                                </p>
+                              </div>
+                            ) : (
+                              <div>
+                                {(aiInsight || getAIInsight()).split('\n').filter(line => line.trim()).map((line, idx) => {
+                                  // Extract emoji from start of line
+                                  const emojiMatch = line.match(/^([\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]+)/u);
+                                  const emoji = emojiMatch ? emojiMatch[0] : '';
+                                  const textWithoutEmoji = emoji ? line.substring(emoji.length).trim() : line.trim();
+                                  
+                                  // Highlight numbers/amounts (฿ followed by numbers)
+                                  const parts = textWithoutEmoji.split(/(฿[\d,.-]+)/g);
+                                  
+                                  // Determine background color based on emoji or content
+                                  let bgColor = 'rgba(255, 255, 255, 0.02)';
+                                  let borderColor = 'rgba(255, 255, 255, 0.05)';
+                                  let accentColor = '#a78bfa';
+                                  
+                                  if (emoji.includes('⚠️') || emoji.includes('🔴') || textWithoutEmoji.includes('เกิน') || textWithoutEmoji.includes('exceed')) {
+                                    bgColor = 'rgba(239, 68, 68, 0.08)';
+                                    borderColor = 'rgba(239, 68, 68, 0.2)';
+                                    accentColor = '#ef4444';
+                                  } else if (emoji.includes('✨') || emoji.includes('💡') || emoji.includes('👍')) {
+                                    bgColor = 'rgba(16, 185, 129, 0.08)';
+                                    borderColor = 'rgba(16, 185, 129, 0.2)';
+                                    accentColor = '#10b981';
+                                  } else if (emoji.includes('💰') || emoji.includes('📊') || emoji.includes('📈')) {
+                                    bgColor = 'rgba(59, 130, 246, 0.08)';
+                                    borderColor = 'rgba(59, 130, 246, 0.2)';
+                                    accentColor = '#3b82f6';
+                                  }
+                                  
+                                  return (
+                                    <div 
+                                      key={idx} 
+                                      style={{ 
+                                        padding: '12px 14px',
+                                        background: bgColor,
+                                        borderLeft: `3px solid ${accentColor}`,
+                                        borderBottom: idx < (aiInsight || getAIInsight()).split('\n').filter(l => l.trim()).length - 1 ? `1px solid ${borderColor}` : 'none',
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: '10px',
+                                        transition: 'background 0.2s ease'
+                                      }}
+                                    >
+                                      {emoji && (
+                                        <span style={{ 
+                                          fontSize: '18px', 
+                                          minWidth: '24px',
+                                          display: 'inline-block',
+                                          flexShrink: 0
+                                        }}>
+                                          {emoji}
+                                        </span>
+                                      )}
+                                      <span style={{ 
+                                        flex: 1,
+                                        fontSize: '13px',
+                                        lineHeight: '1.6',
+                                        color: 'var(--text-main)',
+                                        fontWeight: 400
+                                      }}>
+                                        {parts.map((part, i) => {
+                                          if (part.match(/^฿[\d,.-]+$/)) {
+                                            return (
+                                              <span 
+                                                key={i} 
+                                                style={{ 
+                                                  color: accentColor,
+                                                  fontWeight: 700,
+                                                  fontSize: '14px',
+                                                  background: `${accentColor}15`,
+                                                  padding: '2px 6px',
+                                                  borderRadius: '4px',
+                                                  margin: '0 2px'
+                                                }}
+                                              >
+                                                {part}
+                                              </span>
+                                            );
+                                          }
+                                          return <span key={i}>{part}</span>;
+                                        })}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                    </div>
+                      </motion.div>
+                    )}
 
                     {viewMode === 'daily' ? (
                       <>
@@ -2988,6 +4475,12 @@ function HomeContent() {
                                 <span className="text-sm" style={{ fontWeight: 600 }}>฿{total.toLocaleString()}</span>
                             </div>
                         ))}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                          <span className="text-sm" style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{lang === 'th' ? 'รวมทั้งหมด' : 'Total'}</span>
+                          <span className="text-sm" style={{ fontWeight: 700, color: 'var(--text-main)' }}>
+                            ฿{transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((acc, t) => acc + t.amount, 0).toLocaleString()}
+                          </span>
+                        </div>
                       </>
                     ) : (
                       <div style={{ width: '100%', height: '220px' }}>
@@ -3026,58 +4519,148 @@ function HomeContent() {
           <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>{t.no_transactions}</div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {transactions.slice(0, visibleCount).map((txn) => (
-              <motion.div key={txn._id || txn.id} layout initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="transaction-item">
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                  <div style={{ padding: "10px", borderRadius: "12px", background: txn.type === "income" ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)", color: txn.type === "income" ? "var(--success)" : "var(--danger)" }}>
+            {transactions.slice(0, visibleCount).map((txn) => {
+              const isHighlighted = highlightedTxnId === (txn._id || txn.id);
+              return (
+              <motion.div 
+                key={txn._id || txn.id}
+                data-txn-id={txn._id || txn.id}
+                layout 
+                initial={{ opacity: 0, x: -20 }} 
+                animate={{ 
+                  opacity: 1, 
+                  x: 0,
+                  scale: isHighlighted ? [1, 1.02, 1] : 1,
+                  boxShadow: isHighlighted ? '0 0 20px rgba(168, 85, 247, 0.5)' : 'none'
+                }} 
+                transition={isHighlighted ? { scale: { repeat: Infinity, duration: 1 } } : {}}
+                exit={{ opacity: 0, x: 20 }} 
+                className="transaction-item" 
+                style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  justifyContent: "space-between", 
+                  gap: "0.5rem",
+                  ...(isHighlighted ? {
+                    border: '2px solid #a855f7',
+                    background: 'rgba(168, 85, 247, 0.15)',
+                    borderRadius: '16px',
+                    position: 'relative',
+                    zIndex: 100
+                  } : {})
+                }}
+              >
+                {/* Tutorial highlight badge */}
+                {isHighlighted && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      position: 'absolute',
+                      top: '-12px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: 'linear-gradient(135deg, #8b5cf6, #d946ef)',
+                      color: 'white',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '3px 10px',
+                      borderRadius: '10px',
+                      whiteSpace: 'nowrap',
+                      zIndex: 101
+                    }}
+                  >
+                    ✨ {lang === 'th' ? 'ผลลัพธ์ Tutorial' : 'Tutorial Result'} ✨
+                  </motion.div>
+                )}
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, minWidth: 0 }}>
+                  <div style={{ padding: "10px", borderRadius: "12px", background: txn.type === "income" ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)", color: txn.type === "income" ? "var(--success)" : "var(--danger)", flexShrink: 0 }}>
                     {txn.type === "income" ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
                   </div>
-                   <div>
-                    <div style={{ 
-                      fontWeight: "600", 
-                      fontSize: isMobile ? '0.9rem' : '1rem',
-                      maxWidth: isMobile ? '140px' : 'auto',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {txn.description}
+                   <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap', marginBottom: '4px', minWidth: 0 }}>
+                      <button
+                        onClick={() => setExpandedTransactionId(expandedTransactionId === (txn._id || txn.id) ? null : (txn._id || txn.id))}
+                        style={{
+                          fontWeight: "600", 
+                          fontSize: isMobile ? '0.85rem' : '0.95rem',
+                          background: 'none',
+                          border: 'none',
+                          color: 'inherit',
+                          cursor: 'pointer',
+                          padding: 0,
+                          textAlign: 'left',
+                          minWidth: 0,
+                          maxWidth: expandedTransactionId === (txn._id || txn.id) ? '100%' : 'auto',
+                          whiteSpace: expandedTransactionId === (txn._id || txn.id) ? 'normal' : 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: expandedTransactionId === (txn._id || txn.id) ? 'clip' : 'ellipsis',
+                          wordBreak: expandedTransactionId === (txn._id || txn.id) ? 'break-word' : 'normal'
+                        }}
+                      >
+                        {txn.description}
+                      </button>
+                      {txn.description.length > 35 && expandedTransactionId !== (txn._id || txn.id) && (
+                        <span style={{ fontSize: '12px', color: 'var(--accent-blue)', flexShrink: 0 }}>
+                          ▶
+                        </span>
+                      )}
+                      <span style={{ fontSize: '9px', color: 'var(--text-muted)', flexShrink: 0 }}>-</span>
+                      <span style={{ fontSize: '9px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        {new Date(txn.date).toLocaleString(lang === 'th' ? "th-TH" : "en-US", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
                     <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                       <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                        {new Date(txn.date).toLocaleString(lang === 'th' ? "th-TH" : "en-US", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                       </span>
-                       
                        <span style={{ 
-                         fontSize: '10px', 
+                         fontSize: '9px', 
                          background: `${CATEGORY_COLORS[txn.category] || '#64748b'}20`, 
                          color: CATEGORY_COLORS[txn.category] || '#64748b',
-                         padding: isMobile ? '2px 6px' : '2px 10px', 
-                         borderRadius: '8px',
+                         padding: '2px 6px', 
+                         borderRadius: '6px',
                          fontWeight: '600',
                          border: `1px solid ${CATEGORY_COLORS[txn.category] || '#64748b'}30`,
                          display: 'flex',
                          alignItems: 'center',
-                         gap: '4px'
+                         gap: '3px',
+                         flexShrink: 0
                        }}>
-                          {(txn.icon && DYNAMIC_ICONS[txn.icon]) ? React.createElement(DYNAMIC_ICONS[txn.icon], { size: 12 }) : (CATEGORY_ICONS[txn.category] || <Tags size={12} />)}
+                          {(txn.icon && DYNAMIC_ICONS[txn.icon]) ? React.createElement(DYNAMIC_ICONS[txn.icon], { size: 10 }) : (CATEGORY_ICONS[txn.category] || <Tags size={10} />)}
                          {!isMobile && (t.categories[txn.category] || txn.category)}
+                       </span>
+                       
+                       {/* Payment Method Tag */}
+                       <span style={{ 
+                         fontSize: '9px', 
+                         background: txn.wallet === 'cash' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)', 
+                         color: txn.wallet === 'cash' ? '#10b981' : '#3b82f6',
+                         padding: '2px 6px', 
+                         borderRadius: '6px',
+                         fontWeight: '700',
+                         border: `1px solid ${txn.wallet === 'cash' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
+                         display: 'flex',
+                         alignItems: 'center',
+                         gap: '3px',
+                         flexShrink: 0
+                       }}>
+                         {txn.wallet === 'cash' ? <Banknote size={10} /> : <CreditCard size={10} />}
+                         {txn.wallet === 'cash' ? (lang === 'th' ? 'เงินสด' : 'Cash') : (lang === 'th' ? 'ธนาคาร' : 'Bank')}
                        </span>
                        
                        {txn.bank && (
                           <span style={{ 
-                           fontSize: '10px', 
+                           fontSize: '9px', 
                            background: 'rgba(59, 130, 246, 0.08)', 
                            color: '#3b82f6',
                            padding: '2px 6px', 
-                           borderRadius: '8px',
+                           borderRadius: '6px',
                            fontWeight: '700',
                            border: '1px solid rgba(59, 130, 246, 0.2)',
                            display: 'flex',
                            alignItems: 'center',
-                           gap: '4px'
+                           gap: '3px',
+                           flexShrink: 0
                          }}>
-                           <CreditCard size={10} /> {txn.bank}
+                           {txn.bank}
                          </span>
                        )}
                        {txn.isScanned && (
@@ -3090,31 +4673,58 @@ function HomeContent() {
                            display: 'flex',
                            alignItems: 'center',
                            gap: '3px',
-                           border: '1px solid rgba(139, 92, 246, 0.3)'
+                           border: '1px solid rgba(139, 92, 246, 0.3)',
+                           flexShrink: 0
                          }}>
                            <Scan size={10} /> {lang === 'th' ? "สลิป" : "Slip"}
                          </span>
                        )}
+                       {txn.imageUrl && (
+                         <button
+                           onClick={() => {
+                             setSelectedImage(txn.imageUrl);
+                             setShowImageModal(true);
+                           }}
+                           style={{
+                             fontSize: '10px',
+                             background: 'none',
+                             color: '#60a5fa',
+                             padding: isMobile ? '2px 6px' : '2px 8px',
+                             borderRadius: '6px',
+                             display: 'flex',
+                             alignItems: 'center',
+                             gap: '3px',
+                             border: '1px solid rgba(59, 130, 246, 0.2)',
+                             cursor: 'pointer',
+                             textDecoration: 'none',
+                             flexShrink: 0
+                           }}
+                         >
+                           <Image size={10} /> {lang === 'th' ? "ดูรูป" : "View image"}
+                         </button>
+                       )}
                     </div>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
                   <div style={{ 
                     fontWeight: "800", 
                     fontSize: isMobile ? '0.95rem' : '1.1rem',
                     color: txn.type === "income" ? "var(--success)" : "var(--danger)",
                     minWidth: isMobile ? '60px' : 'auto',
-                    textAlign: 'right'
+                    textAlign: 'right',
+                    whiteSpace: 'nowrap'
                   }}>
                     {txn.type === "income" ? "+" : "-"} {txn.amount.toLocaleString()}
                   </div>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
                     <button onClick={() => openEdit(txn)} style={{ background: "none", border: "none", color: "var(--accent-blue)", cursor: "pointer", opacity: 0.6, padding: '4px' }}><Edit2 size={16} /></button>
                     <button onClick={() => deleteTransaction(txn._id || txn.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.6, padding: '4px' }}><Trash2 size={16} /></button>
                   </div>
                 </div>
               </motion.div>
-            ))}
+            );
+            })}
           </AnimatePresence>
         )}
 
@@ -3250,7 +4860,7 @@ function HomeContent() {
                         {isOverdue && !isToday && <span style={{ fontSize: '10px', background: '#f59e0b', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>{t.overdue}</span>}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        {rDate && !isNaN(rDate) ? rDate.toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { day: 'numeric', month: 'short' }) : '—'} • {reminder?.wallet === 'bank' ? t.bank : t.cash}
+                        {rDate && !isNaN(rDate) ? `${rDate.toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { day: 'numeric', month: 'short' })}, ${rDate.toLocaleTimeString(lang === 'th' ? "th-TH" : "en-US", { hour: '2-digit', minute: '2-digit' })}` : '—'} • {reminder?.wallet === 'bank' ? t.bank : t.cash}
                       </div>
                     </div>
                   </div>
@@ -3283,7 +4893,20 @@ function HomeContent() {
 
         <AnimatePresence>
             {showManualEntry && (
-                <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} className="glass-card" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 110, borderRadius: '32px 32px 0 0' }}>
+                <motion.div 
+                  initial={{ y: '100%' }} 
+                  animate={{ y: 0 }} 
+                  exit={{ y: '100%' }} 
+                  className="glass-card" 
+                  style={{ 
+                    position: 'fixed', 
+                    bottom: 0, 
+                    left: 0, 
+                    right: 0, 
+                    zIndex: tutorialStep === 'manual' ? 10705 : 110, 
+                    borderRadius: '32px 32px 0 0' 
+                  }}
+                >
                     <div style={{ textAlign: 'center', marginBottom: '1rem', fontWeight: 700, fontSize: '1.1rem' }}>
                       {editingTransaction ? (lang === 'th' ? 'แก้ไขรายการ' : 'Edit Transaction') : (editingReminder ? (lang === 'th' ? 'แก้ไขการแจ้งเตือน' : 'Edit Reminder') : t.add_manual)}
                     </div>
@@ -3302,26 +4925,50 @@ function HomeContent() {
                         </div>
                         <input type="number" placeholder={lang === 'th' ? "บาท" : "Amount (฿)"} value={manualAmount} onChange={e => setManualAmount(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} required />
                         <input type="text" placeholder={t.description} value={manualDesc} onChange={e => setManualDesc(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} />
-                        <button type="submit" className="btn-primary">{editingTransaction ? t.save : t.save}</button>
-                        <button type="button" onClick={() => { setShowManualEntry(false); setEditingTransaction(null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}>{t.cancel}</button>
+                        {editingReminder && (
+                          <div>
+                            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                              {lang === 'th' ? 'เวลาแจ้งเตือน (UTC+7)' : 'Reminder Time (UTC+7)'}
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <input 
+                                type="datetime-local" 
+                                value={manualReminderDate} 
+                                onChange={e => setManualReminderDate(e.target.value)} 
+                                style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white', flex: 1 }} 
+                              />
+                              <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>+7</span>
+                            </div>
+                          </div>
+                        )}
+                        <button type="submit" className="btn-primary">{editingTransaction ? t.save : (editingReminder ? t.save : t.save)}</button>
+                        <button type="button" onClick={() => { setShowManualEntry(false); setEditingTransaction(null); setEditingReminder(null); setManualReminderDate(""); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}>{t.cancel}</button>
                     </form>
                 </motion.div>
             )}
         </AnimatePresence>
 
-      <div className="mic-button-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', width: '100%' }}>
+      <div 
+        className="mic-button-container flex flex-col items-center justify-center gap-4  sticky bottom-[120px] bg-transparent py-4 px-6 mt-auto mx-auto"
+        style={{
+          zIndex: (tutorialStep === 'voice' || tutorialStep === 'scan') ? 10705 : 100
+        }}
+      >
         {/* AI Mode Badge */}
-        <div style={{ 
-          marginBottom: '-5px', 
+        <div classNam style={{ 
+          position: 'absolute',
+          top: '-45px',
+          left: '50%',
+          transform: 'translateX(-50%)',
           background: useSmartAI ? 'linear-gradient(135deg, #8b5cf6, #d946ef)' : 'rgba(255,255,255,0.1)',
-          padding: '4px 12px',
+          padding: '4px 8px',
           borderRadius: '20px',
           fontSize: '10px',
           fontWeight: 600,
           color: 'white',
           display: 'flex',
           alignItems: 'center',
-          gap: '6px',
+          gap: '4px',
           boxShadow: useSmartAI ? '0 4px 12px rgba(139, 92, 246, 0.3)' : 'none',
           border: useSmartAI ? 'none' : '1px solid rgba(255,255,255,0.1)',
           transition: 'all 0.3s ease'
@@ -3345,7 +4992,12 @@ function HomeContent() {
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               style={{ 
                 maxWidth: isMobile ? '280px' : '320px',
-                marginBottom: '16px',
+                zIndex: tutorialStep === 'voice' ? 10710 : 1200,
+                position: 'fixed',
+                bottom: isMobile ? '170px' : '190px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                pointerEvents: 'none'
               }}
             >
               {/* Chat Bubble */}
@@ -3416,7 +5068,7 @@ function HomeContent() {
 
         
         <AnimatePresence>
-          {aiMessage && (
+          {aiMessage && !(tutorialStep && (aiMessage === translations.th.ai_greeting || aiMessage === translations.en.ai_greeting)) && (
             <motion.div 
               initial={{ opacity: 0, y: 15, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -3424,9 +5076,12 @@ function HomeContent() {
               style={{ 
                 maxWidth: '95%', 
                 width: isMobile ? '320px' : '450px',
-                marginBottom: '10px',
-                position: 'relative',
-                zIndex: 1000
+                position: 'fixed',
+                top: isMobile ? '12px' : '18px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: (tutorialStep === 'voice' || tutorialStep === 'scan') ? 10710 : 1200,
+                pointerEvents: 'auto'
               }}
             >
               <button 
@@ -3505,24 +5160,63 @@ function HomeContent() {
             onChange={handleImageUpload} 
             style={{ display: 'none' }} 
           />
-          <button 
-            onClick={() => fileInputRef.current.click()} 
-            className="btn-outline" 
-            style={{ borderRadius: '50%', width: '56px', height: '56px', position: 'relative' }}
-            disabled={isProcessingImage}
-          >
-            {isProcessingImage ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <Loader2 className="animate-spin" size={20} />
-                <span style={{ fontSize: '10px', marginTop: '2px' }}>{batchProgress.current}/{batchProgress.total}</span>
-                <span style={{ fontSize: '8px', opacity: 0.7 }}>{scanProgress}%</span>
+          <div style={{ position: 'relative' }}>
+            <button 
+              ref={cameraButtonRef}
+              onClick={() => fileInputRef.current.click()} 
+              className="btn-outline" 
+              style={{ 
+                borderRadius: '50%', 
+                width: '56px', 
+                height: '56px',
+                zIndex: tutorialStep === 'scan' ? 10705 : 'auto',
+                position: 'relative',
+                pointerEvents: 'auto'
+              }}
+              disabled={isProcessingImage}
+              title={lang === 'th' ? 'สแกนสลิป' : 'Scan receipt'}
+            >
+              {isProcessingImage ? <Loader2 className="animate-spin" size={24} /> : <Camera size={24} />}
+            </button>
+            {isProcessingImage && (
+              <div style={{
+                position: 'absolute',
+                top: '-65px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(0, 0, 0, 0.95)',
+                padding: '8px 12px',
+                borderRadius: '12px',
+                border: '1px solid var(--primary)',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.5)',
+                zIndex: tutorialStep === 'scan' ? 10710 : 100,
+                minWidth: '120px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: 'white' }}>
+                  {batchProgress.current}/{batchProgress.total}
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--primary)', marginTop: '2px' }}>
+                  {scanProgress}%
+                </div>
+                <div style={{ fontSize: '10px', opacity: 0.7, color: 'white', marginTop: '2px' }}>
+                  {ocrProvider === 'google' ? 'Google Vision' : 'Tesseract'}
+                </div>
               </div>
-            ) : (
-              <Camera size={24} />
             )}
-          </button>
+          </div>
           <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-              <button className={`mic-button ${isListening ? 'active' : ''}`} onClick={toggleListening}>
+              <button 
+                ref={micButtonRef}
+                className={`mic-button ${isListening ? 'active' : ''}`} 
+                onClick={toggleListening}
+                style={{
+                  zIndex: tutorialStep === 'voice' ? 10705 : 'auto',
+                  position: 'relative',
+                  pointerEvents: 'auto',
+                  boxShadow: tutorialStep === 'voice' ? '0 0 30px rgba(168, 85, 247, 0.6)' : undefined
+                }}
+              >
                   {isListening ? <Mic size={32} /> : <Mic size={32} style={{ opacity: 0.5 }} />}
               </button>
               
@@ -3541,6 +5235,31 @@ function HomeContent() {
                   {lang === 'th' ? '● ฟังอยู่...' : '● Listening...'}
                 </div>
               )}
+              
+              {/* Processing indicator */}
+              {isProcessing && (
+                <div style={{
+                  position: 'absolute',
+                  bottom: '-20px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  fontSize: '9px',
+                  color: 'var(--primary)',
+                  whiteSpace: 'nowrap',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <div style={{
+                    width: '4px',
+                    height: '4px',
+                    borderRadius: '50%',
+                    background: 'var(--primary)',
+                    animation: 'pulse 0.6s infinite'
+                  }} />
+                  {lang === 'th' ? 'กำลังประมวลผล...' : 'Processing...'}
+                </div>
+              )}
           </div>
           <button onClick={() => setShowSummary(!showSummary)} className="btn-outline" style={{ borderRadius: '50%', width: '56px', height: '56px' }}>
             <BarChart3 size={24} />
@@ -3548,6 +5267,249 @@ function HomeContent() {
         </div>
       </div>
       <AnimatePresence>
+        {showBalanceSetup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10650,
+              background: 'rgba(7, 10, 19, 0.92)',
+              backdropFilter: 'blur(18px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '2rem',
+              textAlign: 'center'
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 10 }}
+              style={{
+                maxWidth: '420px',
+                width: '100%',
+                background: 'rgba(15, 23, 42, 0.98)',
+                borderRadius: '20px',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                padding: '2rem',
+                boxShadow: '0 20px 60px -10px rgba(0, 0, 0, 0.6)'
+              }}
+            >
+              <div style={{ fontSize: '48px', marginBottom: '0.75rem' }}>🏦</div>
+              <h2 style={{ color: 'white', marginBottom: '0.5rem', fontSize: '1.5rem' }}>
+                {lang === 'th' ? 'ตั้งค่ายอดเงินเริ่มต้น' : 'Set Starting Balance'}
+              </h2>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: '1.6', fontSize: '14px' }}>
+                {lang === 'th'
+                  ? 'กรอกยอดเงิน ธนาคาร และ เงินสด เพื่อเริ่มใช้งานจริง'
+                  : 'Enter your Bank and Cash balances to start'}
+              </p>
+
+              <div style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: '12px',
+                padding: '10px 12px',
+                marginBottom: '1.25rem',
+                textAlign: 'left'
+              }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'white', marginBottom: '6px' }}>
+                  {lang === 'th' ? '🎤 ตั้งยอดเงินด้วยเสียงได้' : '🎤 You can set balance by voice'}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+                  {lang === 'th'
+                    ? 'ตัวอย่าง: “ตั้งยอดเงินธนาคาร 15000”, “ตั้งเงินสด 500”, “ตั้งงบรายวัน 300”, “ตั้งงบรายเดือน 9000”'
+                    : 'Examples: “set bank balance 15000”, “set cash 500”, “set daily budget 300”, “set monthly budget 9000”'}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gap: '8px', marginBottom: '1.5rem' }}>
+                <div style={{ textAlign: 'left' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {lang === 'th' ? '🏦 ธนาคาร' : '🏦 Bank'}
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={balanceBankInput}
+                    onChange={(e) => setBalanceBankInput(e.target.value)}
+                    placeholder={lang === 'th' ? 'เช่น 15000' : 'e.g. 15000'}
+                    style={{
+                      width: '100%',
+                      marginTop: '6px',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.04)',
+                      color: 'white'
+                    }}
+                  />
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {lang === 'th' ? '💵 เงินสด' : '💵 Cash'}
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={balanceCashInput}
+                    onChange={(e) => setBalanceCashInput(e.target.value)}
+                    placeholder={lang === 'th' ? 'เช่น 500' : 'e.g. 500'}
+                    style={{
+                      width: '100%',
+                      marginTop: '6px',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.04)',
+                      color: 'white'
+                    }}
+                  />
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {lang === 'th' ? '📅 งบประมาณรายวัน' : '📅 Daily Budget'}
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={budgetDailyInput}
+                    onChange={(e) => setBudgetDailyInput(e.target.value)}
+                    placeholder={lang === 'th' ? 'เช่น 300' : 'e.g. 300'}
+                    style={{
+                      width: '100%',
+                      marginTop: '6px',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.04)',
+                      color: 'white'
+                    }}
+                  />
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <label style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                    {lang === 'th' ? '🗓️ งบประมาณรายเดือน' : '🗓️ Monthly Budget'}
+                  </label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={budgetMonthlyInput}
+                    onChange={(e) => setBudgetMonthlyInput(e.target.value)}
+                    placeholder={lang === 'th' ? 'เช่น 9000' : 'e.g. 9000'}
+                    style={{
+                      width: '100%',
+                      marginTop: '6px',
+                      padding: '12px 14px',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      background: 'rgba(255,255,255,0.04)',
+                      color: 'white'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleBalanceSetupSave}
+                className="btn-primary"
+                disabled={isSavingBalance}
+                style={{
+                  width: '100%',
+                  fontWeight: 700,
+                  padding: '14px',
+                  fontSize: '16px',
+                  opacity: isSavingBalance ? 0.7 : 1,
+                  background: 'linear-gradient(135deg, #8b5cf6, #d946ef)'
+                }}
+              >
+                {isSavingBalance ? (lang === 'th' ? 'กำลังบันทึก...' : 'Saving...') : (lang === 'th' ? 'บันทึกยอดเงิน' : 'Save Balance')}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {showCongrats && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10600,
+              background: 'rgba(7, 10, 19, 0.92)',
+              backdropFilter: 'blur(18px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '2rem',
+              textAlign: 'center'
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 10 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 10 }}
+              style={{
+                maxWidth: '420px',
+                width: '100%',
+                background: 'rgba(15, 23, 42, 0.95)',
+                borderRadius: '20px',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                padding: '2rem',
+                boxShadow: '0 20px 60px -10px rgba(0, 0, 0, 0.6)'
+              }}
+            >
+              <motion.div 
+                animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.1, 1] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+                style={{ fontSize: '64px', marginBottom: '1rem' }}
+              >
+                🎉
+              </motion.div>
+              <h2 style={{ color: 'white', marginBottom: '0.5rem', fontSize: '1.5rem' }}>
+                {lang === 'th' ? 'ยินดีด้วย! 🎊' : 'Congratulations! 🎊'}
+              </h2>
+              <p style={{ color: '#a855f7', fontWeight: 600, marginBottom: '1rem' }}>
+                {lang === 'th' ? 'คุณทำ Tutorial ครบทั้ง 3 ขั้นตอนแล้ว!' : 'You completed all 3 tutorial steps!'}
+              </p>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'center', 
+                gap: '8px', 
+                marginBottom: '1.5rem' 
+              }}>
+                <span style={{ fontSize: '24px' }}>🎤✅</span>
+                <span style={{ fontSize: '24px' }}>📸✅</span>
+                <span style={{ fontSize: '24px' }}>✍️✅</span>
+              </div>
+              <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: '1.6', fontSize: '14px' }}>
+                {lang === 'th'
+                  ? 'กดปุ่มด้านล่างเพื่อเริ่มใช้งานจริง\nระบบจะล้างข้อมูลทดสอบให้อัตโนมัติ'
+                  : 'Tap below to start using the app.\nDemo data will be cleared automatically.'}
+              </p>
+              <button
+                onClick={handleCongratsConfirm}
+                className="btn-primary"
+                style={{ 
+                  width: '100%', 
+                  fontWeight: 700,
+                  padding: '14px',
+                  fontSize: '16px',
+                  background: 'linear-gradient(135deg, #8b5cf6, #d946ef)'
+                }}
+              >
+                {lang === 'th' ? '🚀 เริ่มใช้งานจริง' : '🚀 Start Using App'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+
         {confirmModal.show && (
           <motion.div 
             initial={{ opacity: 0 }} 
@@ -3593,6 +5555,396 @@ function HomeContent() {
               </div>
             </motion.div>
           </motion.div>
+        )}
+
+        {showImageModal && selectedImage && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowImageModal(false)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 2200,
+              padding: '1rem'
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'relative',
+                maxWidth: isMobile ? '90vw' : '80vw',
+                maxHeight: '90vh',
+                background: 'rgba(15, 23, 42, 0.95)',
+                borderRadius: '16px',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                overflow: 'auto',
+                boxShadow: '0 20px 60px -10px rgba(0, 0, 0, 0.5)'
+              }}
+            >
+              <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(139, 92, 246, 0.1)' }}>
+                <h3 style={{ margin: 0, color: 'white', fontSize: isMobile ? '1rem' : '1.25rem' }}>
+                  {lang === 'th' ? 'ดูรูปภาพ' : 'View Receipt'}
+                </h3>
+                <button
+                  onClick={() => setShowImageModal(false)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    fontSize: '24px',
+                    padding: 0
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: isMobile ? '300px' : '500px' }}>
+                <img
+                  src={selectedImage}
+                  alt="Receipt"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain',
+                    borderRadius: '8px'
+                  }}
+                />
+              </div>
+              <div style={{ padding: '1rem', borderTop: '1px solid rgba(139, 92, 246, 0.1)', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                <a
+                  href={selectedImage}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'var(--primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                    fontWeight: 600
+                  }}
+                >
+                  {lang === 'th' ? 'เปิดแบบเต็มหน้า' : 'Open Full Size'}
+                </a>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tutorial Spotlight Overlay - Modern Redesign */}
+      <AnimatePresence>
+        {tutorialStep && showOnboarding && !onboardingTasks.completed && (
+          <>
+            {/* Dark backdrop - blocks clicks on non-tutorial areas */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: tutorialStep === 'manual' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.75)',
+                zIndex: 10000,
+                pointerEvents: 'auto'
+              }}
+            />
+
+            {/* Progress bar at top */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              style={{
+                position: 'fixed',
+                top: '20px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 10003,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                background: 'rgba(0,0,0,0.8)',
+                padding: '10px 20px',
+                borderRadius: '50px',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                minWidth: 'fit-content'
+              }}
+            >
+              {['voice', 'scan', 'manual'].map((step, idx) => (
+                <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: onboardingTasks[step] 
+                      ? '#22c55e' 
+                      : tutorialStep === step 
+                        ? 'linear-gradient(135deg, #8b5cf6, #d946ef)'
+                        : 'rgba(255,255,255,0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: 'white',
+                    boxShadow: tutorialStep === step ? '0 0 20px rgba(139, 92, 246, 0.5)' : 'none'
+                  }}>
+                    {onboardingTasks[step] ? '✓' : idx + 1}
+                  </div>
+                  {idx < 2 && (
+                    <div style={{
+                      width: '24px',
+                      height: '2px',
+                      background: onboardingTasks[step] ? '#22c55e' : 'rgba(255,255,255,0.2)'
+                    }} />
+                  )}
+                </div>
+              ))}
+            </motion.div>
+
+            {/* Compact tooltip near button - DRAGGABLE */}
+            {tutorialHighlight && (
+              <motion.div
+                drag
+                dragMomentum={false}
+                dragElastic={0.1}
+                whileDrag={{ scale: 1.02, cursor: 'grabbing' }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                style={{
+                  position: 'fixed',
+                  ...(tutorialStep === 'manual' ? {
+                    top: tutorialHighlight.top + tutorialHighlight.height + 20,
+                    left: Math.max(20, Math.min(tutorialHighlight.left + tutorialHighlight.width / 2 - 140, window.innerWidth - 300))
+                  } : {
+                    bottom: window.innerHeight - tutorialHighlight.top + 20,
+                    left: Math.max(20, Math.min(tutorialHighlight.left + tutorialHighlight.width / 2 - 140, window.innerWidth - 300))
+                  }),
+                  width: '280px',
+                  zIndex: 10002,
+                  background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(168, 85, 247, 0.95))',
+                  padding: '16px',
+                  borderRadius: '16px',
+                  textAlign: 'center',
+                  boxShadow: '0 10px 40px rgba(139, 92, 246, 0.4)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  pointerEvents: 'auto',
+                  cursor: 'grab'
+                }}
+              >
+                {(() => {
+                  const content = getTutorialContent();
+                  if (!content) return null;
+                  return (
+                    <>
+                      {/* Drag handle indicator with hint */}
+                      <motion.div 
+                        animate={{ x: [-3, 3, -3] }}
+                        transition={{ repeat: Infinity, duration: 1.5 }}
+                        style={{
+                          position: 'absolute',
+                          top: '8px',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '2px',
+                          background: 'rgba(0,0,0,0.3)',
+                          padding: '4px 12px',
+                          borderRadius: '12px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', gap: '3px' }}>
+                          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(255,255,255,0.8)' }} />
+                          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(255,255,255,0.8)' }} />
+                          <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: 'rgba(255,255,255,0.8)' }} />
+                        </div>
+                        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.9)', fontWeight: 600 }}>
+                          👆 {lang === 'th' ? 'ลากย้ายได้' : 'drag me'}
+                        </div>
+                      </motion.div>
+
+                      {/* Arrow pointing to button */}
+                      <div style={{
+                        position: 'absolute',
+                        ...(tutorialStep === 'manual' ? {
+                          top: '-8px',
+                          left: '50%',
+                          transform: 'translateX(-50%) rotate(45deg)'
+                        } : {
+                          bottom: '-8px',
+                          left: '50%',
+                          transform: 'translateX(-50%) rotate(45deg)'
+                        }),
+                        width: '16px',
+                        height: '16px',
+                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(168, 85, 247, 0.95))',
+                        borderRadius: '2px'
+                      }} />
+
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.7)', marginBottom: '4px', marginTop: '20px' }}>
+                        {tutorialStep === 'voice' ? (lang === 'th' ? 'ขั้นตอนที่ 1/3' : 'Step 1 of 3') :
+                         tutorialStep === 'scan' ? (lang === 'th' ? 'ขั้นตอนที่ 2/3' : 'Step 2 of 3') :
+                         (lang === 'th' ? 'ขั้นตอนที่ 3/3 (สุดท้าย!)' : 'Step 3 of 3 (Last!)')}
+                      </div>
+
+                      <div style={{ fontSize: '16px', fontWeight: 800, color: 'white', marginBottom: '10px', lineHeight: 1.4 }}>
+                        {tutorialStep === 'voice' ? '🎤' : tutorialStep === 'scan' ? '📸' : '✍️'}{' '}
+                        {content.instruction}
+                      </div>
+
+                      <motion.div
+                        animate={{ scale: [1, 1.02, 1] }}
+                        transition={{ repeat: Infinity, duration: 2 }}
+                        style={{
+                          fontSize: '14px',
+                          fontWeight: 700,
+                          color: '#fef08a',
+                          padding: '10px 14px',
+                          background: 'rgba(0,0,0,0.25)',
+                          borderRadius: '10px',
+                          marginBottom: '8px'
+                        }}
+                      >
+                        {content.example}
+                      </motion.div>
+
+                      {/* Extra hint for manual step */}
+                      {tutorialStep === 'manual' && (
+                        <div style={{ 
+                          fontSize: '11px', 
+                          color: 'rgba(255,255,255,0.7)', 
+                          marginBottom: '8px',
+                          padding: '6px 10px',
+                          background: 'rgba(255,255,255,0.1)',
+                          borderRadius: '6px'
+                        }}>
+                          {content.prompt}
+                        </div>
+                      )}
+
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button
+                          onClick={() => {
+                            const current = onboardingTasksRef.current;
+                            const updated = { ...current };
+                            if (tutorialStep) {
+                              updated[tutorialStep] = true;
+                            }
+                            updated.completed = updated.voice && updated.scan && updated.manual;
+                            setOnboardingTasks(updated);
+                            if (session?.user?.email) {
+                              localStorage.setItem(`onboardingTasks_${session.user.email}`, JSON.stringify(updated));
+                            }
+                            if (updated.completed) {
+                              setShowOnboarding(false);
+                              setTutorialStep(null);
+                              setTutorialHighlight(null);
+                              setShowCongrats(true);
+                            } else {
+                              setTimeout(() => {
+                                advanceToNextTutorialStep(updated);
+                              }, 200);
+                            }
+                          }}
+                          style={{
+                            background: 'rgba(255,255,255,0.15)',
+                            border: 'none',
+                            color: 'rgba(255,255,255,0.8)',
+                            fontSize: '12px',
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            zIndex: 1,
+                            pointerEvents: 'auto'
+                          }}
+                        >
+                          {lang === 'th' ? 'ข้าม Tutorial' : 'Skip Tutorial'}
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
+              </motion.div>
+            )}
+
+            {/* Animated spotlight ring */}
+            {tutorialHighlight && (
+              <motion.div
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.5, opacity: 0 }}
+                style={{
+                  position: 'fixed',
+                  top: tutorialHighlight.top - 12,
+                  left: tutorialHighlight.left - 12,
+                  width: tutorialHighlight.width + 24,
+                  height: tutorialHighlight.height + 24,
+                  borderRadius: tutorialStep === 'manual' ? '16px' : '50%',
+                  border: '3px solid #a855f7',
+                  boxShadow: '0 0 0 6px rgba(168, 85, 247, 0.2), 0 0 40px rgba(168, 85, 247, 0.4), inset 0 0 20px rgba(168, 85, 247, 0.1)',
+                  zIndex: 10701,
+                  pointerEvents: 'none'
+                }}
+              >
+                {/* Pulsing animation ring */}
+                <motion.div
+                  animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0, 0.5] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  style={{
+                    position: 'absolute',
+                    inset: '-6px',
+                    borderRadius: tutorialStep === 'manual' ? '20px' : '50%',
+                    border: '2px solid #a855f7'
+                  }}
+                />
+              </motion.div>
+            )}
+
+            {/* Bouncing arrow indicator */}
+            {tutorialHighlight && (
+              <motion.div
+                animate={{ y: tutorialStep === 'manual' ? [0, -8, 0] : [0, 8, 0] }}
+                transition={{ repeat: Infinity, duration: 0.8 }}
+                style={{
+                  position: 'fixed',
+                  ...(tutorialStep === 'manual' ? {
+                    top: tutorialHighlight.top - 36,
+                    left: tutorialHighlight.left + tutorialHighlight.width / 2 - 12
+                  } : {
+                    top: tutorialHighlight.top + tutorialHighlight.height + 12,
+                    left: tutorialHighlight.left + tutorialHighlight.width / 2 - 12
+                  }),
+                  zIndex: 10002,
+                  fontSize: '24px',
+                  pointerEvents: 'none'
+                }}
+              >
+                {tutorialStep === 'manual' ? '👇' : '👆'}
+              </motion.div>
+            )}
+          </>
         )}
       </AnimatePresence>
     </div>

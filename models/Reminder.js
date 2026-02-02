@@ -30,6 +30,10 @@ const ReminderSchema = new mongoose.Schema({
   category: {
     type: String,
     default: 'อื่นๆ',
+  },
+  notified: {
+    type: Boolean,
+    default: false,
   }
 }, { timestamps: true });
 

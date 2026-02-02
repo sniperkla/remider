@@ -45,6 +45,9 @@ export async function GET() {
       defaultWallet: profile.defaultWallet,
       nickname: profile.nickname,
       preventDelete: profile.preventDelete,
+      language: profile.language,
+      ocrProvider: profile.ocrProvider,
+      aiModel: profile.aiModel,
       groqKeys: systemSetting.groqKeys,
       transactions: transactions
     });
@@ -65,7 +68,7 @@ export async function POST(request) {
     await dbConnect();
     const userId = session.user.email;
     const body = await request.json();
-    const { budget, balance, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, clearAll } = body;
+    const { budget, balance, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, clearAll, language, ocrProvider, aiModel } = body;
 
     // 0. Handle Clear All Data
     if (clearAll) {
@@ -82,6 +85,9 @@ export async function POST(request) {
     if (defaultWallet !== undefined) updateData.defaultWallet = defaultWallet;
     if (nickname !== undefined) updateData.nickname = nickname;
     if (preventDelete !== undefined) updateData.preventDelete = preventDelete;
+    if (language !== undefined) updateData.language = language;
+    if (ocrProvider !== undefined) updateData.ocrProvider = ocrProvider;
+    if (aiModel !== undefined) updateData.aiModel = aiModel;
 
     const profile = await UserProfile.findOneAndUpdate(
       { userId },

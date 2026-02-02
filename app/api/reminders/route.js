@@ -80,3 +80,25 @@ export async function DELETE(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export async function PATCH(request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const data = await request.json();
+    const { id, ...updates } = data;
+
+    await dbConnect();
+    const userId = session.user.email;
+    const updated = await Reminder.findOneAndUpdate(
+      { _id: id, userId },
+      { $set: updates },
+      { new: true }
+    );
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}

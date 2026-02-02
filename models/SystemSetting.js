@@ -14,6 +14,14 @@ const SystemSettingSchema = new mongoose.Schema({
   activeKeyIndex: {
     type: Number,
     default: 0
+  },
+  tokenUsage: {
+    prompt_used: { type: Number, default: 0 },
+    completion_used: { type: Number, default: 0 },
+    total_used: { type: Number, default: 0 },
+    month: { type: Number, default: () => new Date().getMonth() },
+    year: { type: Number, default: () => new Date().getFullYear() },
+    last_reset: { type: Date, default: Date.now }
   }
 }, { timestamps: true });
 

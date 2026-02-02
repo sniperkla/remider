@@ -36,6 +36,10 @@ const TransactionSchema = new mongoose.Schema({
     type: String, // Store lucide icon name (e.g. "Coffee", "Bus")
     required: false,
   },
+  imageUrl: {
+    type: String, // Cloudinary image URL for receipt/slip
+    required: false,
+  },
   date: {
     type: Date,
     default: Date.now,
