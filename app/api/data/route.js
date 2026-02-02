@@ -49,6 +49,11 @@ export async function GET() {
       ocrProvider: profile.ocrProvider,
       aiModel: profile.aiModel,
       onboardingCompleted: profile.onboardingCompleted,
+      tutorialCompleted: profile.tutorialCompleted,
+      useSmartAI: profile.useSmartAI,
+      hasSeenFAQ: profile.hasSeenFAQ,
+      onboardingTasks: profile.onboardingTasks,
+      lastAutoScan: profile.lastAutoScan,
       groqKeys: systemSetting.groqKeys,
       transactions: transactions
     });
@@ -69,7 +74,7 @@ export async function POST(request) {
     await dbConnect();
     const userId = session.user.email;
     const body = await request.json();
-    const { budget, balance, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, clearAll, language, ocrProvider, aiModel, onboardingCompleted } = body;
+    const { budget, balance, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, clearAll, language, ocrProvider, aiModel, onboardingCompleted, tutorialCompleted, useSmartAI, hasSeenFAQ, onboardingTasks, lastAutoScan } = body;
 
     // 0. Handle Clear All Data
     if (clearAll) {
@@ -90,6 +95,11 @@ export async function POST(request) {
     if (ocrProvider !== undefined) updateData.ocrProvider = ocrProvider;
     if (aiModel !== undefined) updateData.aiModel = aiModel;
     if (onboardingCompleted !== undefined) updateData.onboardingCompleted = onboardingCompleted;
+    if (tutorialCompleted !== undefined) updateData.tutorialCompleted = tutorialCompleted;
+    if (useSmartAI !== undefined) updateData.useSmartAI = useSmartAI;
+    if (hasSeenFAQ !== undefined) updateData.hasSeenFAQ = hasSeenFAQ;
+    if (onboardingTasks !== undefined) updateData.onboardingTasks = onboardingTasks;
+    if (lastAutoScan !== undefined) updateData.lastAutoScan = lastAutoScan;
 
     const profile = await UserProfile.findOneAndUpdate(
       { userId },

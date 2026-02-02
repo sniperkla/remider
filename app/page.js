@@ -450,14 +450,12 @@ function HomeContent() {
     }
   }, [lang]);
 
-  // Load Auto-Billing Folder from IDB
+  // Load Auto-Billing Folder from IDB (lastAutoScan loaded from DB in loadInitialData)
   useEffect(() => {
     const loadFolder = async () => {
       const handle = await getHandle("billingFolder");
       if (handle) {
         setFolderHandle(handle);
-        const last = localStorage.getItem("lastAutoScan");
-        if (last) setLastAutoScan(parseInt(last));
       }
     };
     loadFolder();
@@ -471,7 +469,14 @@ function HomeContent() {
       // Look back 1 hour on first link so we don't miss recent transfers
       const startFrom = Date.now() - (60 * 60 * 1000); 
       setLastAutoScan(startFrom);
-      localStorage.setItem("lastAutoScan", startFrom.toString());
+      // Save to DB
+      if (session?.user?.email) {
+        fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lastAutoScan: startFrom })
+        }).catch(err => console.error('Failed to save lastAutoScan to DB:', err));
+      }
       scanFolderTransactions(handle, startFrom);
     } catch (err) {
       console.warn("Folder access denied or cancelled", err);
@@ -580,7 +585,14 @@ function HomeContent() {
       // SAFETY: Move marker forward to NOW, but subtract 30s buffer to catch overlapping writes
       const nextScanTime = Date.now() - 30000;
       setLastAutoScan(nextScanTime);
-      localStorage.setItem("lastAutoScan", nextScanTime.toString());
+      // Save to DB
+      if (session?.user?.email) {
+        fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lastAutoScan: nextScanTime })
+        }).catch(err => console.error('Failed to save lastAutoScan to DB:', err));
+      }
       
       if (newItemsCount > 0) {
         setAiMessage(t.scanned_new_files(newItemsCount));
@@ -648,19 +660,12 @@ function HomeContent() {
   const languageReadyRef = useRef(false);
   useEffect(() => { languageReadyRef.current = languageReady; }, [languageReady]);
 
-  // Load settings from localStorage on mount
+  // Initial state - show language modal until DB loads (for fresh users)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
-    const savedLang = localStorage.getItem("appLanguage");
-    const languageChosen = localStorage.getItem("languageChosen") === "true";
-    if (savedLang === "th" || savedLang === "en") {
-      setLang(savedLang);
-    }
-
-    if (languageChosen && (savedLang === "th" || savedLang === "en")) {
-      setLanguageReady(true);
-    } else {
+    // For non-logged-in users, show language modal
+    // Once logged in, DB data will set languageReady
+    if (!session) {
       setLanguageReady(false);
       setShowLanguageModal(true);
       setShowInstallModal(false);
@@ -668,72 +673,54 @@ function HomeContent() {
       setTutorialStep(null);
       setTutorialHighlight(null);
     }
-    
-    const savedProvider = localStorage.getItem("ocrProvider");
-    if (savedProvider === "tesseract" || savedProvider === "google") {
-      setOcrProvider(savedProvider);
-    }
-    
-    const savedSmartAI = localStorage.getItem("useSmartAI");
-    if (savedSmartAI === "true" || savedSmartAI === "false") {
-      setUseSmartAI(savedSmartAI === "true");
-    }
-    
-    const savedAIModel = localStorage.getItem("aiModel");
-    if (savedAIModel) {
-      setAiModel(savedAIModel);
-    }
-  }, []);
+  }, [session]);
 
-  // Save language to localStorage whenever it changes
+  // Save language to database whenever it changes
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem("appLanguage", lang);
+    if (!session?.user?.email) return;
     
-    // Save to database if user is logged in
-    if (session?.user?.email) {
-      fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ language: lang })
-      }).catch(err => console.error('Failed to save language to DB:', err));
-    }
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language: lang })
+    }).catch(err => console.error('Failed to save language to DB:', err));
   }, [lang, session]);
 
-  // Save OCR provider to localStorage whenever it changes
+  // Save OCR provider to database whenever it changes
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem("ocrProvider", ocrProvider);
+    if (!session?.user?.email) return;
     
-    // Save to database if user is logged in
-    if (session?.user?.email) {
-      fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ocrProvider })
-      }).catch(err => console.error('Failed to save OCR provider to DB:', err));
-    }
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ocrProvider })
+    }).catch(err => console.error('Failed to save OCR provider to DB:', err));
   }, [ocrProvider, session]);
 
-  // Save Smart AI toggle to localStorage whenever it changes
+  // Save Smart AI toggle to database whenever it changes
   useEffect(() => {
     if (typeof window === "undefined") return;
-    localStorage.setItem("useSmartAI", useSmartAI.toString());
-  }, [useSmartAI]);
-
-  // Save AI Model to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    localStorage.setItem("aiModel", aiModel);
+    if (!session?.user?.email) return;
     
-    // Save to database if user is logged in
-    if (session?.user?.email) {
-      fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ aiModel })
-      }).catch(err => console.error('Failed to save AI model to DB:', err));
-    }
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ useSmartAI })
+    }).catch(err => console.error('Failed to save useSmartAI to DB:', err));
+  }, [useSmartAI, session]);
+
+  // Save AI Model to database whenever it changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!session?.user?.email) return;
+    
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ aiModel })
+    }).catch(err => console.error('Failed to save AI model to DB:', err));
   }, [aiModel, session]);
 
   const recognitionRef = useRef(null);
@@ -932,9 +919,10 @@ function HomeContent() {
             }
             if (data.onboardingCompleted) {
               setLanguageReady(true);
-              localStorage.setItem('languageChosen', 'true');
             }
             if (data.aiModel) setAiModel(data.aiModel);
+            if (data.useSmartAI !== undefined) setUseSmartAI(data.useSmartAI);
+            if (data.lastAutoScan) setLastAutoScan(data.lastAutoScan);
             if (data.transactions) setTransactions(data.transactions);
             if (data.debts) setDebts(data.debts);
             
@@ -945,58 +933,46 @@ function HomeContent() {
               setReminders(reminderData);
             }
 
-            // Show FAQ on first login (Onboarding)
-            const onboardingKey = `hasSeenFAQ_${session.user.email}`;
-            const hasSeenFAQ = localStorage.getItem(onboardingKey);
-            if (!hasSeenFAQ) {
+            // Show FAQ on first login (from DB)
+            if (!data.hasSeenFAQ) {
               setTimeout(() => {
                 setShowHelp(true);
-                localStorage.setItem(onboardingKey, 'true');
-              }, 1500); // Small delay for smoother entrance
+                // Mark as seen in DB
+                fetch('/api/data', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ hasSeenFAQ: true })
+                }).catch(err => console.error('Failed to save hasSeenFAQ to DB:', err));
+              }, 1500);
             }
             
-            // Load onboarding tasks progress
-            const onboardingTasksKey = `onboardingTasks_${session.user.email}`;
-            const savedTasks = localStorage.getItem(onboardingTasksKey);
-            const tutorialCompletedKey = `tutorialCompleted_${session.user.email}`;
-            const hasCompletedTutorial = localStorage.getItem(tutorialCompletedKey) === 'true';
+            // Load onboarding tasks progress from DB
+            const hasCompletedTutorial = data.tutorialCompleted === true;
             if (hasCompletedTutorial) {
               setOnboardingTasks({ voice: true, scan: true, manual: true, completed: true });
-            } else if (savedTasks) {
-              const parsed = JSON.parse(savedTasks);
-              setOnboardingTasks(parsed);
-              // If no install modal, start tutorial directly
-              if (!parsed.completed) {
+            } else if (data.onboardingTasks && (data.onboardingTasks.voice || data.onboardingTasks.scan || data.onboardingTasks.manual)) {
+              // Resume from saved progress
+              setOnboardingTasks(data.onboardingTasks);
+              if (!data.onboardingTasks.completed) {
                 setTimeout(() => {
-                  const hasLang = localStorage.getItem("appLanguage");
-                  if (!hasLang) {
+                  if (!data.onboardingCompleted) {
                     setPendingTutorialStart(true);
                     return;
                   }
-                  // Check if install modal is not showing (already installed)
-                  const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
-                                     window.navigator.standalone === true;
-                  if (isInstalled) {
-                    setShowOnboarding(true);
-                    advanceToNextTutorialStep(parsed);
-                  }
-                  // Otherwise, tutorial will start when install modal is dismissed
+                  // Start tutorial (works in browser or installed)
+                  setShowOnboarding(true);
+                  advanceToNextTutorialStep(data.onboardingTasks);
                 }, 2000);
               }
             } else {
-              // First time user - start tutorial if already installed
+              // First time user - wait for language selection then start tutorial
               setTimeout(() => {
-                const hasLang = localStorage.getItem("appLanguage");
-                if (!hasLang) {
+                if (!data.onboardingCompleted) {
                   setPendingTutorialStart(true);
                   return;
                 }
-                const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
-                                   window.navigator.standalone === true;
-                if (isInstalled) {
-                  startTutorial();
-                }
-                // Otherwise, tutorial will start when install modal is dismissed
+                // Start tutorial for fresh user
+                startTutorial();
               }, 2000);
             }
           }
@@ -1061,7 +1037,7 @@ function HomeContent() {
   const processVoiceRef = useRef();
   useEffect(() => {
     processVoiceRef.current = processVoiceCommand;
-  }, [balance, activeWallet, session, transactions, budget]);
+  }, [balance, activeWallet, session, transactions, budget, lang]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
@@ -1954,9 +1930,14 @@ function HomeContent() {
         }
       }, 3000);
       
-      // Save to localStorage
-      const onboardingTasksKey = `onboardingTasks_${session.user.email}`;
-      localStorage.setItem(onboardingTasksKey, JSON.stringify(updated));
+      // Save to DB
+      if (session?.user?.email) {
+        fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ onboardingTasks: updated })
+        }).catch(err => console.error('Failed to save onboardingTasks to DB:', err));
+      }
       
       return updated;
     });
@@ -1964,11 +1945,16 @@ function HomeContent() {
 
   const handleCongratsConfirm = () => {
     if (!session?.user?.email) return;
-
-    const onboardingTasksKey = `onboardingTasks_${session.user.email}`;
-    const tutorialCompletedKey = `tutorialCompleted_${session.user.email}`;
-    localStorage.removeItem(onboardingTasksKey);
-    localStorage.setItem(tutorialCompletedKey, 'true');
+    
+    // Save tutorialCompleted and clear onboardingTasks in database
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        tutorialCompleted: true,
+        onboardingTasks: { voice: true, scan: true, manual: true, completed: true }
+      })
+    }).catch(err => console.error('Failed to save tutorialCompleted to DB:', err));
 
     // Clear only tutorial demo transactions (not real ones)
     const tutorialTxns = transactionsRef.current.filter(t => t.isTutorial);
@@ -2112,34 +2098,37 @@ function HomeContent() {
     if (typeof window === "undefined") return;
     if (!languageReady) return;
 
+    // Wait for language modal to close first
+    if (showLanguageModal) return;
+
+    // Show install modal first if available
     if (pendingInstallPrompt && deferredPrompt && !isAppInstalled) {
       setShowInstallModal(true);
       setPendingInstallPrompt(false);
+      // Don't start tutorial yet - wait for install modal to be dismissed
+      return;
     }
 
-    if (pendingTutorialStart && session?.user?.email) {
-      const onboardingTasksKey = `onboardingTasks_${session.user.email}`;
-      const savedTasks = localStorage.getItem(onboardingTasksKey);
-      const tutorialCompletedKey = `tutorialCompleted_${session.user.email}`;
-      const hasCompletedTutorial = localStorage.getItem(tutorialCompletedKey) === 'true';
+    // Only start tutorial if install modal is not showing
+    if (pendingTutorialStart && session?.user?.email && !showInstallModal) {
+      // tutorialCompleted is already loaded from DB into onboardingTasks state
+      const hasCompletedTutorial = onboardingTasks.completed === true;
 
       if (!hasCompletedTutorial) {
-        const parsed = savedTasks ? JSON.parse(savedTasks) : null;
-        const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
-                           window.navigator.standalone === true;
-        if (isInstalled) {
-          if (parsed && !parsed.completed) {
-            setShowOnboarding(true);
-            advanceToNextTutorialStep(parsed);
-          } else if (!parsed) {
-            startTutorial();
-          }
+        // Check if there's progress saved in state (loaded from DB)
+        const hasProgress = onboardingTasks.voice || onboardingTasks.scan || onboardingTasks.manual;
+        
+        if (hasProgress && !onboardingTasks.completed) {
+          setShowOnboarding(true);
+          advanceToNextTutorialStep(onboardingTasks);
+        } else if (!hasProgress) {
+          startTutorial();
         }
       }
 
       setPendingTutorialStart(false);
     }
-  }, [languageReady, pendingInstallPrompt, pendingTutorialStart, deferredPrompt, isAppInstalled, session]);
+  }, [languageReady, pendingInstallPrompt, pendingTutorialStart, deferredPrompt, isAppInstalled, session, onboardingTasks, showInstallModal, showLanguageModal]);
 
   // Get tutorial content for current step
   const getTutorialContent = () => {
@@ -2808,16 +2797,12 @@ function HomeContent() {
 
    const saveSettings = async () => {
     try {
-      // Save to DB
+      // Save to DB only
       await fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ budget, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, ocrProvider, lang, useSmartAI })
+        body: JSON.stringify({ budget, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, ocrProvider, language: lang, useSmartAI })
       });
-      // Also save to localStorage for instant access
-      localStorage.setItem("appLanguage", lang);
-      localStorage.setItem("ocrProvider", ocrProvider);
-      localStorage.setItem("useSmartAI", useSmartAI.toString());
     } catch (error) {
       console.error("Failed to save settings");
     }
@@ -3481,9 +3466,10 @@ function HomeContent() {
                   onClick={() => {
                     setLang('th');
                     setAiLang('th');
-                    localStorage.setItem('languageChosen', 'true');
                     setShowLanguageModal(false);
                     setLanguageReady(true);
+                    // Trigger tutorial for fresh user
+                    setPendingTutorialStart(true);
                     // Save to database
                     if (session?.user?.email) {
                       fetch('/api/data', {
@@ -3511,9 +3497,10 @@ function HomeContent() {
                   onClick={() => {
                     setLang('en');
                     setAiLang('en');
-                    localStorage.setItem('languageChosen', 'true');
                     setShowLanguageModal(false);
                     setLanguageReady(true);
+                    // Trigger tutorial for fresh user
+                    setPendingTutorialStart(true);
                     // Save to database
                     if (session?.user?.email) {
                       fetch('/api/data', {
@@ -3609,17 +3596,6 @@ function HomeContent() {
                   onClick={() => {
                     handleInstallClick();
                     setShowInstallModal(false);
-                    // Start tutorial after install modal closes
-                    if (!onboardingTasks.completed) {
-                      setTimeout(() => {
-                        if (onboardingTasks.voice || onboardingTasks.scan || onboardingTasks.manual) {
-                          setShowOnboarding(true);
-                          advanceToNextTutorialStep(onboardingTasks);
-                        } else {
-                          startTutorial();
-                        }
-                      }, 1000);
-                    }
                   }}
                   style={{ 
                     width: '100%', 
@@ -3639,17 +3615,6 @@ function HomeContent() {
                 <button 
                   onClick={() => {
                     setShowInstallModal(false);
-                    // Start tutorial after install modal closes
-                    if (!onboardingTasks.completed) {
-                      setTimeout(() => {
-                        if (onboardingTasks.voice || onboardingTasks.scan || onboardingTasks.manual) {
-                          setShowOnboarding(true);
-                          advanceToNextTutorialStep(onboardingTasks);
-                        } else {
-                          startTutorial();
-                        }
-                      }, 1000);
-                    }
                   }}
                   style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', fontSize: '14px', cursor: 'pointer' }}
                 >
@@ -3858,8 +3823,13 @@ function HomeContent() {
                   setOnboardingTasks(all);
                   setShowOnboarding(false);
                   setTutorialStep(null);
+                  // Save to DB
                   if (session?.user?.email) {
-                    localStorage.setItem(`onboardingTasks_${session.user.email}`, JSON.stringify(all));
+                    fetch('/api/data', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ tutorialCompleted: true, onboardingTasks: all })
+                    }).catch(err => console.error('Failed to save skip tutorial to DB:', err));
                   }
                 }}
                 style={{
@@ -4969,11 +4939,11 @@ function HomeContent() {
       <div 
         className="mic-button-container flex flex-col items-center justify-center gap-4  sticky bottom-[120px] bg-transparent py-4 px-6 mt-auto mx-auto"
         style={{
-          zIndex: (tutorialStep === 'voice' || tutorialStep === 'scan') ? 10705 : 100
+          zIndex: (showLanguageModal || showInstallModal) ? 1 : ((tutorialStep === 'voice' || tutorialStep === 'scan') ? 10705 : 100)
         }}
       >
         {/* AI Mode Badge */}
-        <div classNam style={{ 
+        <div  style={{ 
           position: 'absolute',
           top: '-45px',
           left: '50%',
@@ -5009,38 +4979,36 @@ function HomeContent() {
               exit={{ opacity: 0, y: 10, scale: 0.9 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               style={{ 
-                maxWidth: isMobile ? '280px' : '320px',
+                width: '100%',
                 zIndex: tutorialStep === 'voice' ? 10710 : 1200,
                 position: 'fixed',
-                bottom: isMobile ? '170px' : '190px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                pointerEvents: 'none'
+                bottom: isMobile ? '180px' : '200px',
+                left: 0,
+                right: 0,
+                pointerEvents: 'none',
+                boxSizing: 'border-box',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 16px'
               }}
             >
               {/* Chat Bubble */}
               <div style={{ 
                 background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-                padding: isMobile ? '12px 16px' : '10px 14px',
-                borderRadius: '20px 20px 6px 20px',
-                fontSize: isMobile ? '15px' : '14px',
+                padding: isMobile ? '14px 18px' : '12px 16px',
+                borderRadius: '20px',
+                fontSize: isMobile ? '16px' : '15px',
                 fontWeight: 500,
                 color: 'white',
-                boxShadow: '0 4px 20px rgba(139, 92, 246, 0.4)',
+                boxShadow: '0 8px 32px rgba(139, 92, 246, 0.5)',
                 position: 'relative',
-                lineHeight: 1.4
+                lineHeight: 1.5,
+                textAlign: 'center',
+                wordBreak: 'break-word',
+                maxWidth: isMobile ? '320px' : '380px'
               }}>
-                {/* Bubble tail */}
-                <div style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  right: -6,
-                  width: 0,
-                  height: 0,
-                  borderLeft: '8px solid transparent',
-                  borderTop: '8px solid #7c3aed'
-                }} />
-                
                 {/* Text content */}
                 <span>{interimTranscript}</span>
                 
@@ -5057,23 +5025,22 @@ function HomeContent() {
                 </motion.span>
               </div>
               
-              {/* "You" label */}
+              {/* "Speaking" label - centered */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'flex-end',
+                justifyContent: 'center',
                 gap: '6px',
-                marginTop: '6px',
-                paddingRight: '4px'
+                marginTop: '8px'
               }}>
                 <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
+                  animate={{ scale: [1, 1.3, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
                 >
-                  <Mic size={12} style={{ color: '#a78bfa' }} />
+                  <Mic size={14} style={{ color: '#a78bfa' }} />
                 </motion.div>
                 <span style={{ 
-                  fontSize: '11px', 
+                  fontSize: '12px', 
                   color: '#a78bfa',
                   fontWeight: 600
                 }}>
@@ -5088,20 +5055,29 @@ function HomeContent() {
         <AnimatePresence>
           {aiMessage && !(tutorialStep && (aiMessage === translations.th.ai_greeting || aiMessage === translations.en.ai_greeting)) && (
             <motion.div 
-              initial={{ opacity: 0, y: 15, scale: 0.95 }}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
               style={{ 
-                maxWidth: '95%', 
-                width: isMobile ? '320px' : '450px',
+                width: '100%',
                 position: 'fixed',
-                top: isMobile ? '12px' : '18px',
-                left: '50%',
-                transform: 'translateX(-50%)',
+                bottom: isMobile ? '180px' : '200px',
+                left: 0,
+                right: 0,
                 zIndex: (tutorialStep === 'voice' || tutorialStep === 'scan') ? 10710 : 1200,
-                pointerEvents: 'auto'
+                pointerEvents: 'none',
+                padding: '0 12px',
+                boxSizing: 'border-box',
+                display: 'flex',
+                justifyContent: 'center'
               }}
             >
+              <div style={{ 
+                width: '100%',
+                maxWidth: isMobile ? '340px' : '480px',
+                pointerEvents: 'auto',
+                position: 'relative'
+              }}>
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
@@ -5109,20 +5085,20 @@ function HomeContent() {
                 }}
                 style={{ 
                   position: 'absolute', 
-                  top: '-8px', 
-                  right: '-8px', 
-                  background: '#ef4444', 
+                  top: '-10px', 
+                  right: '-6px', 
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
                   color: 'white', 
-                  border: '2px solid rgba(255,255,255,0.2)', 
+                  border: '2px solid rgba(255,255,255,0.3)', 
                   borderRadius: '50%', 
-                  width: '26px', 
-                  height: '26px', 
-                  fontSize: '12px', 
+                  width: isMobile ? '32px' : '28px', 
+                  height: isMobile ? '32px' : '28px', 
+                  fontSize: isMobile ? '14px' : '12px', 
                   display: 'flex', 
                   alignItems: 'center', 
                   justifyContent: 'center', 
                   cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.5)',
+                  boxShadow: '0 4px 16px rgba(239, 68, 68, 0.5)',
                   zIndex: 20,
                   transition: 'transform 0.2s'
                 }}
@@ -5133,19 +5109,20 @@ function HomeContent() {
               </button>
 
               <div className="glass-card" style={{
-                padding: '0.85rem 1.5rem', 
-                borderRadius: '24px', 
-                fontSize: '14px', 
-                lineHeight: '1.4',
+                padding: isMobile ? '1rem 1.25rem' : '0.9rem 1.5rem', 
+                borderRadius: '20px', 
+                fontSize: isMobile ? '15px' : '14px', 
+                lineHeight: '1.5',
                 textAlign: 'center', 
                 border: '1px solid rgba(139, 92, 246, 0.5)', 
-                background: 'rgba(15, 23, 42, 0.95)',
-                backdropFilter: 'blur(20px)',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4)',
+                background: 'rgba(15, 23, 42, 0.98)',
+                backdropFilter: 'blur(24px)',
+                boxShadow: '0 12px 40px -8px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(139, 92, 246, 0.2)',
                 overflow: 'hidden',
-                maxHeight: '350px',
+                maxHeight: isMobile ? '300px' : '350px',
                 overflowY: 'auto',
-                position: 'relative'
+                position: 'relative',
+                wordBreak: 'break-word'
               }}>
                 {/* Shimmer effect for thinking state */}
                 {isAILoading && (
@@ -5155,15 +5132,16 @@ function HomeContent() {
                     style={{
                       position: 'absolute',
                       top: 0, left: 0, width: '100%', height: '100%',
-                      background: 'linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent)',
+                      background: 'linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.15), transparent)',
                       pointerEvents: 'none'
                     }}
                   />
                 )}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                  {isAILoading && <Loader2 size={16} className="animate-spin" style={{ color: '#a855f7' }} />}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  {isAILoading && <Loader2 size={18} className="animate-spin" style={{ color: '#a855f7' }} />}
                   <span style={{ color: '#f8fafc', fontWeight: 500 }}>{aiMessage}</span>
                 </div>
+              </div>
               </div>
             </motion.div>
           )}
@@ -5668,7 +5646,7 @@ function HomeContent() {
 
       {/* Tutorial Spotlight Overlay - Modern Redesign */}
       <AnimatePresence>
-        {tutorialStep && showOnboarding && !onboardingTasks.completed && (
+        {tutorialStep && showOnboarding && !onboardingTasks.completed && !showLanguageModal && !showInstallModal && (
           <>
             {/* Dark backdrop - blocks clicks on non-tutorial areas */}
             <motion.div
@@ -5692,21 +5670,26 @@ function HomeContent() {
               style={{
                 position: 'fixed',
                 top: '20px',
-                left: '50%',
-                transform: 'translateX(-50%)',
+                left: 0,
+                right: 0,
                 zIndex: 10003,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                pointerEvents: 'none'
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
                 gap: '12px',
                 background: 'rgba(0,0,0,0.8)',
                 padding: '10px 20px',
                 borderRadius: '50px',
                 backdropFilter: 'blur(10px)',
                 border: '1px solid rgba(255,255,255,0.1)',
-                minWidth: 'fit-content'
-              }}
-            >
+                pointerEvents: 'auto'
+              }}>
               {['voice', 'scan', 'manual'].map((step, idx) => (
                 <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{
@@ -5737,6 +5720,7 @@ function HomeContent() {
                   )}
                 </div>
               ))}
+              </div>
             </motion.div>
 
             {/* Compact tooltip near button - DRAGGABLE */}
@@ -5872,8 +5856,13 @@ function HomeContent() {
                             }
                             updated.completed = updated.voice && updated.scan && updated.manual;
                             setOnboardingTasks(updated);
+                            // Save to DB
                             if (session?.user?.email) {
-                              localStorage.setItem(`onboardingTasks_${session.user.email}`, JSON.stringify(updated));
+                              fetch('/api/data', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ onboardingTasks: updated, tutorialCompleted: updated.completed })
+                              }).catch(err => console.error('Failed to save skip step to DB:', err));
                             }
                             if (updated.completed) {
                               setShowOnboarding(false);

@@ -50,6 +50,28 @@ const UserProfileSchema = new mongoose.Schema({
   onboardingCompleted: {
     type: Boolean,
     default: false
+  },
+  tutorialCompleted: {
+    type: Boolean,
+    default: false
+  },
+  useSmartAI: {
+    type: Boolean,
+    default: true
+  },
+  hasSeenFAQ: {
+    type: Boolean,
+    default: false
+  },
+  onboardingTasks: {
+    voice: { type: Boolean, default: false },
+    scan: { type: Boolean, default: false },
+    manual: { type: Boolean, default: false },
+    completed: { type: Boolean, default: false }
+  },
+  lastAutoScan: {
+    type: Number,
+    default: 0
   }
 }, { timestamps: true });
 
