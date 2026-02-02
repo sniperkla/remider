@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import useMobileDetect from "./hooks/useMobileDetect";
 import { useSearchParams } from 'next/navigation';
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder } from "framer-motion";
 import {
   Mic,
   MicOff,
@@ -47,11 +47,13 @@ import {
   Banknote,
   History,
   MessageCircle,
-  Image
+  Image,
+  Plus
 } from "lucide-react";
 import Tesseract from "tesseract.js";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { translations } from "@/lib/translations";
+import { detectBank, BANK_DATA } from "@/lib/bankUtils";
 
 // --- Smart Categorization & Visuals ---
 const CATEGORY_COLORS = {
@@ -283,9 +285,15 @@ function HomeContent() {
   const { data: session, status } = useSession();
 
   const [balance, setBalance] = useState({ bank: 0, cash: 0 });
+  const [accounts, setAccounts] = useState([]);
+  const [showAddAccountModal, setShowAddAccountModal] = useState(false);
+  const [newAccountName, setNewAccountName] = useState("");
+  const [newAccountBalance, setNewAccountBalance] = useState("");
+  const [editingAccount, setEditingAccount] = useState(null);
   const [budget, setBudget] = useState(1000);
   const [monthlyBudget, setMonthlyBudget] = useState(30000);
   const [defaultWallet, setDefaultWallet] = useState("bank");
+  const [activeBankAccountId, setActiveBankAccountId] = useState("");
   const [nickname, setNickname] = useState("");
   const [groqKeys, setGroqKeys] = useState([]); // System AI Key Pool
   const [transactions, setTransactions] = useState([]);
@@ -304,6 +312,7 @@ function HomeContent() {
   };
   const [activeTab, setActiveTab] = useState("transactions"); // transactions or debts
   
+  const bankScrollRef = useRef(null);
   const processedFilesRef = useRef(new Set()); // Prevent double-processing
   
   const [isListening, setIsListening] = useState(false);
@@ -895,7 +904,97 @@ function HomeContent() {
         }, 1000);
       }
     }
+    }, [searchParams, lang]);
 
+  /* -------------------
+   * Bank Logic
+   * ------------------- */
+  async function handleAddAccount() {
+    if (!newAccountName) return;
+
+    // AI Detection
+    const bankInfo = detectBank(newAccountName);
+    const balanceVal = parseFloat(newAccountBalance) || 0;
+
+    let updatedAccounts;
+
+    if (editingAccount) {
+      // Update existing
+      updatedAccounts = accounts.map(a => a.id === editingAccount.id ? {
+        ...a,
+        name: newAccountName,
+        balance: balanceVal,
+        bankCode: bankInfo.code !== 'other' ? bankInfo.code : a.bankCode,
+        color: bankInfo.code !== 'other' ? bankInfo.color : a.color 
+      } : a);
+    } else {
+      // Create new
+      const newAcc = {
+        id: Date.now().toString(),
+        name: newAccountName,
+        type: 'bank',
+        balance: balanceVal,
+        bankCode: bankInfo.code,
+        color: bankInfo.color
+      };
+      updatedAccounts = [...accounts, newAcc];
+    }
+
+    setAccounts(updatedAccounts);
+
+    // If no active bank account is set, or we just created the first one, set it
+    let newActiveId = activeBankAccountId;
+    if (!activeBankAccountId || (updatedAccounts.length === 1 && !editingAccount)) {
+      newActiveId = updatedAccounts[0].id;
+      setActiveBankAccountId(newActiveId);
+    }
+
+    // Update total Bank Balance for summary
+    const newBankTotal = updatedAccounts.filter(a => a.type === 'bank').reduce((sum, a) => sum + a.balance, 0);
+    setBalance(prev => ({ ...prev, bank: newBankTotal }));
+
+    // API Save
+    try {
+      await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          accounts: updatedAccounts, 
+          balance: { ...balance, bank: newBankTotal },
+          activeBankAccountId: newActiveId
+        })
+      });
+    } catch (e) { 
+      console.error("Failed to save account", e); 
+    }
+
+    setShowAddAccountModal(false);
+    setEditingAccount(null);
+    setNewAccountName("");
+    setNewAccountBalance("");
+  }
+
+  const reorderTimeoutRef = useRef(null);
+  const handleReorderAccounts = (reorderedBanks) => {
+    // Merge back with non-bank accounts (if any)
+    const otherAccounts = accounts.filter(a => a.type !== 'bank');
+    const updatedAccounts = [...reorderedBanks, ...otherAccounts];
+    
+    // Update state locally for immediate feedback
+    setAccounts(updatedAccounts);
+
+    // Debounce API Save to avoid spamming during drag
+    if (reorderTimeoutRef.current) clearTimeout(reorderTimeoutRef.current);
+    reorderTimeoutRef.current = setTimeout(() => {
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accounts: updatedAccounts })
+      });
+    }, 1000);
+  };
+
+  useEffect(() => {
     const loadInitialData = async () => {
       if (session) {
         setIsLoading(true);
@@ -904,11 +1003,30 @@ function HomeContent() {
           if (res.ok) {
             const data = await res.json();
             if (data.balance) setBalance(data.balance);
+            if (data.accounts && data.accounts.length > 0) {
+              setAccounts(data.accounts);
+            } else if (data.balance && data.balance.bank > 0) {
+               setAccounts([{
+                 id: 'default_main_bank',
+                 name: 'Main Bank',
+                 type: 'bank',
+                 balance: data.balance.bank,
+                 bankCode: 'other',
+                 color: '#64748b'
+               }]);
+            }
             if (data.budget) setBudget(data.budget);
             if (data.monthlyBudget) setMonthlyBudget(data.monthlyBudget);
             if (data.defaultWallet) {
               setDefaultWallet(data.defaultWallet);
               setActiveWallet(data.defaultWallet);
+            }
+            if (data.activeBankAccountId) {
+              setActiveBankAccountId(data.activeBankAccountId);
+            } else if (data.accounts && data.accounts.length > 0) {
+              setActiveBankAccountId(data.accounts[0].id);
+            } else if (data.balance && data.balance.bank > 0) {
+              setActiveBankAccountId('default_main_bank');
             }
             if (data.nickname) setNickname(data.nickname);
             if (data.groqKeys) setGroqKeys(data.groqKeys);
@@ -1037,7 +1155,7 @@ function HomeContent() {
   const processVoiceRef = useRef();
   useEffect(() => {
     processVoiceRef.current = processVoiceCommand;
-  }, [balance, activeWallet, session, transactions, budget, lang]);
+  }, [balance, accounts, activeWallet, activeBankAccountId, session, transactions, budget, lang]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window)) {
@@ -2214,6 +2332,7 @@ function HomeContent() {
       category,
       wallet,
       bank,
+      accountId: wallet === 'bank' ? (activeBankAccountId || (accounts.find(a => a.type === 'bank')?.id) || null) : null,
       icon,
       isScanned,
       imageUrl,
@@ -2234,6 +2353,21 @@ function HomeContent() {
       return updated;
     });
 
+    // Also update specific bank account if wallet is bank
+    let updatedAccounts = [...accounts];
+    if (wallet === "bank" && activeBankAccountId) {
+      updatedAccounts = accounts.map(acc => {
+        if (acc.id === activeBankAccountId) {
+          return {
+            ...acc,
+            balance: type === "income" ? acc.balance + amount : acc.balance - amount
+          };
+        }
+        return acc;
+      });
+      setAccounts(updatedAccounts);
+    }
+
     // Skip MongoDB save for tutorial transactions
     if (isTutorial) {
       console.log("📚 Tutorial transaction - not saving to DB");
@@ -2245,7 +2379,21 @@ function HomeContent() {
       const res = await fetch('/api/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          accounts: updatedAccounts // Sync accounts state to DB via transaction save (or handled by separate API call usually, but current page flow uses /api/data for profile)
+        }),
+      });
+      
+      // Since addTransaction only saves the transaction, we should also save the updated balance/accounts to UserProfile
+      const newBalanceObj = { ...balance, [wallet]: type === "income" ? (balance[wallet] || 0) + amount : (balance[wallet] || 0) - amount };
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          balance: newBalanceObj,
+          accounts: updatedAccounts
+        }),
       });
       if (res.ok) {
         const saved = await res.json();
@@ -2287,6 +2435,41 @@ function HomeContent() {
       } else {
         updated[updatedData.wallet || "bank"] -= updatedData.amount;
       }
+      return updated;
+    });
+
+    // Sync specific bank accounts
+    setAccounts(prevAccounts => {
+      let updated = [...prevAccounts];
+      
+      // Reverse old transaction impact
+      if (oldTxn.wallet === "bank" && oldTxn.accountId) {
+         updated = updated.map(acc => {
+           if (acc.id === oldTxn.accountId) {
+             return { ...acc, balance: oldTxn.type === "income" ? acc.balance - oldTxn.amount : acc.balance + oldTxn.amount };
+           }
+           return acc;
+         });
+      }
+      
+      // Apply new transaction impact
+      const targetAccountId = updatedData.accountId || (updatedData.wallet === 'bank' ? activeBankAccountId : null);
+      if (updatedData.wallet === "bank" && targetAccountId) {
+         updated = updated.map(acc => {
+           if (acc.id === targetAccountId) {
+             return { ...acc, balance: updatedData.type === "income" ? acc.balance + updatedData.amount : acc.balance - updatedData.amount };
+           }
+           return acc;
+         });
+      }
+      
+      // Save updated accounts to DB
+      fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accounts: updated })
+      });
+      
       return updated;
     });
 
@@ -2719,6 +2902,31 @@ function HomeContent() {
         }
         return updated;
       });
+
+      // Sync specific bank accounts
+      if (transaction.wallet === "bank" && transaction.accountId) {
+        setAccounts(prevAccounts => {
+          const updated = prevAccounts.map(acc => {
+            if (acc.id === transaction.accountId) {
+              return { 
+                ...acc, 
+                balance: transaction.type === "income" ? acc.balance - transaction.amount : acc.balance + transaction.amount 
+              };
+            }
+            return acc;
+          });
+          
+          // Save updated accounts to DB
+          fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accounts: updated })
+          });
+          
+          return updated;
+        });
+      }
+
       setTransactions((prev) => prev.filter((t) => (t._id || t.id) !== id));
 
       // Sync with MongoDB
@@ -3629,18 +3837,16 @@ function HomeContent() {
       <AnimatePresence>
         {showToast.show && (
           <motion.div
-            initial={{ opacity: 0, y: -50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            initial={{ opacity: 0, y: -50, x: "-50%", scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, x: "-50%", scale: 1 }}
+            exit={{ opacity: 0, y: -20, x: "-50%", scale: 0.95 }}
             style={{
               position: 'fixed',
               top: '20px',
               left: '50%',
-              transform: 'translateX(-50%)',
               zIndex: 9999,
               width: '90%',
-              maxWidth: '400px',
-              marginLeft: isMobile ? '0' : '-200px' // Adjust for center on desktop if translate isn't enough
+              maxWidth: '400px'
             }}
           >
             <div className="glass-card" style={{ 
@@ -3928,127 +4134,340 @@ function HomeContent() {
             {lang === 'th' ? '💳 เลือกบัญชีหลัก (Primary)' : '💳 Select Primary Account'}
           </span>
         </div>
-        <div className="balance-grid" style={{ marginBottom: '1.25rem' }}>
-          <motion.div 
-            whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.02 }}
-            onClick={() => {
-              setActiveWallet('bank');
-              setShowToast({
-                show: true,
-                title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
-                message: lang === 'th' ? '🏦 ตั้งธนาคารเป็นบัญชีหลักแล้ว' : '🏦 Bank set as primary',
-                type: 'success'
-              });
-              setTimeout(() => setShowToast({ show: false, title: '', message: '', type: 'info' }), 2000);
-            }}
-            style={{ 
-              background: activeWallet === 'bank' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.04)', 
-              padding: '1rem', 
-              borderRadius: '16px', 
-              border: `2px solid ${activeWallet === 'bank' ? '#3b82f6' : 'rgba(255,255,255,0.08)'}`,
-              transition: 'all 0.3s ease',
-              cursor: 'pointer',
-              position: 'relative'
-            }}
-          >
-            {activeWallet === 'bank' && (
-              <div style={{ 
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
-                fontSize: '9px',
-                padding: '3px 6px',
-                background: '#3b82f6',
-                color: 'white',
-                borderRadius: '6px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                {lang === 'th' ? 'บัญชีหลัก' : 'Primary'}
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <CreditCard size={14} style={{ color: '#3b82f6' }} />
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#3b82f6' }}>{t.bank}</span>
-              </div>
-              {activeWallet === 'bank' && (
-                <div style={{ 
-                  width: '6px', 
-                  height: '6px', 
-                  borderRadius: '50%', 
-                  background: '#3b82f6',
-                  boxShadow: '0 0 8px #3b82f6'
-                }}></div>
-              )}
-            </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'white' }}>
-              ฿{balance.bank.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </div>
-          </motion.div>
+        {/* Bank Accounts Section - Horizontal Scroll */}
+          <div style={{ marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingLeft: '4px', paddingRight: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                   <CreditCard size={14} style={{ color: '#94a3b8' }} />
+                   <span style={{ fontSize: '13px', fontWeight: 600, color: '#94a3b8' }}>{t.bank}</span>
+                </div>
+                <motion.button
+                   whileTap={{ scale: 0.9 }}
+                   onClick={() => {
+                         setEditingAccount(null);
+                         setNewAccountName("");
+                         setNewAccountBalance("");
+                         setShowAddAccountModal(true);
+                    }}
+                    style={{
+                       background: 'rgba(59, 130, 246, 0.15)',
+                       border: '1px solid rgba(59, 130, 246, 0.3)',
+                       borderRadius: '50%',
+                       width: '28px',
+                       height: '28px',
+                       display: 'flex',
+                       alignItems: 'center',
+                       justifyContent: 'center',
+                       cursor: 'pointer',
+                       color: '#60a5fa'
+                    }}
+                 >
+                     <Plus size={16} />
+                 </motion.button>
+             </div>
+             
+             <div 
+               ref={bankScrollRef}
+               style={{ 
+                display: 'flex', 
+                gap: '12px', 
+                overflowX: 'auto', 
+                paddingBottom: '22px', // Space for shadows and larger active card
+                paddingTop: '30px', // Space for top glow
+                paddingLeft: '45px',
+                paddingRight: '45px',
+                marginLeft: '-25px',
+                marginRight: '-25px',
+                width: 'calc(100% + 50px)',
+                msOverflowStyle: 'none',  // IE and Edge
+                scrollbarWidth: 'none',  // Firefox
+             }} className="no-scrollbar">
+                <style jsx>{`
+                  .no-scrollbar::-webkit-scrollbar {
+                    display: none;
+                  }
+                `}</style>
 
-          <motion.div 
-            whileTap={{ scale: 0.97 }}
-            whileHover={{ scale: 1.02 }}
-            onClick={() => {
-              setActiveWallet('cash');
-              setShowToast({
-                show: true,
-                title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
-                message: lang === 'th' ? '💵 ตั้งเงินสดเป็นบัญชีหลักแล้ว' : '💵 Cash set as primary',
-                type: 'success'
-              });
-              setTimeout(() => setShowToast({ show: false, title: '', message: '', type: 'info' }), 2000);
-            }}
-            style={{ 
-              background: activeWallet === 'cash' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.04)', 
-              padding: '1rem', 
-              borderRadius: '16px', 
-              border: `2px solid ${activeWallet === 'cash' ? '#10b981' : 'rgba(255,255,255,0.08)'}`,
-              transition: 'all 0.3s ease',
-              cursor: 'pointer',
-              position: 'relative'
-            }}
-          >
-            {activeWallet === 'cash' && (
-              <div style={{ 
-                position: 'absolute',
-                top: '8px',
-                right: '8px',
-                fontSize: '9px',
-                padding: '3px 6px',
-                background: '#10b981',
-                color: 'white',
-                borderRadius: '6px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                {lang === 'th' ? 'บัญชีหลัก' : 'Primary'}
-              </div>
-            )}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Banknote size={14} style={{ color: '#10b981' }} />
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#10b981' }}>{t.cash}</span>
-              </div>
-              {activeWallet === 'cash' && (
-                <div style={{ 
-                  width: '6px', 
-                  height: '6px', 
-                  borderRadius: '50%', 
-                  background: '#10b981',
-                  boxShadow: '0 0 8px #10b981'
-                }}></div>
-              )}
-            </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'white' }}>
-              ฿{balance.cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </div>
-          </motion.div>
-        </div>
+                <Reorder.Group 
+                   axis="x" 
+                   values={accounts.filter(a => a.type === 'bank')} 
+                   onReorder={handleReorderAccounts}
+                   style={{ display: 'flex', gap: '16px', alignItems: 'center' }}
+                >
+                {accounts.filter(a => a.type === 'bank').map(acc => {
+                   const commonProps = {
+                      key: acc.id,
+                      style: {
+                        minWidth: activeBankAccountId === acc.id ? '240px' : '200px',
+                        background: acc.color,
+                        padding: activeBankAccountId === acc.id ? '1.5rem' : '1.1rem',
+                        borderRadius: '24px',
+                        position: 'relative',
+                        boxShadow: activeWallet === 'bank' && activeBankAccountId === acc.id 
+                          ? 'none' // Handled by animate
+                          : '0 4px 15px rgba(0,0,0,0.2)',
+                        color: 'white',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        height: activeBankAccountId === acc.id ? '145px' : '110px',
+                        border: activeWallet === 'bank' && activeBankAccountId === acc.id ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                        cursor: 'grab',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        touchAction: 'pan-x',
+                        userSelect: 'none'
+                      },
+                      whileTap: { scale: 0.98 },
+                      animate: { 
+                        scale: activeBankAccountId === acc.id ? 1 : 0.9,
+                        opacity: activeBankAccountId === acc.id ? 1 : 0.7,
+                        boxShadow: activeWallet === 'bank' && activeBankAccountId === acc.id 
+                          ? ["0 0 0 2px rgba(255,255,255,1), 0 10px 30px rgba(59, 130, 246, 0.5)", "0 0 0 2px rgba(255,255,255,1), 0 10px 50px rgba(59, 130, 246, 0.8)"]
+                          : "0 4px 15px rgba(0,0,0,0.2)"
+                      },
+                      transition: {
+                        boxShadow: { duration: 2, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" },
+                        default: { duration: 0.3 }
+                      },
+                      onClick: () => {
+                          setActiveWallet('bank');
+                          setActiveBankAccountId(acc.id);
+                          
+                          // Auto rearrange: move selected to first
+                          const bankAccounts = accounts.filter(a => a.type === 'bank');
+                          const otherAccounts = accounts.filter(a => a.type !== 'bank');
+                          const filtered = bankAccounts.filter(a => a.id !== acc.id);
+                          const updatedAccounts = [acc, ...filtered, ...otherAccounts];
+                          setAccounts(updatedAccounts);
+
+                          // Navigate back to main (start of scroll)
+                          if (bankScrollRef.current) {
+                            bankScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+                          }
+
+                          fetch('/api/data', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                              activeBankAccountId: acc.id, 
+                              defaultWallet: 'bank',
+                              accounts: updatedAccounts 
+                            })
+                          });
+
+                          setShowToast({
+                            show: true,
+                            title: lang === 'th' ? "เปลี่ยนบัญชีแล้ว" : "Account Changed",
+                            message: lang === 'th' ? `เลือกเป็น ${acc.name} และเลื่อนเป็นลำดับแรกแล้วค่ะ` : `Selected ${acc.name} and moved to first`,
+                            type: "success"
+                          });
+                      }
+                   };
+
+                   const content = (
+                       <>
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <span style={{ 
+                            fontSize: activeBankAccountId === acc.id ? '1rem' : '0.85rem', 
+                            fontWeight: 700, 
+                            opacity: activeBankAccountId === acc.id ? 1 : 0.8 
+                          }}>
+                            {acc.name}
+                          </span>
+                            {(() => {
+                               // 1. Try direct lookup by bankCode
+                               let bankMeta = acc.bankCode && BANK_DATA[acc.bankCode.toLowerCase()];
+                               
+                               // 2. Fallback: Detect from name if bankCode is 'other' or missing
+                               if ((!bankMeta || acc.bankCode === 'other') && acc.name) {
+                                  const detected = detectBank(acc.name);
+                                  if (detected.code !== 'other') {
+                                    bankMeta = detected;
+                                  }
+                               }
+
+                               const size = activeBankAccountId === acc.id ? '32px' : '26px';
+                               
+                               if (bankMeta?.logo) {
+                                 return (
+                                   <div style={{
+                                     width: size, height: size, borderRadius: '50%',
+                                     background: 'white', padding: '4px', display: 'flex',
+                                     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                                   }}>
+                                     <img src={bankMeta.logo} alt={acc.bankCode} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                   </div>
+                                 );
+                               }
+
+                               return (
+                                 <div style={{
+                                     width: size, height: size, borderRadius: '50%', background: 'rgba(255,255,255,0.2)',
+                                     display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                     fontWeight: 'bold', fontSize: activeBankAccountId === acc.id ? '10px' : '8px',
+                                     textTransform: 'uppercase'
+                                 }}>
+                                     {acc.bankCode === 'other' ? 'BK' : acc.bankCode}
+                                 </div>
+                               );
+                            })()}
+                       </div>
+                       
+                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                           <div style={{ 
+                             fontSize: activeBankAccountId === acc.id ? '1.8rem' : '1.4rem', 
+                             fontWeight: 800,
+                             letterSpacing: '-0.5px'
+                           }}>
+                               ฿{acc.balance.toLocaleString()}
+                           </div>
+                           <div 
+                             onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingAccount(acc);
+                                setNewAccountName(acc.name);
+                                setNewAccountBalance(acc.balance);
+                                setShowAddAccountModal(true);
+                             }}
+                             style={{ padding: '6px', background: 'rgba(255,255,255,0.2)', borderRadius: '8px', cursor: 'pointer' }}
+                          >
+                             <Edit3 size={14} color="white" />
+                          </div>
+                       </div>
+                       
+                        {activeWallet === 'bank' && activeBankAccountId === acc.id && (
+                          <motion.div
+                            initial={{ y: -10, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                            style={{ 
+                              position: 'absolute',
+                              top: '0',
+                              right: '0',
+                              fontSize: '10px',
+                              padding: '6px 12px',
+                              background: 'linear-gradient(135deg, #3b82f6 0%, #2dd4bf 100%)',
+                              color: 'white',
+                              borderBottomLeftRadius: '24px',
+                              borderTopRightRadius: '24px',
+                              fontWeight: 800,
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.5px',
+                              boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
+                              zIndex: 10,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                          }}>
+                            <Sparkles size={10} fill="white" />
+                            {lang === 'th' ? 'บัญชีหลัก' : 'PRIMARY'}
+                          </motion.div>
+                        )}
+                       </>
+                   );
+
+                   if (isMobile) {
+                      return (
+                        <motion.div {...commonProps}>
+                           {content}
+                        </motion.div>
+                      );
+                   }
+
+                   return (
+                      <Reorder.Item value={acc} drag {...commonProps}>
+                         {content}
+                      </Reorder.Item>
+                   );
+                })}
+                </Reorder.Group>
+                
+                {/* Add Bank Button Card */}
+
+             </div>
+
+            {/* Cash Card - Full Width */}
+            <motion.div 
+                whileTap={{ scale: 0.98 }}
+                animate={{
+                  borderColor: activeWallet === 'cash' ? '#10b981' : 'rgba(255,255,255,0.08)',
+                  boxShadow: activeWallet === 'cash' 
+                    ? ["0 10px 25px -5px rgba(16, 185, 129, 0.4), 0 0 0 1px #10b981", "0 10px 40px -5px rgba(16, 185, 129, 0.7), 0 0 0 1px #10b981"]
+                    : "0 0 0 0 rgba(0,0,0,0)"
+                }}
+                transition={{
+                  boxShadow: { duration: 2, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" }
+                }}
+                onClick={() => {
+                  setActiveWallet('cash');
+                  fetch('/api/data', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ defaultWallet: 'cash' })
+                  });
+                   setShowToast({
+                    show: true,
+                    title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
+                    message: lang === 'th' ? '💵 ตั้งเงินสดเป็นบัญชีหลักแล้ว' : '💵 Cash set as primary',
+                    type: 'success'
+                  });
+                }}
+                style={{ 
+                  background: activeWallet === 'cash' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.04)', 
+                  padding: '1.25rem', 
+                  borderRadius: '20px', 
+                  border: `2px solid ${activeWallet === 'cash' ? '#10b981' : 'rgba(255,255,255,0.08)'}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  position: 'relative',
+                  cursor: 'pointer',
+                }}
+              >
+                 {activeWallet === 'cash' && (
+                  <motion.div
+                    initial={{ y: -10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                    style={{ 
+                      position: 'absolute',
+                      top: '0',
+                      right: '0',
+                      fontSize: '10px',
+                      padding: '6px 12px',
+                      background: 'linear-gradient(135deg, #10b981 0%, #34d399 100%)',
+                      color: 'white',
+                      borderBottomLeftRadius: '24px',
+                      borderTopRightRadius: '24px',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+                      zIndex: 10,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                  }}>
+                    <Sparkles size={10} fill="white" />
+                    {lang === 'th' ? 'บัญชีหลัก' : 'PRIMARY'}
+                  </motion.div>
+                )}
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ padding: '10px', background: 'rgba(16, 185, 129, 0.2)', borderRadius: '12px' }}>
+                     <Banknote size={20} style={{ color: '#10b981' }} />
+                  </div>
+                  <div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#10b981' }}>{t.cash}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>Available</div>
+                  </div>
+                </div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'white' }}>
+                  ฿{balance.cash.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
+              </motion.div>
+          </div>
         
         {/* Budget Progress */}
         <div style={{ 
@@ -4631,26 +5050,43 @@ function HomeContent() {
                          flexShrink: 0
                        }}>
                          {txn.wallet === 'cash' ? <Banknote size={10} /> : <CreditCard size={10} />}
-                         {txn.wallet === 'cash' ? (lang === 'th' ? 'เงินสด' : 'Cash') : (lang === 'th' ? 'ธนาคาร' : 'Bank')}
+                         {txn.wallet === 'cash' 
+                           ? (lang === 'th' ? 'เงินสด' : 'Cash') 
+                           : (
+                             (() => {
+                               // Use String comparison for IDs to be safe
+                               const acc = accounts.find(a => String(a.id) === String(txn.accountId));
+                               // Try to find the logo if it's a known bank code
+                               const bankCode = acc?.bankCode || txn.bankCode;
+                               const bankMeta = bankCode && BANK_DATA[bankCode.toLowerCase()];
+                               const logoUrl = bankMeta?.logo;
+
+                               // If account found, show bank code (SCB) or custom name (uoteru)
+                               // Otherwise fallback to txn.bank text or generic "Bank"
+                               const displayName = acc 
+                                 ? ((acc.bankCode && acc.bankCode !== 'other') ? acc.bankCode.toUpperCase() : acc.name)
+                                 : (txn.bank || (lang === 'th' ? 'ธนาคาร' : 'Bank'));
+                               
+                               return (
+                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                   {logoUrl ? (
+                                     <img 
+                                       src={logoUrl} 
+                                       alt={displayName} 
+                                       style={{ width: '12px', height: '12px', objectFit: 'contain', borderRadius: '50%' }} 
+                                     />
+                                   ) : (
+                                     <span>💳</span>
+                                   )}
+                                   {displayName}
+                                 </span>
+                               );
+                             })()
+                           )
+                         }
                        </span>
                        
-                       {txn.bank && (
-                          <span style={{ 
-                           fontSize: '9px', 
-                           background: 'rgba(59, 130, 246, 0.08)', 
-                           color: '#3b82f6',
-                           padding: '2px 6px', 
-                           borderRadius: '6px',
-                           fontWeight: '700',
-                           border: '1px solid rgba(59, 130, 246, 0.2)',
-                           display: 'flex',
-                           alignItems: 'center',
-                           gap: '3px',
-                           flexShrink: 0
-                         }}>
-                           {txn.bank}
-                         </span>
-                       )}
+
                        {txn.isScanned && (
                          <span style={{ 
                            fontSize: '10px', 
@@ -5953,6 +6389,107 @@ function HomeContent() {
             )}
           </>
         )}
+        {/* Add Account Modal */}
+        {showAddAccountModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9999,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)'
+            }}
+            onClick={() => setShowAddAccountModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: '#1e293b', borderRadius: '24px', padding: '1.5rem',
+                width: '90%', maxWidth: '360px', border: '1px solid rgba(255,255,255,0.1)',
+                boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+              }}
+            >
+               <h3 style={{ color: 'white', marginBottom: '1rem', fontSize: '1.2rem' }}>
+                  {editingAccount ? (lang === 'th' ? 'แก้ไขบัญชี' : 'Edit Account') : (lang === 'th' ? 'เพิ่มบัญชีธนาคาร' : 'Add Bank Account')}
+               </h3>
+               
+               <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                     {lang === 'th' ? 'ชื่อธนาคาร (เช่น กสิกร, SCB)' : 'Bank Name (e.g. KBank, SCB)'}
+                  </label>
+                  <input 
+                    autoFocus
+                    value={newAccountName}
+                    onChange={(e) => setNewAccountName(e.target.value)}
+                    placeholder={lang === 'th' ? 'พิมพ์ชื่อธนาคาร...' : 'Type bank name...'}
+                    style={{
+                       width: '100%', padding: '12px', borderRadius: '12px',
+                       background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)',
+                       color: 'white', fontSize: '1rem'
+                    }}
+                  />
+                  {/* Preview detected bank */}
+                  {newAccountName && (
+                     <div style={{ marginTop: '8px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ color: '#94a3b8' }}>Detected:</span>
+                        <span style={{ 
+                           color: detectBank(newAccountName).color, 
+                           fontWeight: 'bold',
+                           background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' 
+                        }}>
+                           {detectBank(newAccountName).name}
+                        </span>
+                     </div>
+                  )}
+               </div>
+               
+               <div style={{ marginBottom: '1.5rem' }}>
+                  <label style={{ display: 'block', color: '#94a3b8', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                     {lang === 'th' ? 'ยอดเงินคงเหลือ' : 'Current Balance'}
+                  </label>
+                  <input 
+                    type="number"
+                    value={newAccountBalance}
+                    onChange={(e) => setNewAccountBalance(e.target.value)}
+                    placeholder="0.00"
+                    style={{
+                       width: '100%', padding: '12px', borderRadius: '12px',
+                       background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.1)',
+                       color: 'white', fontSize: '1.2rem', fontWeight: 700
+                    }}
+                  />
+               </div>
+               
+               <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => setShowAddAccountModal(false)}
+                    style={{
+                       flex: 1, padding: '12px', borderRadius: '12px',
+                       background: 'rgba(255,255,255,0.1)', color: 'white', border: 'none'
+                    }}
+                  >
+                     {lang === 'th' ? 'ยกเลิก' : 'Cancel'}
+                  </button>
+                   <button
+                    onClick={handleAddAccount}
+                    disabled={!newAccountName}
+                    style={{
+                       flex: 1, padding: '12px', borderRadius: '12px',
+                       background: newAccountName ? '#3b82f6' : '#1e293b', 
+                       color: newAccountName ? 'white' : 'rgba(255,255,255,0.3)', 
+                       border: 'none', fontWeight: 600
+                    }}
+                  >
+                     {lang === 'th' ? 'บันทึก' : 'Save'}
+                  </button>
+               </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
@@ -5987,3 +6524,4 @@ export default function Home() {
     </Suspense>
   );
 }
+  

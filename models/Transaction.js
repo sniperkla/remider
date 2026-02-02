@@ -32,6 +32,10 @@ const TransactionSchema = new mongoose.Schema({
     type: String, // Store bank name (e.g., "SCB", "KBANK -> SCB")
     required: false,
   },
+  accountId: {
+    type: String, // The ID of the specific bank account from UserProfile.accounts
+    required: false,
+  },
   icon: {
     type: String, // Store lucide icon name (e.g. "Coffee", "Bus")
     required: false,

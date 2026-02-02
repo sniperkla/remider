@@ -11,6 +11,17 @@ const UserProfileSchema = new mongoose.Schema({
     bank: { type: Number, default: 0 },
     cash: { type: Number, default: 0 }
   },
+  accounts: {
+    type: [{
+      id: { type: String },
+      name: { type: String },
+      type: { type: String, enum: ['bank', 'cash', 'credit'], default: 'bank' },
+      balance: { type: Number, default: 0 },
+      bankCode: { type: String, default: 'other' },
+      color: { type: String, default: '#64748b' }
+    }],
+    default: []
+  },
   budget: {
     type: Number,
     default: 1000,
@@ -23,6 +34,10 @@ const UserProfileSchema = new mongoose.Schema({
     type: String,
     enum: ['bank', 'cash'],
     default: 'bank'
+  },
+  activeBankAccountId: {
+    type: String,
+    default: ""
   },
   nickname: {
     type: String,

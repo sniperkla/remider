@@ -40,9 +40,12 @@ export async function GET() {
 
     return NextResponse.json({
       balance: profile.balance,
+      accounts: profile.accounts || [],
+      budget: profile.budget,
       budget: profile.budget,
       monthlyBudget: profile.monthlyBudget,
       defaultWallet: profile.defaultWallet,
+      activeBankAccountId: profile.activeBankAccountId,
       nickname: profile.nickname,
       preventDelete: profile.preventDelete,
       language: profile.language,
@@ -74,7 +77,7 @@ export async function POST(request) {
     await dbConnect();
     const userId = session.user.email;
     const body = await request.json();
-    const { budget, balance, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, clearAll, language, ocrProvider, aiModel, onboardingCompleted, tutorialCompleted, useSmartAI, hasSeenFAQ, onboardingTasks, lastAutoScan } = body;
+    const { budget, balance, accounts, monthlyBudget, defaultWallet, activeBankAccountId, nickname, groqKeys, preventDelete, clearAll, language, ocrProvider, aiModel, onboardingCompleted, tutorialCompleted, useSmartAI, hasSeenFAQ, onboardingTasks, lastAutoScan } = body;
 
     // 0. Handle Clear All Data
     if (clearAll) {
@@ -87,8 +90,10 @@ export async function POST(request) {
     const updateData = {};
     if (budget !== undefined) updateData.budget = budget;
     if (balance !== undefined) updateData.balance = balance;
+    if (accounts !== undefined) updateData.accounts = accounts;
     if (monthlyBudget !== undefined) updateData.monthlyBudget = monthlyBudget;
     if (defaultWallet !== undefined) updateData.defaultWallet = defaultWallet;
+    if (activeBankAccountId !== undefined) updateData.activeBankAccountId = activeBankAccountId;
     if (nickname !== undefined) updateData.nickname = nickname;
     if (preventDelete !== undefined) updateData.preventDelete = preventDelete;
     if (language !== undefined) updateData.language = language;
