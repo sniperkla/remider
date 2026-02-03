@@ -38,6 +38,9 @@ export async function GET() {
       .sort({ date: -1 })
       .limit(50);
 
+    // Get Debts
+    const debts = await Debt.find({ userId }).sort({ date: -1 });
+
     return NextResponse.json({
       balance: profile.balance,
       accounts: profile.accounts || [],
@@ -58,7 +61,8 @@ export async function GET() {
       onboardingTasks: profile.onboardingTasks,
       lastAutoScan: profile.lastAutoScan,
       groqKeys: systemSetting.groqKeys,
-      transactions: transactions
+      transactions: transactions,
+      debts: debts
     });
   } catch (error) {
     console.error("Database Error Detail:", error.message);
