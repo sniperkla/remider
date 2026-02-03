@@ -55,6 +55,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAx
 import { translations } from "@/lib/translations";
 import { detectBank, BANK_DATA } from "@/lib/bankUtils";
 
+import WebcamModal from "./components/WebcamModal";
+
 // --- Smart Categorization & Visuals ---
 const CATEGORY_COLORS = {
   "อาหาร": "#f59e0b",
@@ -358,6 +360,7 @@ function HomeContent() {
   const [groqKeys, setGroqKeys] = useState([]); // System AI Key Pool
   const [transactions, setTransactions] = useState([]);
   const transactionsRef = useRef(transactions);
+  const [showWebcam, setShowWebcam] = useState(false);
   useEffect(() => { transactionsRef.current = transactions; }, [transactions]);
   const [debts, setDebts] = useState([]);
   const [reminders, setReminders] = useState([]);
@@ -732,23 +735,34 @@ function HomeContent() {
   const [languageReady, setLanguageReady] = useState(false);
   const [pendingInstallPrompt, setPendingInstallPrompt] = useState(false);
   const [pendingTutorialStart, setPendingTutorialStart] = useState(false);
+  const [showScanOptions, setShowScanOptions] = useState(false);
   const languageReadyRef = useRef(false);
   useEffect(() => { languageReadyRef.current = languageReady; }, [languageReady]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (showScanOptions) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showScanOptions]);
 
   // Initial state - show language modal until DB loads (for fresh users)
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // For non-logged-in users, show language modal
-    // Once logged in, DB data will set languageReady
-    if (!session) {
-      setLanguageReady(false);
+    if (status === "loading") return;
+    
+    // For non-logged-in users, show language modal if language is not already ready
+    if (!session && !languageReady) {
       setShowLanguageModal(true);
       setShowInstallModal(false);
       setShowOnboarding(false);
       setTutorialStep(null);
       setTutorialHighlight(null);
     }
-  }, [session]);
+  }, [session, status, languageReady]);
 
   // Save language to database whenever it changes
   useEffect(() => {
@@ -800,6 +814,7 @@ function HomeContent() {
 
   const recognitionRef = useRef(null);
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
   const isVoiceActiveRef = useRef(false); // Track if voice should be actively listening
   const silenceTimeoutRef = useRef(null);
   const [interimTranscript, setInterimTranscript] = useState(""); // For showing partial speech
@@ -1100,9 +1115,13 @@ function HomeContent() {
             if (data.ocrProvider) setOcrProvider(data.ocrProvider);
             if (data.language) {
               setLang(data.language);
+              setLanguageReady(true);
+              // Explicitly close modal if we found a saved language
+              setShowLanguageModal(false);
             }
             if (data.onboardingCompleted) {
               setLanguageReady(true);
+              setShowLanguageModal(false); // Ensure it's closed
             }
             if (data.aiModel) setAiModel(data.aiModel);
             if (data.useSmartAI !== undefined) setUseSmartAI(data.useSmartAI);
@@ -1589,7 +1608,10 @@ function HomeContent() {
           source: requestSource,
           userName,
           userAliases,
-          detectedLang // Pass the detected language from speech
+          detectedLang, // Pass the detected language from speech
+          recentTransactions: transactions.slice(0, 15), // Last 15 transactions
+          recentDebts: debts.filter(d => d.status !== 'paid').slice(0, 10), // Active debts
+          reminders: reminders.slice(0, 10) // Active reminders
         })
       });
       const data = await res.json();
@@ -2352,6 +2374,7 @@ function HomeContent() {
       
       // Set step and highlight after scroll settles
       setTimeout(() => {
+        if (!buttonRef.current) return;
         const rect = buttonRef.current.getBoundingClientRect();
         setTutorialStep(nextStep);
         setTutorialHighlight({
@@ -2360,7 +2383,7 @@ function HomeContent() {
           width: rect.width,
           height: rect.height
         });
-      }, 500);
+      }, 1000); // Increased delay for mobile scroll settling
     } else {
       setTutorialStep(nextStep);
     }
@@ -4419,7 +4442,7 @@ function HomeContent() {
                         height: activeBankAccountId === acc.id ? '145px' : '110px',
                         border: activeWallet === 'bank' && activeBankAccountId === acc.id ? 'none' : '1px solid rgba(255,255,255,0.1)',
                         cursor: 'grab',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        // REMOVED 'transition: all' to prevent conflict with Framer Motion
                         touchAction: 'pan-x',
                         userSelect: 'none'
                       },
@@ -4435,7 +4458,7 @@ function HomeContent() {
                       transition: {
                         rotate: { duration: 0.3, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" },
                         boxShadow: { duration: 2, repeat: Infinity, repeatType: "reverse", ease: "easeInOut" },
-                        default: { duration: 0.3 }
+                        default: { type: "spring", stiffness: 300, damping: 20 }
                       },
                       onPointerDown: () => {
                           const timer = setTimeout(() => {
@@ -4465,7 +4488,8 @@ function HomeContent() {
 
                           // Navigate back to main (start of scroll)
                           if (bankScrollRef.current) {
-                            bankScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+                            // Use 'auto' (instant) instead of 'smooth' to avoid fighting with DOM reorder
+                            bankScrollRef.current.scrollTo({ left: 0, behavior: 'auto' });
                           }
 
                           fetch('/api/data', {
@@ -4887,7 +4911,7 @@ function HomeContent() {
                   display: "flex",
                   alignItems: "center",
                   gap: "4px",
-                  zIndex: tutorialStep === 'manual' ? 10705 : 'auto',
+                  zIndex: (tutorialStep === 'manual' || showOnboarding) ? 111000 : 'auto',
                   position: 'relative',
                   pointerEvents: 'auto',
                   boxShadow: tutorialStep === 'manual' ? '0 0 20px rgba(168, 85, 247, 0.5)' : 'none'
@@ -5617,7 +5641,7 @@ function HomeContent() {
                     bottom: 0, 
                     left: 0, 
                     right: 0, 
-                    zIndex: tutorialStep === 'manual' ? 10705 : 110, 
+                    zIndex: (showManualEntry || tutorialStep === 'manual') ? 130000 : 110, 
                     borderRadius: '32px 32px 0 0' 
                   }}
                 >
@@ -5698,7 +5722,7 @@ function HomeContent() {
       <div 
         className="mic-button-container flex flex-col items-center justify-center gap-4  sticky bottom-[120px] bg-transparent py-4 px-6 mt-auto mx-auto"
         style={{
-          zIndex: (showLanguageModal || showInstallModal) ? 1 : ((tutorialStep === 'voice' || tutorialStep === 'scan') ? 10705 : 100)
+          zIndex: (showLanguageModal || showInstallModal) ? 1 : ((tutorialStep === 'voice' || tutorialStep === 'scan' || tutorialStep === 'manual' || showScanOptions) ? 120000 : 100)
         }}
       >
         {/* AI Mode Badge */}
@@ -5739,7 +5763,7 @@ function HomeContent() {
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               style={{ 
                 width: '100%',
-                zIndex: tutorialStep === 'voice' ? 10710 : 1200,
+                zIndex: tutorialStep === 'voice' ? 120000 : 1200,
                 position: 'fixed',
                 bottom: isMobile ? '180px' : '200px',
                 left: 0,
@@ -5823,7 +5847,7 @@ function HomeContent() {
                 bottom: isMobile ? '180px' : '200px',
                 left: 0,
                 right: 0,
-                zIndex: (tutorialStep === 'voice' || tutorialStep === 'scan') ? 10710 : 1200,
+                zIndex: tutorialStep ? 120000 : 1200, 
                 pointerEvents: 'none',
                 padding: '0 12px',
                 boxSizing: 'border-box',
@@ -5908,30 +5932,104 @@ function HomeContent() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <input 
+            id="scan-file-input"
             type="file" 
             accept="image/*" 
             multiple
             ref={fileInputRef} 
             onChange={handleImageUpload} 
-            style={{ display: 'none' }} 
+            onClick={(e) => e.target.value = null}
+            style={{ position: 'absolute', opacity: 0, width: 0, height: 0, overflow: 'hidden' }} 
           />
+          <input 
+            id="scan-camera-input"
+            type="file" 
+            accept="image/*" 
+            capture="environment"
+            ref={cameraInputRef} 
+            onChange={handleImageUpload}
+            onClick={(e) => e.target.value = null}
+            style={{ position: 'absolute', opacity: 0, width: 0, height: 0, overflow: 'hidden' }} 
+          />
+          
           <div style={{ position: 'relative' }}>
+             {/* Scan Options Menu */}
+            <AnimatePresence>
+            {showScanOptions && (
+                <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.8 }}
+                    animate={{ opacity: 1, y: -70, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.8 }}
+                    style={{
+                        position: 'absolute',
+                        bottom: '100%', // Position above the button
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        zIndex: 100,
+                        paddingBottom: '12px',
+                        alignItems: 'center'
+                    }}
+                >
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                         <span style={{ fontSize: '10px', background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', color: 'white', whiteSpace: 'nowrap' }}>{lang === 'th' ? 'ถ่ายภาพ' : 'Camera'}</span>
+                        <label
+                            htmlFor="scan-camera-input"
+                            onClick={(e) => {
+                                setShowScanOptions(false);
+                                if (!isMobile) {
+                                  e.preventDefault();
+                                  setShowWebcam(true);
+                                }
+                            }}
+                            style={{
+                                width: '48px', height: '48px', borderRadius: '50%',
+                                background: '#a855f7', border: '2px solid rgba(255,255,255,0.2)',
+                                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', cursor: 'pointer'
+                            }}
+                        >
+                            <Camera size={20} />
+                        </label>
+                    </div>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '10px', background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', color: 'white', whiteSpace: 'nowrap' }}>{lang === 'th' ? 'อัลบั้ม' : 'Gallery'}</span>
+                        <label
+                            htmlFor="scan-file-input"
+                            onClick={() => setShowScanOptions(false)}
+                            style={{
+                                width: '48px', height: '48px', borderRadius: '50%',
+                                background: 'var(--glass)', border: '1px solid var(--glass-border)',
+                                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)', cursor: 'pointer'
+                            }}
+                        >
+                            <Image size={20} />
+                        </label>
+                    </div>
+                </motion.div>
+            )}
+            </AnimatePresence>
+
             <button 
               ref={cameraButtonRef}
-              onClick={() => fileInputRef.current.click()} 
+              onClick={() => setShowScanOptions(!showScanOptions)} 
               className="btn-outline" 
               style={{ 
                 borderRadius: '50%', 
                 width: '56px', 
                 height: '56px',
-                zIndex: tutorialStep === 'scan' ? 10705 : 'auto',
+                zIndex: tutorialStep === 'scan' ? 10705 : (showScanOptions ? 101 : 'auto'),
                 position: 'relative',
-                pointerEvents: 'auto'
+                pointerEvents: 'auto',
+                background: showScanOptions ? 'rgba(255,255,255,0.1)' : 'transparent'
               }}
               disabled={isProcessingImage}
               title={lang === 'th' ? 'สแกนสลิป' : 'Scan receipt'}
             >
-              {isProcessingImage ? <Loader2 className="animate-spin" size={24} /> : <Camera size={24} />}
+              {isProcessingImage ? <Loader2 className="animate-spin" size={24} /> : (showScanOptions ? <X size={24} /> : <Scan size={24} />)}
             </button>
             {isProcessingImage && (
               <div style={{
@@ -6416,7 +6514,7 @@ function HomeContent() {
                 position: 'fixed',
                 inset: 0,
                 background: tutorialStep === 'manual' ? 'rgba(0, 0, 0, 0.5)' : 'rgba(0, 0, 0, 0.75)',
-                zIndex: 10000,
+                zIndex: 110000,
                 pointerEvents: 'auto'
               }}
             />
@@ -6431,7 +6529,7 @@ function HomeContent() {
                 top: '20px',
                 left: 0,
                 right: 0,
-                zIndex: 10003,
+                zIndex: 112000,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -6495,14 +6593,14 @@ function HomeContent() {
                 style={{
                   position: 'fixed',
                   ...(tutorialStep === 'manual' ? {
-                    top: tutorialHighlight.top + tutorialHighlight.height + 20,
+                    top: '100px', // Move instructions to top during form entry
                     left: Math.max(20, Math.min(tutorialHighlight.left + tutorialHighlight.width / 2 - 140, window.innerWidth - 300))
                   } : {
                     bottom: window.innerHeight - tutorialHighlight.top + 20,
                     left: Math.max(20, Math.min(tutorialHighlight.left + tutorialHighlight.width / 2 - 140, window.innerWidth - 300))
                   }),
                   width: '280px',
-                  zIndex: 10002,
+                  zIndex: 113000,
                   background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(168, 85, 247, 0.95))',
                   padding: '16px',
                   borderRadius: '16px',
@@ -6656,7 +6754,7 @@ function HomeContent() {
             )}
 
             {/* Animated spotlight ring */}
-            {tutorialHighlight && (
+            {tutorialHighlight && !showManualEntry && (
               <motion.div
                 initial={{ scale: 0.5, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -6670,7 +6768,7 @@ function HomeContent() {
                   borderRadius: tutorialStep === 'manual' ? '16px' : '50%',
                   border: '3px solid #a855f7',
                   boxShadow: '0 0 0 6px rgba(168, 85, 247, 0.2), 0 0 40px rgba(168, 85, 247, 0.4), inset 0 0 20px rgba(168, 85, 247, 0.1)',
-                  zIndex: 10701,
+                  zIndex: 111100,
                   pointerEvents: 'none'
                 }}
               >
@@ -6689,7 +6787,7 @@ function HomeContent() {
             )}
 
             {/* Bouncing arrow indicator */}
-            {tutorialHighlight && (
+            {tutorialHighlight && !showManualEntry && (
               <motion.div
                 animate={{ y: tutorialStep === 'manual' ? [0, -8, 0] : [0, 8, 0] }}
                 transition={{ repeat: Infinity, duration: 0.8 }}
@@ -6702,7 +6800,7 @@ function HomeContent() {
                     top: tutorialHighlight.top + tutorialHighlight.height + 12,
                     left: tutorialHighlight.left + tutorialHighlight.width / 2 - 12
                   }),
-                  zIndex: 10002,
+                  zIndex: 113100,
                   fontSize: '24px',
                   pointerEvents: 'none'
                 }}
@@ -6796,15 +6894,31 @@ function HomeContent() {
                               title: lang === 'th' ? `ยืนยันลบบัญชี ${editingAccount.name}?` : `Delete ${editingAccount.name}?`,
                               onConfirm: () => {
                                  const updated = accounts.filter(a => a.id !== editingAccount.id);
+                                 
+                                 // Calculate new total bank balance
+                                 const newBankTotal = updated.filter(a => a.type === 'bank').reduce((sum, a) => sum + a.balance, 0);
+                                 
                                  setAccounts(updated);
+                                 setBalance(prev => ({ ...prev, bank: newBankTotal }));
+                                 
+                                 // Update Active ID if needed
+                                 let newActiveId = activeBankAccountId;
+                                 if (updated.length > 0 && activeBankAccountId === editingAccount.id) {
+                                    newActiveId = updated.find(a => a.type === 'bank')?.id;
+                                    setActiveBankAccountId(newActiveId);
+                                 }
+
+                                 // Save to DB (Accounts + Balance)
                                  fetch('/api/data', { 
                                     method: 'POST', 
                                     headers: { 'Content-Type': 'application/json' }, 
-                                    body: JSON.stringify({ accounts: updated }) 
+                                    body: JSON.stringify({ 
+                                       accounts: updated,
+                                       balance: { ...balance, bank: newBankTotal },
+                                       activeBankAccountId: newActiveId
+                                    }) 
                                  });
-                                 if (updated.length > 0 && activeBankAccountId === editingAccount.id) {
-                                    setActiveBankAccountId(updated.find(a => a.type === 'bank')?.id);
-                                 }
+
                                  setShowAddAccountModal(false);
                                  setEditingAccount(null);
                               }
@@ -6853,6 +6967,35 @@ function HomeContent() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Global Scan Backdrop */}
+      <AnimatePresence>
+        {showScanOptions && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowScanOptions(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.75)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 110500 // Just below the mic-button-container (111000)
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {showWebcam && (
+        <WebcamModal 
+          onClose={() => setShowWebcam(false)}
+          onCapture={(file) => {
+            setShowWebcam(false);
+            handleImageUpload({ target: { files: [file] } });
+          }}
+        />
+      )}
     </div>
   );
 }

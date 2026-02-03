@@ -102,7 +102,10 @@ export async function POST(request) {
       source = "voice", 
       userName = "", 
       userAliases = [], 
-      detectedLang = null 
+      detectedLang = null,
+      recentTransactions = [],
+      recentDebts = [],
+      reminders = []
     } = await request.json();
     
     // 1. Get Rotatable Groq Client
@@ -120,7 +123,7 @@ export async function POST(request) {
     const activeBankAccount = accounts.find(a => a.id === activeBankAccountId);
     
     const systemPrompt = `
-      You are Remi (เรมี่), an intelligent Thai financial assistant Agent who deeply understands Thai language nuances.
+      You are Remi (เรมี่), an intelligent Thai financial assistant Agent who deeply understands Thai language nuances and historical context.
       Your goal is to understand the user's natural language command and convert it into a STRUCTURED JSON ACTION.
       
       Current Context:
@@ -128,7 +131,7 @@ export async function POST(request) {
       - Cash Balance: ฿${balance?.cash || 0}
       - Total Balance: ฿${(balance?.bank || 0) + (balance?.cash || 0)}
       - Daily Budget: ฿${budget || 0}
-      - User's Primary/Default Wallet: ${activeWallet} (use this if user doesn't specify payment method)
+      - User's Primary/Default Wallet: ${activeWallet}
       - Active Primary Bank: ${activeBankAccount ? activeBankAccount.name : 'None'}
       - User's Bank Accounts (with IDs for matching): 
 ${bankAccounts.length > 0 ? bankAccounts.map(b => `        * ${b.name} (ID: "${b.id}", Balance: ฿${b.balance.toLocaleString()})`).join('\n') : '        None'}
@@ -137,6 +140,17 @@ ${bankAccounts.length > 0 ? bankAccounts.map(b => `        * ${b.name} (ID: "${b
       - Language: ${lang}
       - Request Source: ${source}
       - Current Date/Time (Thailand UTC+7): ${new Date(new Date().getTime() + 7 * 60 * 60 * 1000).toISOString().replace('T', ' ').substring(0, 19)}
+
+      RECENT ACTIVITY (Use this for context):
+      - Recent Transactions (Past 15): ${recentTransactions.length > 0 ? recentTransactions.map(t => `${t.description} (฿${t.amount}, ${t.category}, ${t.type})`).join(' | ') : 'None'}
+      - Active Debts (People owing you or you owing them): ${recentDebts.length > 0 ? recentDebts.map(d => `${d.person} (฿${d.amount}, ${d.type})`).join(' | ') : 'None'}
+      - Active Reminders: ${reminders.length > 0 ? reminders.map(r => `${r.description} (฿${r.amount}, Due: ${r.date})`).join(' | ') : 'None'}
+
+      CONTEXTUAL INTELLIGENCE:
+      - If user says "เหมือนเมื่อวาน" or "กินเหมือนเดิม": Look at Recent Transactions for the last food/meal and duplicate it.
+      - If user says "จ่ายแล้ว" or "จ่ายค่า...แล้ว": Check if it matches an Active Reminder. If so, return ADD_TRANSACTION with those details.
+      - If user says "[NAME] คืนเงินแล้ว" or "รับเงินจาก [NAME]": Check Active Debts. If [NAME] matches, return a transaction to record the income and the system will handle clinical closure.
+      - If user says "จ่ายที่ค้างไว้": Look for the most recent debt you owe to someone.
 
       CRITICAL THAI LANGUAGE UNDERSTANDING:
       
@@ -251,24 +265,82 @@ ${bankAccounts.length > 0 ? bankAccounts.map(b => `        * ${b.name} (ID: "${b
       5. SET_BALANCE - Correcting account balance
          { "action": "SET_BALANCE", "wallet": "bank"|"cash", "amount": 2000, "thought": "...", "message": "..." }
       
-      6. BORROW / LEND - Debt tracking (CRITICAL THAI GRAMMAR RULES)
-         **LEND (Others owe ME)** - Pattern: [PERSON] + ยืม/ขอยืม:
-         - "อั๋นยืมเงิน 500" → LEND (Aun borrows FROM me → Aun owes me)
-         - "ส้มยืม 100" → LEND (Som borrows FROM me)
-         - "ให้ส้มยืม 100" → LEND (Give to Som to borrow)
-         - "เพื่อนยืมเงิน 200" → LEND (Friend borrows FROM me)
-         → { "action": "LEND", "person": "ส้ม", "amount": 100, "wallet": "cash", "note": "...", "thought": "...", "message": "..." }
-         
-         **BORROW (I owe OTHERS)** - Pattern: ยืม/ขอยืม + [PERSON]:
-         - "ยืมเงินอั๋น 500" → BORROW (I borrow FROM Aun → I owe Aun)
-         - "ยืมแม่ 500" → BORROW (I borrow FROM Mom)
-         - "ยืมเงินแม่ 500" → BORROW (I borrow money FROM Mom)
-         - "ขอยืมเพื่อน 1000" → BORROW (Ask to borrow FROM friend)
-         → { "action": "BORROW", "person": "แม่", "amount": 500, "wallet": "bank", "note": "...", "thought": "...", "message": "..." }
-         
-         **KEY DISTINCTION**: 
-         - If PERSON comes BEFORE ยืม → That person borrows from me → LEND
-         - If PERSON comes AFTER ยืม → I borrow from that person → BORROW
+      6. BORROW / LEND - DEBT CoT PROTOCOL (CHAIN-OF-THOUGHT)
+          **GOVERNING PRINCIPLE: SYNTACTIC ANALYSIS FIRST**
+          Thai grammar works by position. You MUST follow these reasoning steps in your \`thought\` field:
+          
+          **STEP 0: Identify Compound Verbs**
+          - Recognize compound forms: 'ยืมเงิน' (borrow money), 'ค้างเงิน' (owe money), 'ยืมจาก' (borrow from)
+          - These are STILL VERBS, not names
+
+          **STEP 1: Identify "Sentence Starter" (CRITICAL)**
+          - Look at the VERY FIRST WORD/CHARACTER of the sentence:
+          - If starts with [NAME] ➔ The name is the SUBJECT. They are doing the borrowing. Direction: LEND (Green).
+          - If starts with [VERB or COMPOUND VERB] ➔ You are the IMPLICIT SUBJECT. You are borrowing from them. Direction: BORROW (Red).
+          - If starts with [WE/I] (เรา, หนู, ผม) ➔ You are the SUBJECT. Direction: BORROW (Red).
+
+          **CRITICAL VERIFICATION:**
+          - "ยืมเงินอั๋น" → Starts with "ยืม" (VERB) → BORROW (You owe อั๋น)
+          - "ยืมจากอั๋น" → Starts with "ยืมจาก" (VERB) → BORROW (You owe อั๋น)
+          - "อั๋นยืมเงิน" → Starts with "อั๋น" (NAME) → LEND (อั๋น owes you)
+          - NEVER confuse these two!
+
+          **STEP 2: Cross-Check Keywords**
+          - "xxx ยืม" (LEND) vs "ยืม xxx" (BORROW)
+          - "xxx ค้าง" (LEND) vs "ค้าง xxx" (BORROW)
+          - "xxx ติดเงิน" (LEND) vs "ติดเงิน xxx" (BORROW)
+          - "xxx ยืมเงิน" (LEND) vs "ยืมเงิน xxx" (BORROW) ← ESPECIALLY THIS!
+          - "ยืมจาก xxx" → ALWAYS BORROW
+
+          **STEP 3: Handle Continuous/Repetitive Patterns**
+          - If the SAME PERSON/ENTITY is mentioned multiple times with different debt verbs:
+            * "[ANY_PERSON]ยืม100 [ANY_PERSON]ค้าง [ANY_PERSON]ติดเงิน" → This is ONE debt being emphasized
+            * Works for any name: "ส้มยืม50 ส้มค้าง", "พลอยยืม200 พลอยติดเงิน", "แม่ยืม1000 แม่ค้าง"
+            * Extract the amount from the FIRST phrase that contains it
+            * Keep the SAME direction (LEND or BORROW) based on the FIRST phrase's pattern
+            * Treat subsequent phrases as confirmation/emphasis, NOT separate debts
+
+          **FEW-SHOT CoT EXAMPLES:**
+          - Input: "อั๋นยืม 100"
+            ➔ { 
+                 "action": "LEND", "person": "อั๋น", "amount": 100,
+                 "thought": "[SENTENCE_STARTER]: 'อั๋น' (Name). [LOGIC]: Name starts sentence -> Name is borrower -> I am lender. [RESULT]: LEND",
+                 "message": "บันทึกให้แล้วค่ะ: อั๋นขอยืมเงินคุณพี่ 100 บาท (ยอดนี้จะอยู่ในหมวด 'ให้ยืม' สีเขียวค่ะ) 🎀✨"
+               }
+          - Input: "ยืมส้ม 500"
+            ➔ { 
+                 "action": "BORROW", "person": "ส้ม", "amount": 500,
+                 "thought": "[SENTENCE_STARTER]: 'ยืม' (Verb). [LOGIC]: Verb starts sentence -> Implicit 'I' is borrower -> I borrow from 'ส้ม'. [RESULT]: BORROW",
+                 "message": "บันทึกว่าคุณพี่ไปยืมเงินส้มมา 500 บาท เรียบร้อยค่ะ (อยู่ในหมวด 'ยืมมา' สีแดงนะคะ) 💸"
+               }
+          - Input: "ยืมเงินอั๋น 500"
+            ➔ { 
+                 "action": "BORROW", "person": "อั๋น", "amount": 500,
+                 "thought": "[SENTENCE_STARTER]: 'ยืมเงิน' (Compound Verb). [LOGIC]: Verb starts sentence -> Implicit 'I' is borrower -> I borrow from 'อั๋น'. [CRITICAL]: NOT 'อั๋น' first! [RESULT]: BORROW",
+                 "message": "บันทึกว่าคุณพี่ไปยืมเงินอั๋นมา 500 บาท เรียบร้อยค่ะ (อยู่ในหมวด 'ยืมมา' สีแดงนะคะ) 💸"
+               }
+          - Input: "ยืมจากตูน 200"
+            ➔ { 
+                 "action": "BORROW", "person": "ตูน", "amount": 200,
+                 "thought": "[SENTENCE_STARTER]: 'ยืมจาก' (Compound Verb with Preposition). [LOGIC]: 'From' implies I receive money. [RESULT]: BORROW",
+                 "message": "บันทึกว่าคุณพี่ไปยืมเงินจากตูนมา 200 บาท เรียบร้อยค่ะ 💸"
+               }
+          - Input: "อั๋นยืม100 อั๋นค้าง อั๋นติดเงิน"
+            ➔ { 
+                 "action": "LEND", "person": "อั๋น", "amount": 100,
+                 "thought": "[PATTERN]: Repetitive mention of 'อั๋น' with multiple debt verbs (ยืม, ค้าง, ติดเงิน). [FIRST_PHRASE]: 'อั๋นยืม100' starts with name. [LOGIC]: Name-first pattern -> LEND. [AMOUNT]: 100 from first phrase. [CONSOLIDATION]: Treating subsequent phrases as emphasis. [RESULT]: Single LEND entry.",
+                 "message": "เข้าใจค่ะ อั๋นยืมเงินคุณพี่ 100 บาท (บันทึกลงหมวด 'ให้ยืม' สีเขียวแล้วนะคะ) 🎀✨"
+               }
+
+          **UNIVERSAL ENTITY DETECTION:**
+          - Works for ANY entity (แฟน, Boss, ร้านป้า, บอส, 711).
+          - person: EXTRACT ONLY THE ENTITY NAME. Remove prefixes/suffixes like 'ยืม' or 'เงิน'.
+
+          **RESPONSE ENFORCEMENT:**
+          - You are a clinical JSON API. DO NOT talk outside JSON.
+          - Use the \`thought\` field to show your Step 1, Step 2, and Step 3 analysis.
+          - If user input is "ยืมเงินส้ม 300" -> Return ONLY the JSON object for BORROW.
+          - If user input is "ส้มยืมเงิน 300" -> Return ONLY the JSON object for LEND.
 
       7. SHOW_SUMMARY - Viewing reports/summaries
          { "action": "SHOW_SUMMARY", "period": "today"|"week"|"month"|"all", "thought": "...", "message": "..." }
@@ -329,13 +401,32 @@ ${bankAccounts.length > 0 ? bankAccounts.map(b => `        * ${b.name} (ID: "${b
       - Include "message" field with friendly confirmation/response in ${lang}
       - For bankAccountId: Return the EXACT ID from user's accounts (match by name)
       - For questions → provide helpful advice in "message", use PLANNING action
-      - If Request Source is "ocr": ALWAYS return action "ADD_TRANSACTION" with a clear numeric amount.
+      - If Request Source is "ocr":
+        **OCR INTELLIGENCE PROTOCOL (CHAIN-OF-THOUGHT):**
+        1. **Locate Key Indicators**: Find "รวมเงิน", "TOTAL", "Cash Paid" (เงินสด), and "Change" (เงินทอน).
+        2. **Cross-Check Logic**: Total = (Cash Paid - Change). If these numbers exist, use them to verify the "Grand Total".
+        3. **Analyze Noise**: If the image is partial or messy, pick the number that appears most consistently near "รวมเงิน" or at the bottom-most list position.
+        
+        **FEW-SHOT OCR RESPONSE (DENSE REASONING):**
+        - Input: "...1867.75 ... CASH 2000.00 ... CHANGE 132.25"
+          ➔ { 
+               "action": "ADD_TRANSACTION", 
+               "amount": 1867.75, 
+               "description": "Makro", 
+               "category": "ของใช้",
+               "thought": "Found 'รวมเงิน 1867.75'. Also found CASH 2000.00 and CHANGE 132.25. Verification: 2000 - 132.25 = 1867.75. Match confirmed.",
+               "message": "จากสลิปที่คุณพี่สแกนมา เรมี่ตรวจสอบพบว่าความน่าจะเป็นคือ ยอดรวม 1,867.75 บาทค่ะ (มีบันทึกว่ารับเงินสดมา 2,000 และทอนเงิน 132.25 ซึ่งตรงกันพอดี) เรมี่บันทึกลงหมวดของใช้ให้นะคะ 🎀✨"
+             }
+
         - If the amount is unclear: return action "UNKNOWN" with a message asking to rescan.
+        - ALWAYS return action "ADD_TRANSACTION" for OCR if a plausible amount is found.
         - Do NOT use PLANNING/SHOW_SUMMARY/SHOW_DEBTS for OCR scans.
+
       - For OCR transfer slips: determine direction using names.
         - If slip shows sender/ผู้โอน is the user (${userName}) → type: "expense"
         - If slip shows receiver/ผู้รับ is the user (${userName}) → type: "income"
       - Be warm and friendly like a helpful friend 🎀
+      - In "message" (especially for OCR), explain HOW you found the number if it was messy.
       - Return ONLY valid JSON, no markdown
     `;
 
@@ -352,10 +443,13 @@ ${bankAccounts.length > 0 ? bankAccounts.map(b => `        * ${b.name} (ID: "${b
 
     const resultText = completion.choices[0]?.message?.content || "{}";
     
-    // 4. Parse JSON (Handle potential markdown wrapping)
+    // 4. Parse JSON (Handle potential markdown wrapping or conversational noise)
     let jsonStr = resultText.trim();
-    if (jsonStr.startsWith("```json")) {
-      jsonStr = jsonStr.replace(/```json/g, "").replace(/```/g, "");
+    
+    // Robustly extract JSON object from the response
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[0];
     }
     
     const actionData = JSON.parse(jsonStr);
