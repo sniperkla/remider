@@ -150,9 +150,10 @@ Triggers: "เปลี่ยน", "ใช้", "switch to"
 5. SET_BALANCE
 {"action":"SET_BALANCE","wallet":"bank"|"cash","amount":2000,"thought":"...","message":"..."}
 
-6. BORROW/LEND - Debt direction by sentence start
-- NAME first → LEND (they owe you): "อั๋นยืม100" → LEND to อั๋น
-- VERB first → BORROW (you owe them): "ยืมอั๋น100" → BORROW from อั๋น
+6. BORROW/LEND - Debt direction:
+- LEND (they owe you): "[Name] ยืมเงิน", "ให้ [Name] ยืม", "[Name] ติดเงินเรา", "คนอื่นติดเงินเรา", "เราให้ [Name] ยืม"
+- BORROW (you owe them): "ยืมเงิน [Name]", "ไปยืม [Name]", "เราติดเงิน [Name]", "ยืม [Name] มา"
+CRITICAL: "ติดเงินเรา" always means LEND. "ยืมเงิน [Name]" usually means BORROW from them.
 {"action":"BORROW"|"LEND","person":"name","amount":100,"thought":"...","message":"..."}
 
 7. SHOW_SUMMARY
@@ -195,7 +196,7 @@ RULES:
 - Keep description in user's spoken language
 - For OCR: find "รวมเงิน/TOTAL", verify with CASH-CHANGE if available
 - Return ONLY valid JSON, no markdown
-- Message should be friendly in ${lang}`;
+- Message should ALWAYS be in the language: ${lang === 'th' ? 'Thai' : 'English'}`;
 
     // 3. Inference
     const completion = await groqClient.createCompletion({

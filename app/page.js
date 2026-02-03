@@ -3,8 +3,16 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import useMobileDetect from "./hooks/useMobileDetect";
+import useTransactions from "./hooks/useTransactions";
+import useAI from "./hooks/useAI";
+import useOCR from "./hooks/useOCR";
 import { useSearchParams } from 'next/navigation';
-import { motion, AnimatePresence, Reorder } from "framer-motion";
+import { AnimatePresence, motion, Reorder } from "framer-motion";
+import FilterPanel from "./components/FilterPanel";
+import TransactionItem from "./components/TransactionItem";
+import DebtItem from "./components/DebtItem";
+import ReminderItem from "./components/ReminderItem";
+import { CATEGORY_COLORS, CATEGORY_ICONS, DYNAMIC_ICONS } from "./constants";
 import {
   Mic,
   MicOff,
@@ -53,327 +61,46 @@ import {
   Plus,
   Filter
 } from "lucide-react";
-import Tesseract from "tesseract.js";
+
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { translations } from "@/lib/translations";
 import { detectBank, BANK_DATA } from "@/lib/bankUtils";
+import { detectCategory, parseThaiNumber, detectLangFromText, extractDataFromOCRText, getLocalAIInsight } from "@/lib/ai-utils";
+import { dbPromise, storeHandle, getHandle } from "@/lib/idb-utils";
 
 import WebcamModal from "./components/WebcamModal";
 
-// --- Smart Categorization & Visuals ---
-const CATEGORY_COLORS = {
-  "อาหาร": "#f59e0b",
-  "เดินทาง": "#3b82f6",
-  "ของใช้": "#ec4899",
-  "บันเทิง": "#8b5cf6",
-  "ที่พัก": "#6366f1",
-  "การเงิน": "#10b981",
-  "สุขภาพ": "#ef4444",
-  "รายได้": "#06b6d4",
-  "เงินโอน": "#6366f1",
-  "อื่นๆ": "#64748b"
-};
-
-const CATEGORY_ICONS = {
-  "อาหาร": <Utensils size={14} />,
-  "เดินทาง": <Car size={14} />,
-  "ของใช้": <ShoppingBag size={14} />,
-  "บันเทิง": <Gamepad2 size={14} />,
-  "ที่พัก": <HomeIcon size={14} />,
-  "การเงิน": <CreditCard size={14} />,
-  "สุขภาพ": <HeartPulse size={14} />,
-  "รายได้": <TrendingUp size={14} />,
-  "เงินโอน": <ArrowRightLeft size={14} />,
-  "อื่นๆ": <Tags size={14} />
-};
-const DYNAMIC_ICONS = {
-  Utensils, Car, ShoppingBag, Gamepad2, HomeIcon, 
-  HeartPulse, Tags, ArrowRightLeft, CreditCard, TrendingUp,
-  DollarSign, Zap, Fuel, Shirt, Smartphone,
-};
-
-const detectCategory = (text) => {
-  if (!text) return "อื่นๆ";
-  const lowerText = text.toLowerCase();
-  
-  const categories = {
-    "อาหาร": {
-      keywords: ["กิน", "ข้าว", "น้ำ", "กาแฟ", "ขนม", "อาหาร", "มื้อ", "หิว", "สั่ง", "ชา", "ต้ม", "ผัด", "แกง", "ทอด", "ปิ้ง", "ย่าง", "บุฟเฟ่ต์", "หมูกระทะ", "ชาบู", "สุกี้", "ก๋วยเตี๋ยว", "มาม่า", "ส้มตำ", "สเต็ก", "ร้านอาหาร", "คาเฟ่", "เบเกอรี่", "เค้ก", "ไอติม", "นม", "food", "rice", "water", "coffee", "tea", "drink", "snack", "meal", "dinner", "lunch", "breakfast", "cafe", "buffet", "shabu", "suki", "noodle", "steak", "starbucks", "kfc", "mcdonald", "burger", "pizza", "swensen", "bonchon", "mk", "yayoi", "fuji", "zen", "barbq", "amazone", "tao bin", "grabfood", "lineman", "foodpanda"],
-      weight: 2
-    },
-    "เดินทาง": {
-      keywords: ["รถ", "น้ำมัน", "แท็กซี่", "วิน", "มา", "ไป", "โบลท์", "กรับ", "ค่ารถ", "เรือ", "เครื่องบิน", "ตั๋ว", "ทางด่วน", "มอเตอร์ไซค์", "เติมน้ำมัน", "จอดรถ", "ขนส่ง", "รถทัวร์", "รถตู้", "รถไฟฟ้า", "บีทีเอส", "เอ็มอาร์ที", "car", "gas", "petrol", "taxi", "motorcycle", "bike", "win", "bts", "mrt", "bus", "train", "flight", "ticket", "toll", "expressway", "parking", "transport", "grab", "bolt", "uber", "muve"],
-      weight: 2
-    },
-    "ที่พัก": {
-      keywords: ["ค่าเช่า", "ค่าน้ำ", "ค่าไฟ", "ค่าหอ", "คอนโด", "หอพัก", "บ้าน", "ห้อง", "เน็ต", "อินเทอร์เน็ต", "ส่วนกลาง", "ทำความสะอาด", "rent", "electricity", "water bill", "utility", "pea", "mea", "mwa", "pwa", "condo", "apartment", "dorm", "room", "house", "internet", "wifi", "broadband", "ais fibre", "true online", "3bb", "nt"],
-      weight: 3
-    },
-    "ของใช้": {
-      keywords: ["ซื้อ", "ของ", "ของใช้", "ห้าง", "เซเว่น", "ช้อป", "แอป", "ตลาด", "เสื้อผ้า", "ซุปเปอร์", "ไอโฟน", "มือถือ", "คอม", "โน้ตบุ๊ค", "ไอแพด", "อุปกรณ์", "เครื่องเขียน", "กระดาษ", "ทิชชู่", "สบู่", "แชมพู", "ยาสีฟัน", "buy", "shop", "shopping", "mall", "market", "7-11", "seven eleven", "supermarket", "lotus", "big c", "makro", "top", "villa", "watsons", "boots", "shopee", "lazada", "tiktok", "item", "stuff", "clothes", "gadget", "iphone", "samsung", "ipad"],
-      weight: 1
-    },
-    "บันเทิง": {
-      keywords: ["เกม", "หนัง", "เที่ยว", "เหล้า", "เบียร์", "ไวน์", "ปาร์ตี้", "คอนเสิร์ต", "ดูหนัง", "ฟังเพลง", "สตรีมมิ่ง", "ดิสนีย์พลัส", "เน็ตฟลิกซ์", "โรงแรม", "รีสอร์ท", "ตั๋วหนัง", "เติมเกม", "game", "movie", "cinema", "netflix", "disney", "youtube", "spotify", "music", "concert", "party", "alcohol", "beer", "wine", "bar", "pub", "club", "karaoke", "holiday", "vacation", "trip", "hotel", "resort", "ticket"],
-      weight: 2
-    },
-    "การเงิน": {
-      keywords: ["ภาษี", "ประกัน", "ค่าธรรมเนียม", "ดอกเบี้ย", "หุ้น", "ออมเงิน", "ลงทุน", "เงินกู้", "ผ่อน", "เทรด", "คริปโต", "บัตรเครดิต", "จองหุ้น", "กองทุน", "tax", "fee", "insurance", "invest", "stock", "crypto", "dividend", "interest", "loan", "savings", "debt", "credit card", "installments", "fund", "bonds"],
-      weight: 3
-    },
-    "สุขภาพ": {
-      keywords: ["ยา", "หมอ", "โรงพยาบาล", "คลินิก", "ฟิตเนส", "สปา", "นวด", "ตัดผม", "เสริมสวย", "ทำเล็บ", "หาหมอ", "ทำฟัน", "รากฟัน", "ขูดหินปูน", "แว่น", "hospital", "pharmacy", "drugstore", "doctor", "dentist", "medicine", "gym", "fitness", "workout", "spa", "massage", "salon", "haircut", "nail", "beauty", "clinic", "vitamin", "supplement"],
-      weight: 3
-    },
-    "รายได้": {
-      keywords: ["เงินเดือน", "โบนัส", "รับเงิน", "กำไร", "รายได้", "ปันผล", "ถูกหวย", "รางวัล", "ค่าจ้าง", "ค่าคอม", "salary", "wage", "bonus", "commission", "profit", "income", "revenue", "earnings", "refund", "cashback", "dividend", "earn", "paycheck", "lotto", "lottery"],
-      weight: 4
-    }
-  };
-
-  let bestCategory = "อื่นๆ";
-  let maxScore = 0;
-
-  for (const [cat, data] of Object.entries(categories)) {
-    let score = 0;
-    data.keywords.forEach(kw => {
-      if (lowerText.includes(kw.toLowerCase())) {
-        score += data.weight;
-      }
-    });
-    
-    if (score > maxScore) {
-      maxScore = score;
-      bestCategory = cat;
-    }
-  }
-
-  return bestCategory;
-};
-
-const parseThaiNumber = (str) => {
-  if (!str) return 0;
-  // Pre-process: Remove common words that contain number sounds but aren't numbers
-  // e.g. "สามารถ" (Sa-mart) contains "สาม" (3), "สิบเอ็ด" is already handled but "สิบหา" etc could be tricky.
-  let cleanStr = str.replace(/สามารถ|สัมผัส|สมมติ|สิบเอ็ด/g, " ");
-
-  // Heal numbers like "1, 520" or "1,520" by removing comma and optional space between digits
-  const healedStr = cleanStr.replace(/(\d)\s*,\s*(\d)/g, "$1$2");
-  cleanStr = healedStr.replace(/,/g, "").trim();
-  if (/^\d+(\.\d+)?$/.test(cleanStr)) return parseFloat(cleanStr);
-
-  const thaiDigits = {
-    "ศูนย์": 0, "หนึ่ง": 1, "เอ็ด": 1, "สอง": 2, "ยี่": 2, "สาม": 3,
-    "สี่": 4, "ห้า": 5, "หก": 6, "เจ็ด": 7, "แปด": 8, "เก้า": 9, "สิบ": 10
-  };
-  const thaiMults = {
-    "ล้าน": 1000000, "แสน": 100000, "หมื่น": 10000, "พัน": 1000, "ร้อย": 100, "สิบ": 10
-  };
-
-  let total = 0;
-  let remaining = cleanStr;
-
-  // 1. Handle MIXED patterns like "1 พัน" or "5 แสน"
-  for (const [multWord, multValue] of Object.entries(thaiMults)) {
-    const regex = new RegExp(`(\\d+)\\s*${multWord}`, 'g');
-    remaining = remaining.replace(regex, (match, num) => {
-      total += parseFloat(num) * multValue;
-      return " ";
-    });
-  }
-
-  // 2. Handle WORD patterns like "หนึ่งแสน" or "สี่สิบ"
-  // First, find the first digit word or number to avoid grabbing numbers from earlier sentences
-  let startIdx = 10000;
-  [...Object.keys(thaiDigits), ...Object.keys(thaiMults)].forEach(w => {
-    const idx = cleanStr.indexOf(w);
-    if (idx !== -1 && idx < startIdx) startIdx = idx;
-  });
-  const numMatch = cleanStr.match(/\d+/);
-  if (numMatch && numMatch.index < startIdx) startIdx = numMatch.index;
-
-  // If no numbers found, return 0
-  if (startIdx === 10000) return 0;
-
-  // Helper for safe word matching (Thai doesn't have spaces, so we check for common non-digit characters)
-  const replaceSafe = (text, word, replacement) => {
-    // If word is surrounded by other Thai characters that make it a different word, don't match
-    // This is tricky in Thai, but we can at least ensure it's not part of known "blocked" words
-    const blockedWords = ["สามารถ", "สมทบ", "สิบเอ็ด"]; // "สามารถ" contains "สาม", "สิบเอ็ด" contains "สิบ"
-    for (const bw of blockedWords) {
-      if (text.includes(bw) && bw.includes(word)) return text; 
-    }
-    return text.replace(new RegExp(word, 'g'), replacement);
-  };
-
-  for (const [multWord, multValue] of Object.entries(thaiMults)) {
-    const idx = remaining.indexOf(multWord);
-    if (idx !== -1) {
-      // Check if it's within a blocked word like "สามารถ"
-      const isBlocked = ["สามารถ", "สัมผัส", "สมมติ"].some(bw => remaining.includes(bw) && bw.includes(multWord));
-      if (isBlocked && multWord === "สาม") continue; 
-
-      const before = remaining.substring(Math.max(0, idx - 10), idx).trim();
-      let digitValue = 1;
-      let foundDigit = false;
-      let lastMatchIdx = -1;
-      let matchedWord = "";
-
-      for (const [dw, dv] of Object.entries(thaiDigits)) {
-        const dIdx = before.lastIndexOf(dw);
-        if (dIdx !== -1 && dIdx > lastMatchIdx) {
-          // Verify it's not a fragment
-          const surrounding = before.substring(Math.max(0, dIdx - 1), dIdx + dw.length + 1);
-          if (dw === "สาม" && (surrounding.includes("สามารถ") || surrounding.includes("สม"))) continue;
-
-          lastMatchIdx = dIdx;
-          digitValue = dv;
-          foundDigit = true;
-          matchedWord = dw;
-        }
-      }
-
-      total += digitValue * multValue;
-      remaining = remaining.replace(multWord, " ");
-      if (foundDigit) remaining = remaining.replace(matchedWord, " ");
-    }
-  }
-
-  // 3. Handle standalone digits and pure numbers
-  const leftoverNums = remaining.match(/\d+(\.\d+)?/g);
-  if (leftoverNums) {
-    leftoverNums.forEach(n => {
-      total += parseFloat(n);
-      remaining = remaining.replace(n, " ");
-    });
-  }
-
-  for (const [dw, dv] of Object.entries(thaiDigits)) {
-    if (remaining.includes(dw)) {
-      // Check if it's part of "สามารถ"
-      const isPartofCan = dw === "สาม" && remaining.includes("สามารถ");
-      if (!isPartofCan) {
-        total += dv;
-        remaining = remaining.replace(dw, " ");
-      }
-    }
-  }
-
-  return total;
-};
-// --- End Smart Categorization ---
-
-// IndexedDB Helper for FileSystemHandles
-const dbPromise = typeof window !== 'undefined' ? new Promise((resolve, reject) => {
-  const request = indexedDB.open("RemiFolderDB", 1);
-  request.onupgradeneeded = () => request.result.createObjectStore("handles");
-  request.onsuccess = () => resolve(request.result);
-  request.onerror = () => reject(request.error);
-}) : null;
-
-const storeHandle = async (key, value) => {
-  const db = await dbPromise;
-  const tx = db.transaction("handles", "readwrite");
-  tx.objectStore("handles").put(value, key);
-  return new Promise((r) => (tx.oncomplete = r));
-};
-
-const getHandle = async (key) => {
-  const db = await dbPromise;
-  const tx = db.transaction("handles", "readonly");
-  const request = tx.objectStore("handles").get(key);
-  return new Promise((r) => (request.onsuccess = () => r(request.result)));
-};
-
-
-// Helper Component for Debt Items
-const DebtItem = ({ debt, onToggle, onDelete, onEdit, lang, t }) => (
-  <motion.div 
-    layout 
-    className="glass-card" 
-    style={{ 
-      padding: '1rem', 
-      border: debt.status === 'paid' ? '1px solid rgba(255,255,255,0.1)' : `1px solid ${debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
-      opacity: debt.status === 'paid' ? 0.6 : 1,
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center'
-    }}
-  >
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-      <div style={{ 
-        width: '40px', 
-        height: '40px', 
-        borderRadius: '12px', 
-        background: debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)'
-      }}>
-        {debt.type === 'borrow' ? <ArrowDownCircle size={20} /> : <ArrowUpCircle size={20} />}
-      </div>
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontWeight: 700, color: 'white' }}>{debt.person}</span>
-          <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: debt.status === 'paid' ? 'rgba(255,255,255,0.1)' : (debt.type === 'borrow' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'), color: debt.status === 'paid' ? 'white' : (debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)') }}>
-            {debt.status === 'paid' ? t.status_paid : (debt.type === 'borrow' ? t.borrow : t.lend)}
-          </span>
-        </div>
-        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{new Date(debt.date).toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { day: 'numeric', month: 'short' })} • {debt.note || (lang === 'th' ? 'ไม่มีบันทึก' : 'No note')}</div>
-      </div>
-    </div>
-    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-      <div style={{ textAlign: 'right' }}>
-        <div style={{ fontWeight: 800, color: debt.status === 'paid' ? 'white' : (debt.type === 'borrow' ? 'var(--danger)' : 'var(--success)') }}>฿{debt.amount.toLocaleString()}</div>
-        <button 
-          onClick={onToggle}
-          style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
-        >
-          {debt.status === 'paid' ? (lang === 'th' ? 'คืนค่า' : 'Re-activate') : (lang === 'th' ? 'คืนแล้ว' : 'Mark as Paid')}
-        </button>
-      </div>
-      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-        <button onClick={onEdit} style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', opacity: 0.6, cursor: 'pointer', padding: '4px' }}>
-          <Edit2 size={16} />
-        </button>
-        <button onClick={onDelete} style={{ background: 'none', border: 'none', color: 'var(--danger)', opacity: 0.5, cursor: 'pointer', padding: '4px' }}>
-          <Trash2 size={16} />
-        </button>
-      </div>
-    </div>
-  </motion.div>
-);
+// --- Logic Functions (Hoisted) ---
+// Helper Component for Debt Items extracted to components/DebtItem
 
 
 function HomeContent() {
   const { data: session, status } = useSession();
+  
+  const {
+      transactions, setTransactions, transactionsRef,
+      accounts, setAccounts, accountsRef,
+      balance, setBalance, balanceRef,
+      budget, setBudget,
+      monthlyBudget, setMonthlyBudget,
+      debts, setDebts,
+      reminders, setReminders,
+      groqKeys, setGroqKeys,
+      activeBankAccountId, setActiveBankAccountId,
+      activeWallet, setActiveWallet,
+      addTransaction,
+      updateTransaction,
+      deleteTransaction: deleteTransactionApi
+  } = useTransactions();
 
-  const [balance, setBalance] = useState({ bank: 0, cash: 0 });
-  const balanceRef = useRef(balance);
-  useEffect(() => { balanceRef.current = balance; }, [balance]);
-
-  const [accounts, setAccounts] = useState([]);
-  const accountsRef = useRef(accounts);
-  useEffect(() => { accountsRef.current = accounts; }, [accounts]);
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
   const [newAccountBalance, setNewAccountBalance] = useState("");
   const [editingAccount, setEditingAccount] = useState(null);
-  const [budget, setBudget] = useState(1000);
-  const [monthlyBudget, setMonthlyBudget] = useState(30000);
   const [defaultWallet, setDefaultWallet] = useState("bank");
-  const [activeBankAccountId, setActiveBankAccountId] = useState("");
   const [nickname, setNickname] = useState("");
-  const [groqKeys, setGroqKeys] = useState([]); // System AI Key Pool
-  const [transactions, setTransactions] = useState([]);
-  const transactionsRef = useRef(transactions);
   const [showWebcam, setShowWebcam] = useState(false);
-  useEffect(() => { transactionsRef.current = transactions; }, [transactions]);
-  const [debts, setDebts] = useState([]);
-  const [reminders, setReminders] = useState([]);
   const [preventDelete, setPreventDelete] = useState(false);
-  const [activeWallet, setActiveWallet] = useState("bank"); // Default wallet for manual entry
   const [viewMode, setViewMode] = useState("daily"); // daily or monthly
   const [visibleCount, setVisibleCount] = useState(20);
   const [filteredAccountId, setFilteredAccountId] = useState(null);
@@ -394,6 +121,10 @@ function HomeContent() {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [interimTranscript, setInterimTranscript] = useState(""); // For showing partial speech
+  const interimTranscriptRef = useRef("");
+  useEffect(() => { interimTranscriptRef.current = interimTranscript; }, [interimTranscript]);
+
   const [showHelp, setShowHelp] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -413,30 +144,42 @@ function HomeContent() {
   const [manualDebtType, setManualDebtType] = useState("lend"); // lend, borrow
   const [confirmModal, setConfirmModal] = useState({ show: false, title: "", onConfirm: null });
   const [expandedTransactionId, setExpandedTransactionId] = useState(null);
-  const t = translations[lang];
-  // Helper: detect language from text (simple heuristic)
-  function detectLangFromText(text) {
-    if (!text) return "th";
-    // If contains mostly English letters, use 'en', else 'th'
-    const en = /[a-zA-Z]/g;
-    const th = /[ก-๙]/g;
-    const enCount = (text.match(en) || []).length;
-    const thCount = (text.match(th) || []).length;
-    if (enCount > thCount) return "en";
-    if (thCount > enCount) return "th";
-    // fallback to UI lang
-    return lang;
-  }
-  
   const [manualAmount, setManualAmount] = useState("");
   const [manualDesc, setManualDesc] = useState("");
   const [manualType, setManualType] = useState("expense");
   const [manualReminderDate, setManualReminderDate] = useState("");
+
   const [isProcessingImage, setIsProcessingImage] = useState(false);
-  const [isAILoading, setIsAILoading] = useState(false);
-  const [scanProgress, setScanProgress] = useState(0);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [aiMessage, setAiMessage] = useState(translations.th.ai_greeting);
+
+  const recognitionRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const isVoiceActiveRef = useRef(false);
+  const silenceTimeoutRef = useRef(null);
+  const isListeningRef = useRef(false);
+  useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
+
+  const aiMessageRef = useRef("");
+  useEffect(() => { aiMessageRef.current = aiMessage; }, [aiMessage]);
+
+  // Sync AI Message greeting when language changes
+  useEffect(() => {
+    // Only update if it's currently the greeting message (to avoid overwriting real AI responses)
+    if (aiMessage === translations.th.ai_greeting || aiMessage === translations.en.ai_greeting) {
+       setAiMessage(translations[lang].ai_greeting);
+    }
+  }, [lang]);
+
+  const { recognize, scanProgress, setScanProgress, uploadImageToCloudinary } = useOCR();
+  const isMobile = useMobileDetect();
+  const isMobileRef = useRef(false);
+  useEffect(() => { isMobileRef.current = isMobile; }, [isMobile]);
+  const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
+  const lastProcessedTextRef = useRef("");
+  const lastProcessTimeRef = useRef(0);
+  const restartCountRef = useRef(0);
   
   const [folderHandle, setFolderHandle] = useState(null);
   const [isAutoScanning, setIsAutoScanning] = useState(false);
@@ -472,39 +215,233 @@ function HomeContent() {
   const cameraButtonRef = useRef(null);
   const manualButtonRef = useRef(null);
 
+  // -- AI Configuration (Hoisted) --
+  const [useSmartAI, setUseSmartAI] = useState(true);
+  const [ocrProvider, setOcrProvider] = useState("google");
+  const [aiModel, setAiModel] = useState("llama-3.3-70b-versatile");
+  const aiModelRef = useRef("llama-3.3-70b-versatile");
+  useEffect(() => { aiModelRef.current = aiModel; }, [aiModel]);
+  const [isAIToggleBlink, setIsAIToggleBlink] = useState(false);
+  const aiToggleRef = useRef(null);
+  const [showToast, setShowToast] = useState({ show: false, title: "", message: "", type: "info", icon: null, color: null });
+  const [languageReady, setLanguageReady] = useState(false);
+  const languageReadyRef = useRef(false);
+  useEffect(() => { languageReadyRef.current = languageReady; }, [languageReady]);
+
+  const t = translations[lang];
+
+  // -- Logic Functions (Hoisted) --
+  const advanceToNextTutorialStep = (tasks = onboardingTasks) => {
+    if (tasks.completed) {
+      setTutorialStep(null);
+      setTutorialHighlight(null);
+      return;
+    }
+    let nextStep = null;
+    let buttonRef = null;
+    if (!tasks.voice) {
+      nextStep = 'voice';
+      buttonRef = micButtonRef;
+    } else if (!tasks.scan) {
+      nextStep = 'scan';
+      buttonRef = cameraButtonRef;
+    } else if (!tasks.manual) {
+      nextStep = 'manual';
+      buttonRef = manualButtonRef;
+    }
+    if (nextStep && buttonRef?.current) {
+      buttonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      setTimeout(() => {
+        if (!buttonRef.current) return;
+        const rect = buttonRef.current.getBoundingClientRect();
+        setTutorialStep(nextStep);
+        setTutorialHighlight({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
+      }, 1000);
+    } else {
+      setTutorialStep(nextStep);
+    }
+  };
+
+  const completeOnboardingTask = (taskName) => {
+    if (!session?.user?.email) return;
+    if (onboardingTasksRef.current.completed || !showOnboardingRef.current) return;
+    setTutorialStep(null);
+    setTutorialHighlight(null);
+    const stepName = taskName === 'voice' 
+      ? (lang === 'th' ? '🎤 คำสั่งเสียง' : '🎤 Voice Command')
+      : taskName === 'scan'
+      ? (lang === 'th' ? '📸 สแกนใบเสร็จ' : '📸 Scan Receipt')
+      : (lang === 'th' ? '✍️ จดรายการเอง' : '✍️ Manual Entry');
+    setAiMessage(lang === 'th' 
+      ? `✅ เยี่ยม! ${stepName} สำเร็จ!\n👇 ดูผลลัพธ์ในตารางด้านล่าง`
+      : `✅ Great! ${stepName} completed!\n👇 See the result below`
+    );
+    setTimeout(() => {
+      if (!onboardingTasksRef.current.completed && showOnboardingRef.current) {
+        const latestTxn = transactionsRef.current[0];
+        if (latestTxn) {
+          setHighlightedTxnId(latestTxn._id || latestTxn.id);
+          setTimeout(() => {
+            const txnElement = document.querySelector(`[data-txn-id="${latestTxn._id || latestTxn.id}"]`);
+            if (txnElement) txnElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 200);
+        }
+      }
+    }, 500);
+    setOnboardingTasks(prev => {
+      const updated = { ...prev, [taskName]: true };
+      const allDone = updated.voice && updated.scan && updated.manual;
+      setTimeout(() => {
+        setHighlightedTxnId(null);
+        setAiMessage("");
+        if (allDone) {
+          setOnboardingTasks(u => ({ ...u, completed: true }));
+          setShowOnboarding(false);
+          setAiMessage("");
+          setShowCongrats(true);
+        } else {
+          advanceToNextTutorialStep(updated);
+        }
+      }, 3000);
+      if (session?.user?.email) {
+        fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ onboardingTasks: updated })
+        }).catch(err => console.error('Failed to save onboardingTasks to DB:', err));
+      }
+      return updated;
+    });
+  };
+
+  const startTutorial = () => {
+    setShowOnboarding(true);
+    setTimeout(() => {
+      advanceToNextTutorialStep();
+    }, 300);
+  };
+
+  const handleCongratsConfirm = () => {
+    if (!session?.user?.email) return;
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        tutorialCompleted: true,
+        onboardingTasks: { voice: true, scan: true, manual: true, completed: true }
+      })
+    }).catch(err => console.error('Failed to save tutorialCompleted to DB:', err));
+    const tutorialTxns = transactionsRef.current.filter(t => t.isTutorial);
+    const realTxns = transactionsRef.current.filter(t => !t.isTutorial);
+    let balanceAdjust = { bank: 0, cash: 0 };
+    tutorialTxns.forEach(txn => {
+      if (txn.type === 'income') balanceAdjust[txn.wallet] -= txn.amount;
+      else balanceAdjust[txn.wallet] += txn.amount;
+    });
+    setBalance(prev => ({ bank: prev.bank + balanceAdjust.bank, cash: prev.cash + balanceAdjust.cash }));
+    setTransactions(realTxns);
+    setOnboardingTasks({ voice: true, scan: true, manual: true, completed: true });
+    setShowCongrats(false);
+    setShowOnboarding(false);
+    setTutorialStep(null);
+    setTutorialHighlight(null);
+    setAiMessage(lang === 'th' ? t.ai_greeting : t.ai_greeting);
+    setInterimTranscript("");
+    setManualAmount("");
+    setManualDesc("");
+    setShowManualEntry(false);
+    setEditingTransaction(null);
+    setBalance({ bank: 0, cash: 0 });
+    openBalanceSetup();
+  };
+
+  const openBalanceSetup = () => {
+    setBalanceBankInput("0");
+    setBalanceCashInput("0");
+    setBudgetDailyInput((budget ?? 0).toString());
+    setBudgetMonthlyInput((monthlyBudget ?? 0).toString());
+    setShowBalanceSetup(true);
+  };
+
+  const handleBalanceSetupSave = async () => {
+    if (isSavingBalance) return;
+    const bank = Math.max(0, parseFloat(balanceBankInput || "0"));
+    const cash = Math.max(0, parseFloat(balanceCashInput || "0"));
+    const daily = Math.max(0, parseFloat(budgetDailyInput || "0"));
+    const monthly = Math.max(0, parseFloat(budgetMonthlyInput || "0"));
+    setIsSavingBalance(true);
+    try {
+      const newBal = { bank, cash };
+      setBalance(newBal);
+      setBudget(daily);
+      setMonthlyBudget(monthly);
+      setTransactions([]);
+      setDebts([]);
+      await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clearAll: true, balance: newBal, budget: daily, monthlyBudget: monthly })
+      });
+      setShowBalanceSetup(false);
+    } catch (error) {
+      console.warn("Failed to save balance", error);
+      setShowBalanceSetup(false);
+    } finally {
+      setIsSavingBalance(false);
+    }
+  };
+
+  const addReminder = async (desc, amount, date, wallet = "bank", category = "อื่นๆ") => {
+    try {
+      const res = await fetch('/api/reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: desc, amount, date, wallet, category })
+      });
+      const data = await res.json();
+      setReminders(prev => [data, ...prev].sort((a, b) => new Date(a.date) - new Date(b.date)));
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SCHEDULE_REMINDER',
+          reminder: data
+        });
+      }
+    } catch (error) {
+       console.error("Failed to add reminder");
+    }
+  };
+
+  const { processAICommand, isAILoading } = useAI({
+    session, lang, t, nickname,
+    transactions, accounts, balance, budget, debts, reminders,
+    setTransactions, setAccounts, setBalance, setDebts, setBudget, setMonthlyBudget,
+    setActiveWallet, setActiveBankAccountId,
+    addTransaction, addReminder,
+    accountsRef, transactionsRef, balanceRef, aiModelRef, onboardingTasksRef, showOnboardingRef, bankScrollRef,
+    setAiMessage, setTranscript, setInterimTranscript, setShowSummary, setActiveTab,
+    setFilteredAccountId, setFilteredWalletType, setShowBankReport, setShowToast,
+    completeOnboardingTask, activeWallet, activeBankAccountId: activeBankAccountId
+  });
+
   // Update highlight position when tutorialStep changes
   useEffect(() => {
     if (!tutorialStep) {
       setTutorialHighlight(null);
       return;
     }
-    
     const updateHighlight = () => {
       let buttonRef = null;
       if (tutorialStep === 'voice') buttonRef = micButtonRef;
       else if (tutorialStep === 'scan') buttonRef = cameraButtonRef;
       else if (tutorialStep === 'manual') buttonRef = manualButtonRef;
-      
       if (buttonRef?.current) {
         const rect = buttonRef.current.getBoundingClientRect();
-        setTutorialHighlight({
-          top: rect.top,
-          left: rect.left,
-          width: rect.width,
-          height: rect.height
-        });
+        setTutorialHighlight({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
       }
     };
-    
-    // Initial update
     updateHighlight();
-    
-    // Update again after a short delay (for layout settling)
     const timer = setTimeout(updateHighlight, 100);
-    
-    return () => {
-      clearTimeout(timer);
-    };
+    return () => clearTimeout(timer);
   }, [tutorialStep]);
 
   // Prevent scrolling when tutorial is active
@@ -514,9 +451,7 @@ function HomeContent() {
     } else {
       document.body.style.overflow = '';
     }
-    return () => {
-      document.body.style.overflow = '';
-    };
+    return () => { document.body.style.overflow = ''; };
   }, [tutorialStep, showOnboarding, onboardingTasks.completed]);
 
   // Refs for background scanning to avoid stale closures
@@ -582,22 +517,7 @@ function HomeContent() {
     await storeHandle("billingFolder", null);
   };
 
-  const uploadImageToCloudinary = async (file) => {
-    try {
-      const formData = new FormData();
-      formData.append("image", file);
-      const res = await fetch("/api/upload/cloudinary", {
-        method: "POST",
-        body: formData
-      });
-      if (!res.ok) return null;
-      const data = await res.json();
-      return data.url || null;
-    } catch (err) {
-      console.warn("Cloudinary upload failed", err);
-      return null;
-    }
-  };
+
 
   const scanFolderTransactions = async (handle = folderHandleRef.current, since = lastAutoScanRef.current, forceAll = false) => {
     if (!handle || isAutoScanningRef.current) return;
@@ -640,32 +560,9 @@ function HomeContent() {
           await new Promise(r => setTimeout(r, forceAll ? 10 : 1500));
 
           try {
-            let ocrText = "";
-            const imageUrl = await uploadImageToCloudinary(file);
+            const { text: ocrText, imageUrl } = await recognize(file, ocrProvider);
             
-            if (ocrProvider === "google") {
-              // Use Google Cloud Vision API
-              const formData = new FormData();
-              formData.append('image', file);
-              
-              const response = await fetch('/api/ocr/google-vision', {
-                method: 'POST',
-                body: formData
-              });
-              
-              if (response.ok) {
-                const data = await response.json();
-                ocrText = data.text || "";
-              } else {
-                throw new Error('Google Vision API failed');
-              }
-            } else {
-              // Use Tesseract.js
-              const result = await Tesseract.recognize(file, "tha+eng");
-              ocrText = result.data.text;
-            }
-            
-            if (ocrText.trim()) {
+            if (ocrText && ocrText.trim()) {
               console.log(`✅ OCR Success for ${entry.name}`);
               processOcrText(ocrText, imageUrl);
               newItemsCount++;
@@ -738,24 +635,13 @@ function HomeContent() {
   }, [aiMessage]);
   const [aiInsight, setAiInsight] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [useSmartAI, setUseSmartAI] = useState(true); // Toggle for Smart Agent (Default ON)
-  const [ocrProvider, setOcrProvider] = useState("google"); // "tesseract" or "google"
-  const [aiModel, setAiModel] = useState("llama-3.1-8b-instant"); // AI Model selection
-  const aiModelRef = useRef("llama-3.1-8b-instant");
-  useEffect(() => { aiModelRef.current = aiModel; }, [aiModel]);
-  const [isAIToggleBlink, setIsAIToggleBlink] = useState(false);
-  const aiToggleRef = useRef(null);
-  const [showToast, setShowToast] = useState({ show: false, title: "", message: "", type: "info", icon: null, color: null });
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [languageReady, setLanguageReady] = useState(false);
   const [pendingInstallPrompt, setPendingInstallPrompt] = useState(false);
   const [pendingTutorialStart, setPendingTutorialStart] = useState(false);
   const [showScanOptions, setShowScanOptions] = useState(false);
-  const languageReadyRef = useRef(false);
-  useEffect(() => { languageReadyRef.current = languageReady; }, [languageReady]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -830,33 +716,7 @@ function HomeContent() {
     }).catch(err => console.error('Failed to save AI model to DB:', err));
   }, [aiModel, session]);
 
-  const recognitionRef = useRef(null);
-  const fileInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
-  const isVoiceActiveRef = useRef(false); // Track if voice should be actively listening
-  const silenceTimeoutRef = useRef(null);
-  const [interimTranscript, setInterimTranscript] = useState(""); // For showing partial speech
-  const interimTranscriptRef = useRef("");
-  useEffect(() => { interimTranscriptRef.current = interimTranscript; }, [interimTranscript]);
-  
-  const isListeningRef = useRef(false);
-  useEffect(() => { isListeningRef.current = isListening; }, [isListening]);
 
-  const aiMessageRef = useRef(aiMessage);
-  useEffect(() => { aiMessageRef.current = aiMessage; }, [aiMessage]);
-
-  const isMobile = useMobileDetect();
-  const isMobileRef = useRef(false); // Ref to access latest isMobile inside closed-over callbacks
-  // Android detection
-  const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
-  // Sync Ref with State
-  useEffect(() => {
-    isMobileRef.current = isMobile;
-  }, [isMobile]);
-
-  const lastProcessedTextRef = useRef(""); // Track last text to avoid mobile duplicates
-  const lastProcessTimeRef = useRef(0); // Cooldown for processing
-  const restartCountRef = useRef(0); // Count rapid restarts
   
   // PWA & Service Worker Logic
   useEffect(() => {
@@ -1588,564 +1448,11 @@ function HomeContent() {
 
   const lastProcessedRef = useRef({ text: "", time: 0 });
 
-  // --- AI Agent Logic ---
-  async function processAICommand(text, detectedLang = null, imageUrl = null, forceModel = null, source = "voice", ocrRawText = "") {
-    setTranscript("");
-    setInterimTranscript("");
-    setAiMessage(lang === 'th' ? "กำลังคิด... 🧠" : "Thinking... 🧠");
-    setIsAILoading(true);
-    try {
-      // Use forced model (for scan operations) or user's selected model
-      const modelToUse = forceModel || aiModelRef.current;
-      const userName = nickname || session?.user?.name?.split(' ')[0] || "";
-      const fullName = session?.user?.name || "";
-      const emailAlias = session?.user?.email ? session.user.email.split('@')[0] : "";
+
+
+
+
       
-      // Build comprehensive alias list including individual name parts
-      const allNameParts = [userName, fullName, emailAlias]
-        .filter(Boolean)
-        .flatMap(name => name.split(/\s+/))
-        .map(part => part.toLowerCase().trim())
-        .filter(part => part.length > 2);
-      
-      const userAliases = [...new Set(allNameParts)];
-      
-      const requestSource = source || "voice";
-      const res = await fetch('/api/ai/command', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text, 
-          lang, 
-          balance, 
-          budget,
-          activeWallet, // Pass user's primary wallet to AI
-          activeBankAccountId, // Pass active bank account ID
-          accounts, // Pass all user accounts for bank matching
-          aiModel: modelToUse, // Pass AI model (forced or selected)
-          source: requestSource,
-          userName,
-          userAliases,
-          detectedLang, // Pass the detected language from speech
-          recentTransactions: transactions.slice(0, 15), // Last 15 transactions
-          recentDebts: debts.filter(d => d.status !== 'paid').slice(0, 10), // Active debts
-          reminders: reminders.slice(0, 10) // Active reminders
-        })
-      });
-      const data = await res.json();
-      setIsAILoading(false);
-      
-      // Local helper to match bank names to actual IDs from context
-      const findAccountId = (bankName, providedId) => {
-        // If it looks like a real ID, use it
-        if (providedId && providedId.length > 10 && !providedId.includes('<')) return providedId;
-        
-        // Try to match by name
-        if (!bankName && (!providedId || providedId.includes('<'))) return null;
-        const lowerName = (bankName || "").toLowerCase();
-        const match = accountsRef.current.find(a => 
-          a.name.toLowerCase().includes(lowerName) || 
-          lowerName.includes(a.name.toLowerCase()) ||
-          (a.bankCode && lowerName.includes(a.bankCode.toLowerCase()))
-        );
-        return match ? match.id : (providedId && !providedId.includes('<') ? providedId : null);
-      };
-      
-      if (!res.ok) throw new Error(data.message || "AI Error");
-      
-      const normalizedAmount = typeof data.amount === "string"
-        ? parseFloat(data.amount.replace(/,/g, ""))
-        : data.amount;
-      const hasValidAmount = Number.isFinite(normalizedAmount) && normalizedAmount > 0;
-
-      if (requestSource === "ocr") {
-        const ocrTextLower = (ocrRawText || text).toLowerCase();
-        
-        // Expanded keywords for better detection
-        const senderKeywords = ["from", "sender", "ผู้โอน", "ผู้สั่งโอน", "โอนจาก", "ผู้ส่ง"];
-        const receiverKeywords = ["to", "receiver", "beneficiary", "ผู้รับ", "ผู้รับเงิน", "โอนให้", "ถึง"];
-        
-        // Check if any user alias appears in OCR text
-        const foundAlias = userAliases.find(alias => alias && ocrTextLower.includes(alias));
-        
-        if (foundAlias) {
-          console.log(`[OCR] Found user alias in slip: "${foundAlias}"`);
-          
-          // Find position of user's name in the text
-          const aliasIndex = ocrTextLower.indexOf(foundAlias);
-          const textBeforeAlias = ocrTextLower.substring(0, aliasIndex);
-          const textAfterAlias = ocrTextLower.substring(aliasIndex + foundAlias.length);
-          
-          // Check if sender keywords appear before the user's name
-          const hasSenderBefore = senderKeywords.some(k => textBeforeAlias.includes(k));
-          
-          // Check if "to" or receiver keywords appear after the user's name
-          const hasReceiverAfter = receiverKeywords.some(k => textAfterAlias.includes(k));
-          
-          // If user name appears with sender keyword OR before "to/receiver" = user is sender (expense)
-          if (hasSenderBefore || hasReceiverAfter) {
-            console.log(`[OCR] User is sender → expense`);
-            data.type = "expense";
-          } 
-          // If receiver keyword before user name = user is receiver (income)
-          else if (receiverKeywords.some(k => textBeforeAlias.includes(k))) {
-            console.log(`[OCR] User is receiver → income`);
-            data.type = "income";
-          }
-          // Default: if we see "transfer to" anywhere, it's likely an expense
-          else if (ocrTextLower.includes("transfer to") || ocrTextLower.includes("โอนให้")) {
-            console.log(`[OCR] Contains 'transfer to' → expense`);
-            data.type = "expense";
-          }
-        }
-      }
-
-      if (requestSource === "ocr" && data.action !== "ADD_TRANSACTION") {
-        if (hasValidAmount) {
-          data.action = "ADD_TRANSACTION";
-          data.amount = normalizedAmount;
-          data.type = data.type || "expense";
-          data.category = data.category || (lang === 'th' ? "อื่นๆ" : "Other");
-          data.description = data.description || (lang === 'th' ? "สแกนใบเสร็จ" : "Receipt scan");
-        } else {
-          setAiMessage(lang === 'th'
-            ? "สแกนสำเร็จแต่ไม่พบยอดชัดเจน กรุณาลองใหม่อีกครั้งค่ะ"
-            : "Scan completed but I couldn't find a clear total. Please try again.");
-          return;
-        }
-      }
-
-      // Safety Interceptor: If input is clearly a question, override any transaction action
-      const voiceTextLower = text.toLowerCase();
-      const questionPatterns = [
-        "ได้ไหม", "พอไหม", "หรือเปล่า", "เหรอ", "ไหม", "มั้ย", "?", 
-        "ได้บ้าง", "กี่บาท", "เท่าไหร่", "ยังไง", "อะไร",
-        "ควรจะ", "น่าจะ", "แนะนำ", "ช่วย", "วางแผน"
-      ];
-      const isQuestion = questionPatterns.some(q => voiceTextLower.includes(q));
-      
-      if (requestSource !== "ocr" && isQuestion && data.action !== "PLANNING" && data.action !== "SHOW_SUMMARY" && data.action !== "SHOW_DEBTS") {
-        console.log("Forcing PLANNING action for question:", text);
-        data.action = "PLANNING";
-        data.thought = lang === 'th' 
-          ? "ผู้ใช้กำลังถามคำถาม (คำถามเกี่ยวกับงบประมาณ/ความเป็นไปได้) ไม่ใช่คำสั่งบันทึกรายการ" 
-          : "User is asking a question (budget/possibility inquiry), not a command to record.";
-        
-        if (!data.message) {
-          data.message = lang === 'th' 
-            ? "นี่เป็นคำถามใช่ไหมคะ? เดี๋ยวเรมี่ช่วยวางแผนการใช้เงินให้นะคะ ✨" 
-            : "This sounds like a question! Let me help you with some financial planning. ✨";
-        }
-      }
-      
-      console.log("AI Action:", data);
-
-      // Step 2: Internal analysis only (do not show thought to user)
-      if (data.thought) {
-        console.log("AI Thought:", data.thought);
-      }
-
-      if (data.action === "ADD_TRANSACTION") {
-         let { amount, type, category, description, wallet, bank, bankAccountId, icon } = data;
-         
-         // Heal ID if missing or placeholder
-         const actualId = findAccountId(bank, bankAccountId);
-         bankAccountId = actualId;
-         const finalAmount = Number.isFinite(normalizedAmount) ? normalizedAmount : amount;
-         if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
-           setAiMessage(lang === 'th'
-             ? "ไม่พบยอดที่ชัดเจนจากข้อมูลนี้ กรุณาลองใหม่อีกครั้งค่ะ"
-             : "I couldn't find a clear amount from this. Please try again.");
-           return;
-         }
-         
-         // If AI detected a specific bank account, switch to it
-         if (bankAccountId && wallet === 'bank') {
-           const targetAccount = accounts.find(a => a.id === bankAccountId);
-           if (targetAccount) {
-             setActiveWallet('bank');
-             setActiveBankAccountId(bankAccountId);
-             
-             // Auto-rearrange: move to first
-             const bankAccounts = accounts.filter(a => a.type === 'bank');
-             const otherAccounts = accounts.filter(a => a.type !== 'bank');
-             const filtered = bankAccounts.filter(a => a.id !== bankAccountId);
-             const updatedAccounts = [targetAccount, ...filtered, ...otherAccounts];
-             setAccounts(updatedAccounts);
-             
-             // Scroll to start
-             if (bankScrollRef.current) {
-               bankScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-             }
-             
-             // Save to DB
-             fetch('/api/data', {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ 
-                 activeBankAccountId: bankAccountId, 
-                 defaultWallet: 'bank',
-                 accounts: updatedAccounts 
-               })
-             });
-           }
-         }
-         
-         // Use AI's detected wallet, fall back to user's primary if not specified
-         const finalWallet = wallet || activeWallet;
-         // Mark as tutorial if onboarding not completed (use refs to avoid stale closure)
-         const isTutorialMode = !onboardingTasksRef.current.completed && showOnboardingRef.current;
-          addTransaction(finalAmount, type || "expense", description, category, finalWallet, bank, icon, requestSource === "ocr", imageUrl, isTutorialMode, bankAccountId);
-         
-         const accountName = bankAccountId ? accounts.find(a => a.id === bankAccountId)?.name : null;
-         const walletLabel = finalWallet === 'cash' 
-           ? (lang === 'th' ? 'เงินสด' : 'Cash') 
-           : (accountName || (lang === 'th' ? 'ธนาคาร' : 'Bank'));
-         
-         setAiMessage(data.message || (lang === 'th' ? `✅ บันทึกแล้ว: ${description} ฿${finalAmount} (${walletLabel})` : `✅ Saved: ${description} ฿${finalAmount} (${walletLabel})`));
-         
-         // Complete onboarding task based on source
-         if (requestSource === "ocr") {
-           completeOnboardingTask('scan');
-         } else {
-           completeOnboardingTask('voice');
-         }
-      } 
-
-      else if (data.action === "SWITCH_PRIMARY") {
-          let { wallet, bank, bankAccountId } = data;
-          
-          if (wallet === 'cash') {
-            setActiveWallet('cash');
-            setDefaultWallet('cash');
-            fetch('/api/data', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ defaultWallet: 'cash' })
-            });
-            setShowToast({
-              show: true,
-              title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
-              message: lang === 'th' ? '💵 ตั้งเงินสดเป็นบัญชีหลักแล้ว' : '💵 Cash set as primary',
-              type: 'success'
-            });
-            setAiMessage(data.message || (lang === 'th' ? '💵 เปลี่ยนเป็นเงินสดแล้วค่ะ' : '💵 Switched to cash'));
-          } 
-          else if (wallet === 'bank') {
-            const healedId = findAccountId(bank, bankAccountId);
-            const targetAccount = accounts.find(a => a.id === healedId);
-            if (targetAccount) {
-              const targetId = targetAccount.id;
-              setActiveWallet('bank');
-              setDefaultWallet('bank');
-              setActiveBankAccountId(targetId);
-              
-              const bankAccounts = accounts.filter(a => a.type === 'bank');
-              const otherAccounts = accounts.filter(a => a.type !== 'bank');
-              const filtered = bankAccounts.filter(a => a.id !== targetId);
-              const updatedAccounts = [targetAccount, ...filtered, ...otherAccounts];
-              setAccounts(updatedAccounts);
-              
-              fetch('/api/data', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                  defaultWallet: 'bank', 
-                  activeBankAccountId: targetId,
-                  accounts: updatedAccounts 
-                })
-              });
-
-              setShowToast({
-                show: true,
-                title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
-                message: lang === 'th' ? `🏦 ตั้ง ${targetAccount.name} เป็นบัญชีหลักแล้ว` : `🏦 ${targetAccount.name} set as primary`,
-                type: 'success'
-              });
-
-              if (bankScrollRef.current) {
-                bankScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-              }
-              
-              setAiMessage(data.message || (lang === 'th' ? `🏦 เปลี่ยนเป็น ${targetAccount.name} แล้วค่ะ` : `🏦 Switched to ${targetAccount.name}`));
-            }
-          }
-       }
-      else if (data.action === "FILTER_BANK") {
-          const { bankAccountId } = data;
-          if (bankAccountId) {
-            setFilteredAccountId(bankAccountId);
-            setFilteredWalletType(null); // Clear wallet filter when specific bank is picked
-            setAiMessage(data.message || (lang === 'th' ? `กรองรายการของ ${accounts.find(a => a.id === bankAccountId)?.name || 'ธนาคาร'} ให้แล้วค่ะ` : `Filtered transactions for ${accounts.find(a => a.id === bankAccountId)?.name || 'Bank'}`));
-            
-            // Scroll to transactions list
-            const txnList = document.getElementById('transaction-list-top');
-            if (txnList) txnList.scrollIntoView({ behavior: 'smooth' });
-          }
-       }
-
-       else if (data.action === "FILTER_WALLET") {
-          const { wallet } = data;
-          if (wallet) {
-            setFilteredWalletType(wallet);
-            setFilteredAccountId(null); // Clear specific bank when wallet is picked
-            setAiMessage(data.message || (lang === 'th' ? `กรองรายการของ ${wallet === 'cash' ? t.cash : 'ธนาคารรวม'} ให้แล้วค่ะ` : `Filtered transactions for ${wallet === 'cash' ? t.cash : 'All Banks'}`));
-            
-            // Scroll to transactions list
-            const txnList = document.getElementById('transaction-list-top');
-            if (txnList) txnList.scrollIntoView({ behavior: 'smooth' });
-          }
-       }
-
-       else if (data.action === "REPORT_WALLET") {
-          const { wallet } = data;
-          if (wallet) {
-            const now = new Date();
-            const todayStr = now.toDateString();
-            const thisMonth = now.getMonth();
-            const thisYear = now.getFullYear();
-            
-            const spentToday = (transactions || [])
-              .filter(t => t.type === 'expense' && t.wallet === wallet && new Date(t.date).toDateString() === todayStr)
-              .reduce((sum, t) => sum + t.amount, 0);
-              
-            const spentMonth = (transactions || [])
-              .filter(t => {
-                const d = new Date(t.date);
-                return t.type === 'expense' && t.wallet === wallet && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-              })
-              .reduce((sum, t) => sum + t.amount, 0);
-
-            setShowBankReport({
-              id: `wallet-${wallet}`,
-              name: wallet === 'cash' ? t.cash : (lang === 'th' ? 'ธนาคารรวม' : 'All Banks'),
-              color: wallet === 'cash' ? '#10b981' : '#3b82f6',
-              spentToday,
-              spentMonth
-            });
-            setAiMessage(data.message || (lang === 'th' ? `นี่คือสรุปยอดใช้จ่ายของ${wallet === 'cash' ? t.cash : 'ธนาคาร'}ค่ะ` : `Here is the spending report for ${wallet}`));
-          }
-       }
-
-      else if (data.action === "REPORT_BANK") {
-          const { bankAccountId } = data;
-          if (bankAccountId) {
-            const acc = accounts.find(a => a.id === bankAccountId);
-            if (acc) {
-              const now = new Date();
-              const todayStr = now.toDateString();
-              const thisMonth = now.getMonth();
-              const thisYear = now.getFullYear();
-              
-              const spentToday = (transactions || [])
-                .filter(t => t.type === 'expense' && t.accountId === bankAccountId && new Date(t.date).toDateString() === todayStr)
-                .reduce((sum, t) => sum + t.amount, 0);
-                
-              const spentMonth = (transactions || [])
-                .filter(t => {
-                  const d = new Date(t.date);
-                  return t.type === 'expense' && t.accountId === bankAccountId && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
-                })
-                .reduce((sum, t) => sum + t.amount, 0);
-                
-              setShowBankReport({
-                id: bankAccountId,
-                name: acc.name,
-                color: acc.color,
-                spentToday,
-                spentMonth
-              });
-              setAiMessage(data.message || (lang === 'th' ? `นี่คือสรุปยอดใช้จ่ายของ ${acc.name} ค่ะ` : `Here is the spending report for ${acc.name}`));
-            }
-          }
-      }
-
-      else if (data.action === "TRANSFER") {
-         let { amount, from_bank, to_bank, fromBankAccountId, toBankAccountId, from_wallet, to_wallet, icon } = data;
-         
-         const sourceWallet = from_wallet || "bank";
-         const destWallet = to_wallet || "bank";
-
-         const actualFromId = findAccountId(from_bank, fromBankAccountId);
-         const actualToId = findAccountId(to_bank, toBankAccountId);
-         
-         console.log("🔄 TRANSFER - Atomic Update:");
-         console.log("  From:", from_bank, actualFromId);
-         console.log("  To:", to_bank, actualToId);
-         console.log("  Amount:", amount);
-
-         // Atomic update - update BOTH accounts at once
-         const currentAccounts = [...accountsRef.current];
-         const updatedAccounts = currentAccounts.map(acc => {
-           if (acc.id === actualFromId) {
-             console.log(`  ✓ Deducting ${amount} from ${acc.name}: ${acc.balance} → ${acc.balance - amount}`);
-             return { ...acc, balance: acc.balance - amount };
-           }
-           if (acc.id === actualToId) {
-             console.log(`  ✓ Adding ${amount} to ${acc.name}: ${acc.balance} → ${acc.balance + amount}`);
-             return { ...acc, balance: acc.balance + amount };
-           }
-           return acc;
-         });
-         
-         // Update refs and state atomically
-         accountsRef.current = updatedAccounts;
-         setAccounts(updatedAccounts);
-
-         // Create transaction records
-         const fromDesc = lang === 'th' ? `โอนเงินไป ${to_bank}` : `Transfer to ${to_bank}`;
-         const toDesc = lang === 'th' ? `รับโอนจาก ${from_bank}` : `Transfer from ${from_bank}`;
-         
-         const expenseData = {
-           amount, type: "expense", description: fromDesc, category: "เงินโอน",
-           wallet: sourceWallet, bank: from_bank, accountId: actualFromId,
-           icon: icon || "ArrowRightLeft", date: new Date().toISOString()
-         };
-         const incomeData = {
-           amount, type: "income", description: toDesc, category: "เงินโอน",
-           wallet: destWallet, bank: to_bank, accountId: actualToId,
-           icon: icon || "ArrowRightLeft", date: new Date().toISOString()
-         };
-         
-         const tempId1 = Date.now();
-         const tempId2 = Date.now() + 1;
-         setTransactions(prev => [
-           { ...incomeData, id: tempId2, _id: tempId2 },
-           { ...expenseData, id: tempId1, _id: tempId1 },
-           ...prev
-         ]);
-
-         // Save to DB
-         fetch('/api/transactions', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify(expenseData)
-         });
-         fetch('/api/transactions', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify(incomeData)
-         });
-         fetch('/api/data', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body: JSON.stringify({ accounts: updatedAccounts })
-         });
-         
-         setAiMessage(data.message || (lang === 'th' ? `✅ บันทึกการโอน ฿${amount.toLocaleString()} เรียบร้อยแล้วค่ะ` : `✅ Recorded transfer of ฿${amount.toLocaleString()}`));
-      }
-      
-      else if (data.action === "SET_BUDGET") {
-        if (data.period === "monthly") {
-           setMonthlyBudget(data.amount);
-           fetch('/api/data', {
-               method: 'POST',
-               body: JSON.stringify({ monthlyBudget: data.amount })
-           });
-           setAiMessage(data.message || (lang === 'th' ? `ตั้งงบรายเดือนเป็น ฿${data.amount.toLocaleString()} แล้วค่ะ` : `Monthly budget set to ฿${data.amount.toLocaleString()}`));
-        } else {
-           setBudget(data.amount);
-            // Sync API
-            fetch('/api/data', {
-                method: 'POST',
-                body: JSON.stringify({ budget: data.amount })
-            });
-            setAiMessage(data.message || (lang === 'th' ? `ตั้งงบรายวันเป็น ฿${data.amount.toLocaleString()} แล้วค่ะ` : `Daily budget set to ฿${data.amount.toLocaleString()}`));
-        }
-      }
-
-      else if (data.action === "SET_BALANCE") {
-         const { wallet, bank, bankAccountId, amount } = data;
-         const updates = {};
-         if (wallet === 'cash') updates.cash = amount;
-         if (wallet === 'bank') updates.bank = amount;
-         
-         const newBal = { ...balance, ...updates };
-         setBalance(newBal);
-
-         let updatedAccounts = accounts;
-         if (wallet === 'bank') {
-            const healedId = findAccountId(bank, bankAccountId);
-            if (healedId) {
-              updatedAccounts = accounts.map(acc => 
-                acc.id === healedId ? { ...acc, balance: amount } : acc
-              );
-              setAccounts(updatedAccounts);
-            }
-         }
-
-         fetch('/api/data', {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ 
-               balance: newBal,
-               accounts: updatedAccounts 
-             })
-         });
-         setAiMessage(data.message || (lang === 'th' ? `ปรับยอดเงิน${wallet}เป็น ฿${amount.toLocaleString()}` : `Updated ${wallet} balance to ฿${amount.toLocaleString()}`));
-      }
-      
-      else if (data.action === "BORROW" || data.action === "LEND") {
-        const { amount, person, type, wallet, note } = data;
-        const debtType = data.action === "BORROW" ? "borrow" : "lend";
-        
-        // 1. Add to Debts
-        const debtRes = await fetch('/api/debts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount, person, type: debtType, note })
-        });
-        const newDebt = await debtRes.json();
-        setDebts(prev => [newDebt, ...prev]);
-
-        // 2. Add as Transaction (Optional: toggle this based on user preference?)
-        // Borrow = Income, Lend = Expense
-        const txnType = debtType === "borrow" ? "income" : "expense";
-        const txnDesc = debtType === "borrow" 
-          ? (lang === 'th' ? `ยืมจาก ${person}` : `Borrowed from ${person}`)
-          : (lang === 'th' ? `ให้ ${person} ยืม` : `Lent to ${person}`);
-        
-        addTransaction(amount, txnType, txnDesc, "การเงิน", wallet || activeWallet, null, "ArrowRightLeft");
-        
-        setAiMessage(data.message || (lang === 'th' 
-          ? `บันทึกรายการ${debtType === 'borrow' ? 'ยืม' : 'ให้ยืม'} ฿${amount} (${person}) แล้วค่ะ` 
-          : `Recorded ${debtType} of ฿${amount} (${person})`));
-        
-        setActiveTab("debts");
-      }
-      
-      else if (data.action === "SHOW_SUMMARY") {
-        setShowSummary(true);
-        setActiveTab("transactions");
-        setAiMessage(data.message || (lang === 'th' ? "สรุปยอดให้แล้วค่ะ!" : "Here is your summary!"));
-      }
-
-      else if (data.action === "SHOW_DEBTS") {
-        setActiveTab("debts");
-        setAiMessage(data.message || (lang === 'th' ? "นี่คือรายการยืม/คืนเงินทั้งหมดค่ะ" : "Here are your borrow/lend records."));
-      }
-
-      else if (data.action === "REMIND") {
-        const { description, amount, date, wallet } = data;
-        addReminder(description, amount, date, wallet);
-        setActiveTab("reminders");
-        setAiMessage(data.message || (lang === 'th' 
-          ? `ตั้งเตือนความจำ: ${description} ฿${amount} วันที่ ${new Date(date).toLocaleDateString('th-TH')} แล้วค่ะ 🎀` 
-          : `Set reminder for ${description} ฿${amount} on ${new Date(date).toLocaleDateString()}! 🎀`));
-      }
-      else if (data.action === "PLANNING") {
-        setAiMessage(data.message);
-      }
-      
-      else {
-        setAiMessage(data.message || (lang === 'th' ? "ไม่แน่ใจค่ะ ขออีกทีได้ไหมคะ? 😅" : "I didn't quite catch that! 😅"));
-      }
-    } catch (err) {
-      console.error(err);
-      setIsAILoading(false);
-      setAiMessage(lang === 'th' ? "สมอง AI มีปัญหา แงง 😭" : "My AI brain hurts! 😭");
-    }
-  };
 
   const processVoiceCommand = (text) => {
     if (!text || !text.trim()) return;
@@ -2155,7 +1462,7 @@ function HomeContent() {
     // Add a small delay to show processing UI
     setTimeout(() => {
       // Detect language from spoken text
-      const detectedLang = detectLangFromText(text);
+      const detectedLang = detectLangFromText(text, lang);
       setAiLang(detectedLang);
       // Dynamically update recognition language for next utterance
       if (recognitionRef.current) {
@@ -2381,235 +1688,6 @@ function HomeContent() {
     }, 600); // 600ms delay for processing feedback
   };
 
-  // Onboarding task completion handler
-  const completeOnboardingTask = (taskName) => {
-    if (!session?.user?.email) return;
-    
-    // Skip if tutorial already completed
-    if (onboardingTasksRef.current.completed || !showOnboardingRef.current) {
-      return;
-    }
-    
-    // Hide tutorial overlay temporarily to show result
-    setTutorialStep(null);
-    setTutorialHighlight(null);
-    
-    // Show success message
-    const stepName = taskName === 'voice' 
-      ? (lang === 'th' ? '🎤 คำสั่งเสียง' : '🎤 Voice Command')
-      : taskName === 'scan'
-      ? (lang === 'th' ? '📸 สแกนใบเสร็จ' : '📸 Scan Receipt')
-      : (lang === 'th' ? '✍️ จดรายการเอง' : '✍️ Manual Entry');
-    
-    setAiMessage(lang === 'th' 
-      ? `✅ เยี่ยม! ${stepName} สำเร็จ!\n👇 ดูผลลัพธ์ในตารางด้านล่าง`
-      : `✅ Great! ${stepName} completed!\n👇 See the result below`
-    );
-    
-    // Delay highlight to allow state to update with new transaction
-    setTimeout(() => {
-      // Double check tutorial is still active before highlighting
-      if (!onboardingTasksRef.current.completed && showOnboardingRef.current) {
-        const latestTxn = transactionsRef.current[0];
-        if (latestTxn) {
-          setHighlightedTxnId(latestTxn._id || latestTxn.id);
-          
-          // Scroll to the highlighted transaction after a short delay
-          setTimeout(() => {
-            const txnElement = document.querySelector(`[data-txn-id="${latestTxn._id || latestTxn.id}"]`);
-            if (txnElement) {
-              txnElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-          }, 200);
-        }
-      }
-    }, 500);
-    
-    setOnboardingTasks(prev => {
-      const updated = { ...prev, [taskName]: true };
-      
-      // Check if all main tasks are done
-      const allDone = updated.voice && updated.scan && updated.manual;
-      
-      // Wait 3 seconds then advance or show congrats
-      setTimeout(() => {
-        setHighlightedTxnId(null); // Clear highlight
-        setAiMessage(""); // Remove success popup before next step
-        
-        if (allDone) {
-          setOnboardingTasks(u => ({ ...u, completed: true }));
-          setShowOnboarding(false);
-          setAiMessage("");
-          setShowCongrats(true);
-        } else {
-          // Move to next step
-          advanceToNextTutorialStep(updated);
-        }
-      }, 3000);
-      
-      // Save to DB
-      if (session?.user?.email) {
-        fetch('/api/data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ onboardingTasks: updated })
-        }).catch(err => console.error('Failed to save onboardingTasks to DB:', err));
-      }
-      
-      return updated;
-    });
-  };
-
-  const handleCongratsConfirm = () => {
-    if (!session?.user?.email) return;
-    
-    // Save tutorialCompleted and clear onboardingTasks in database
-    fetch('/api/data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        tutorialCompleted: true,
-        onboardingTasks: { voice: true, scan: true, manual: true, completed: true }
-      })
-    }).catch(err => console.error('Failed to save tutorialCompleted to DB:', err));
-
-    // Clear only tutorial demo transactions (not real ones)
-    const tutorialTxns = transactionsRef.current.filter(t => t.isTutorial);
-    const realTxns = transactionsRef.current.filter(t => !t.isTutorial);
-    
-    // Restore balance by reversing tutorial transactions
-    let balanceAdjust = { bank: 0, cash: 0 };
-    tutorialTxns.forEach(txn => {
-      if (txn.type === 'income') {
-        balanceAdjust[txn.wallet] -= txn.amount;
-      } else {
-        balanceAdjust[txn.wallet] += txn.amount;
-      }
-    });
-    
-    setBalance(prev => ({
-      bank: prev.bank + balanceAdjust.bank,
-      cash: prev.cash + balanceAdjust.cash
-    }));
-    
-    setTransactions(realTxns);
-
-    setOnboardingTasks({ voice: true, scan: true, manual: true, completed: true });
-    setShowCongrats(false);
-    setShowOnboarding(false);
-    setTutorialStep(null);
-    setTutorialHighlight(null);
-    setAiMessage(lang === 'th' ? t.ai_greeting : t.ai_greeting);
-    setInterimTranscript("");
-    setManualAmount("");
-    setManualDesc("");
-    setShowManualEntry(false);
-    setEditingTransaction(null);
-
-    // Force balance setup after tutorial reset
-    setBalance({ bank: 0, cash: 0 });
-    openBalanceSetup();
-  };
-
-  const openBalanceSetup = () => {
-    setBalanceBankInput("0");
-    setBalanceCashInput("0");
-    setBudgetDailyInput((budget ?? 0).toString());
-    setBudgetMonthlyInput((monthlyBudget ?? 0).toString());
-    setShowBalanceSetup(true);
-  };
-
-  const handleBalanceSetupSave = async () => {
-    if (isSavingBalance) return;
-    const bank = Math.max(0, parseFloat(balanceBankInput || "0"));
-    const cash = Math.max(0, parseFloat(balanceCashInput || "0"));
-    const daily = Math.max(0, parseFloat(budgetDailyInput || "0"));
-    const monthly = Math.max(0, parseFloat(budgetMonthlyInput || "0"));
-
-    setIsSavingBalance(true);
-    try {
-      const newBal = { bank, cash };
-      setBalance(newBal);
-      setBudget(daily);
-      setMonthlyBudget(monthly);
-      setTransactions([]);
-      setDebts([]);
-
-      await fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clearAll: true,
-          balance: newBal,
-          budget: daily,
-          monthlyBudget: monthly
-        })
-      });
-      setShowBalanceSetup(false);
-    } catch (error) {
-      console.warn("Failed to save balance", error);
-      setShowBalanceSetup(false);
-    } finally {
-      setIsSavingBalance(false);
-    }
-  };
-
-  // Advance to next tutorial step with spotlight
-  const advanceToNextTutorialStep = (tasks = onboardingTasks) => {
-    if (tasks.completed) {
-      setTutorialStep(null);
-      setTutorialHighlight(null);
-      return;
-    }
-    
-    // Determine next step
-    let nextStep = null;
-    let buttonRef = null;
-    
-    if (!tasks.voice) {
-      nextStep = 'voice';
-      buttonRef = micButtonRef;
-    } else if (!tasks.scan) {
-      nextStep = 'scan';
-      buttonRef = cameraButtonRef;
-    } else if (!tasks.manual) {
-      nextStep = 'manual';
-      buttonRef = manualButtonRef;
-    }
-    
-    if (nextStep && buttonRef?.current) {
-      // Scroll to button smoothly
-      buttonRef.current.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center',
-        inline: 'center'
-      });
-      
-      // Set step and highlight after scroll settles
-      setTimeout(() => {
-        if (!buttonRef.current) return;
-        const rect = buttonRef.current.getBoundingClientRect();
-        setTutorialStep(nextStep);
-        setTutorialHighlight({
-          top: rect.top,
-          left: rect.left,
-          width: rect.width,
-          height: rect.height
-        });
-      }, 1000); // Increased delay for mobile scroll settling
-    } else {
-      setTutorialStep(nextStep);
-    }
-  };
-
-  // Start tutorial with spotlight
-  const startTutorial = () => {
-    setShowOnboarding(true);
-    // Small delay to ensure refs are ready
-    setTimeout(() => {
-      advanceToNextTutorialStep();
-    }, 300);
-  };
 
   // Resume install prompt and tutorial after language is selected
   useEffect(() => {
@@ -2724,92 +1802,6 @@ function HomeContent() {
     return null;
   };
 
-  const addTransaction = async (amount, type, description, category = "อื่นๆ", wallet = "bank", bank = null, icon = null, isScanned = false, imageUrl = null, isTutorial = false, forcedAccountId = null) => {
-    const data = {
-      amount,
-      type,
-      description,
-      category,
-      wallet,
-      bank,
-      accountId: wallet === 'bank' ? (forcedAccountId || activeBankAccountId || (accounts.find(a => a.type === 'bank')?.id) || null) : null,
-      icon,
-      isScanned,
-      imageUrl,
-      date: new Date().toISOString(),
-      isTutorial, // Mark as tutorial transaction
-    };
-
-    // Update UI Optimistically using Refs to avoid stale closure during rapid calls (like transfers)
-    const tempId = Date.now();
-    setTransactions((prev) => [{ ...data, id: tempId, _id: tempId }, ...prev]);
-    
-    // Update Balance
-    const nextBalance = { ...balanceRef.current };
-    if (type === "income") nextBalance[wallet] += amount;
-    else nextBalance[wallet] -= amount;
-    balanceRef.current = nextBalance;
-    setBalance(nextBalance);
-
-    // Update Specific Bank Account
-    const targetId = forcedAccountId || activeBankAccountId;
-    console.log(`💰 addTransaction: ${type} ฿${amount} to ${wallet}, targetId: ${targetId}, forcedAccountId: ${forcedAccountId}`);
-    
-    let nextAccounts = [...accountsRef.current];
-    if (wallet === "bank" && targetId) {
-      const accountBefore = nextAccounts.find(a => a.id === targetId);
-      console.log(`   Account before:`, accountBefore?.name, accountBefore?.balance);
-      
-      nextAccounts = nextAccounts.map(acc => {
-        if (acc.id === targetId) {
-          const newBal = type === "income" ? acc.balance + amount : acc.balance - amount;
-          console.log(`   Updating ${acc.name}: ${acc.balance} → ${newBal}`);
-          return {
-            ...acc,
-            balance: newBal
-          };
-        }
-        return acc;
-      });
-      accountsRef.current = nextAccounts;
-      setAccounts(nextAccounts);
-    }
-
-    // Skip MongoDB save for tutorial transactions
-    if (isTutorial) {
-      console.log("📚 Tutorial transaction - not saving to DB");
-      return;
-    }
-
-    // Save to MongoDB
-    try {
-      const res = await fetch('/api/transactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...data,
-          accounts: nextAccounts
-        }),
-      });
-      
-      // Sync profile state with latest calculated values
-      fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          balance: nextBalance,
-          accounts: nextAccounts
-        }),
-      });
-      if (res.ok) {
-        const saved = await res.json();
-        // Replace tempId with real MongoDB _id
-        setTransactions(prev => prev.map(t => t.id === tempId ? saved : t));
-      }
-    } catch (error) {
-      console.warn("Failed to save to MongoDB, kept in local session");
-    }
-  };
 
   const openEdit = (txn) => {
     setEditingTransaction(txn);
@@ -2823,75 +1815,6 @@ function HomeContent() {
     setShowManualEntry(true);
   };
 
-  const updateTransaction = async (id, updatedData) => {
-    const oldTxn = transactions.find(t => (t._id || t.id) === id);
-    if (!oldTxn) return;
-
-    // Optimistically update transactions and balance
-    setTransactions(prev => prev.map(t => (t._id || t.id) === id ? { ...t, ...updatedData } : t));
-    
-    setBalance(prev => {
-      const updated = { ...prev };
-      // Reverse old effect
-      if (oldTxn.type === "income") {
-        updated[oldTxn.wallet || "bank"] -= oldTxn.amount;
-      } else {
-        updated[oldTxn.wallet || "bank"] += oldTxn.amount;
-      }
-      // Apply new effect
-      if (updatedData.type === "income") {
-        updated[updatedData.wallet || "bank"] += updatedData.amount;
-      } else {
-        updated[updatedData.wallet || "bank"] -= updatedData.amount;
-      }
-      return updated;
-    });
-
-    // Sync specific bank accounts
-    setAccounts(prevAccounts => {
-      let updated = [...prevAccounts];
-      
-      // Reverse old transaction impact
-      if (oldTxn.wallet === "bank" && oldTxn.accountId) {
-         updated = updated.map(acc => {
-           if (acc.id === oldTxn.accountId) {
-             return { ...acc, balance: oldTxn.type === "income" ? acc.balance - oldTxn.amount : acc.balance + oldTxn.amount };
-           }
-           return acc;
-         });
-      }
-      
-      // Apply new transaction impact
-      const targetAccountId = updatedData.accountId || (updatedData.wallet === 'bank' ? activeBankAccountId : null);
-      if (updatedData.wallet === "bank" && targetAccountId) {
-         updated = updated.map(acc => {
-           if (acc.id === targetAccountId) {
-             return { ...acc, balance: updatedData.type === "income" ? acc.balance + updatedData.amount : acc.balance - updatedData.amount };
-           }
-           return acc;
-         });
-      }
-      
-      // Save updated accounts to DB
-      fetch('/api/data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accounts: updated })
-      });
-      
-      return updated;
-    });
-
-    try {
-      await fetch(`/api/transactions?id=${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedData),
-      });
-    } catch (error) {
-      console.warn("Failed to update in MongoDB");
-    }
-  };
 
   const handleManualSubmit = (e) => {
     e.preventDefault();
@@ -2967,54 +1890,12 @@ function HomeContent() {
       setBatchProgress(prev => ({ ...prev, current: i + 1 }));
       setScanProgress(0);
       
-      let progressTimer = null;
       try {
-        let text = "";
-        const imageUrl = await uploadImageToCloudinary(files[i]);
-        
-        if (ocrProvider === "google") {
-          // Simulate progress while waiting for Google Vision
-          setScanProgress(5);
-          let simulated = 5;
-          progressTimer = setInterval(() => {
-            simulated = Math.min(simulated + Math.floor(Math.random() * 7 + 3), 90);
-            setScanProgress(simulated);
-          }, 250);
-
-          // Use Google Cloud Vision API
-          const formData = new FormData();
-          formData.append('image', files[i]);
-          
-          const response = await fetch('/api/ocr/google-vision', {
-            method: 'POST',
-            body: formData
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            text = data.text || "";
-            setScanProgress(100);
-          } else {
-            throw new Error('Google Vision API failed');
-          }
-        } else {
-          // Use Tesseract.js
-          const result = await Tesseract.recognize(files[i], "tha+eng", {
-            logger: (m) => {
-              if (m.status === "recognizing text") {
-                setScanProgress(Math.round(m.progress * 100));
-              }
-            },
-          });
-          text = result.data.text;
-        }
-
+        const { text, imageUrl } = await recognize(files[i], ocrProvider);
         console.log(`OCR Result (File ${i + 1}):`, text);
         processOcrText(text, imageUrl);
       } catch (error) {
         console.error(`OCR Error (File ${i + 1}):`, error);
-      } finally {
-        if (progressTimer) clearInterval(progressTimer);
       }
     }
 
@@ -3025,9 +1906,7 @@ function HomeContent() {
   const processOcrText = (text, imageUrl = null) => {
     // AI AGENT MODE FOR IMAGES
     if (useSmartAI) {
-        // Clean up text slightly to save tokens but keep structure
         const compactText = text.replace(/\s+/g, " ").trim();
-        // Force 70B model for scanning (best accuracy for OCR parsing)
         processAICommand(
           lang === 'th' ? `ช่วยดูข้อมูลจากสลิป/ใบเสร็จนี้หน่อย: ${compactText}` : `Scan this receipt/slip text: ${compactText}`,
           null,
@@ -3039,168 +1918,15 @@ function HomeContent() {
         return;
     }
 
-    // 1. Normalize text
-    let cleanedText = text.replace(/,/g, ""); 
-    
-    // Catch signed numbers before cleaning symbols (+1,400.00)
-    const signedMatches = [];
-    const signedRegex = /[+\-]\s?(\d+\.\d{2})/g;
-    let sMatch;
-    while ((sMatch = signedRegex.exec(cleanedText)) !== null) {
-      signedMatches.push({ val: parseFloat(sMatch[1]), pos: sMatch.index, priority: 3 });
-    }
+    const { amount: finalAmount, found } = extractDataFromOCRText(text);
 
-    // Aggressively replace Thai/English currency symbols with a clear marker
-    cleanedText = cleanedText.replace(/[฿B]\s?(\d)/g, " TXT_AMT $1");
-    const ocrTextLower = cleanedText.toLowerCase();
-    console.log("Processing cleaned text:", cleanedText);
-
-    // 2. Filter out common distractions
-    cleanedText = cleanedText.replace(/\d{2}:\d{2}(:\d{2})?/g, " [TIME] ");
-    cleanedText = cleanedText.replace(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/g, " [DATE] ");
-    cleanedText = cleanedText.replace(/\b\d{9,}\b/g, " [LONGNUMBER] ");
-
-    // 3. Smart Amount Detection
-    // Exclusion keywords (Balance, not transaction)
-    const ignoreKeywords = ["ยอดเงินที่ใช้ได้", "available balance", "ยอดเงินคงเหลือ", "คงเหลือ", "เงินในบัญชี"];
-    
-    // Filter out LINE Chat specific noise
-    cleanedText = cleanedText.replace(/อ่านแล้ว/g, ""); // "Read" status in Thai LINE
-    cleanedText = cleanedText.replace(/Read by/g, "");
-    
-    // High Priority: Transaction specific
-    const highPriorityKeywords = [
-      "โอนเงินสำเร็จ", "เงินเข้า", "รับเงิน", "โอนให้", "ชำระเงินสำเร็จ", "รายการเงินเข้า", "รายการเงินออก",
-      "รวมทั้งสิ้น", "ยอดรวมสุทธิ", "สุทธิ", "ยอดชำระ", "จ่ายแล้ว", "รวมเป็นเงิน", "หักบัญชี",
-      "grand total", "total due", "total amount", "net amount", "paid", "amount paid"
-    ];
-    
-    // Secondary: Might be an amount
-    const secondaryKeywords = [
-      "จำนวนเงิน", "ยอดโอน", "ยอดเงิน", "รวมเงิน", "ยอดรวม", "เงินสด", "ชำระเงิน", "ราคา",
-      "amount", "subtotal", "price"
-    ];
-    
-    let candidates = [...signedMatches];
-
-    // Search for keywords and pick numbers in a window
-    const allKeywords = [...highPriorityKeywords, ...secondaryKeywords];
-    
-    allKeywords.forEach(kw => {
-      let pos = ocrTextLower.indexOf(kw.toLowerCase());
-      while (pos !== -1) {
-        // Is this keyword in the ignore list?
-        const isIgnored = ignoreKeywords.some(ik => ocrTextLower.substring(Math.max(0, pos - 20), pos + 20).includes(ik));
-        
-        if (!isIgnored) {
-          const windowText = cleanedText.substring(pos, pos + 80);
-          const matches = windowText.match(/\d+\.\d{2}\b/g) || windowText.match(/\d+\.\d+\b/g);
-          
-          if (matches) {
-            const isHigh = highPriorityKeywords.includes(kw);
-            matches.forEach(m => {
-              candidates.push({
-                val: parseFloat(m),
-                priority: isHigh ? 2 : 1,
-                pos: pos
-              });
-            });
-          }
-        }
-        pos = ocrTextLower.indexOf(kw.toLowerCase(), pos + 1);
-      }
-    });
-
-    let finalAmount = 0;
-    let found = false;
-
-    const skipYears = [2023, 2024, 2025, 2026, 2566, 2567, 2568, 2569];
-    const validCandidates = candidates.filter(c => 
-      c.val > 0 && c.val < 1000000 && !skipYears.includes(c.val) && c.val.toString().length < 9
-    );
-
-    if (validCandidates.length > 0) {
-      // Logic:
-      // 1. Prefer Signed numbers (+1,400)
-      // 2. Prefer High priority keywords
-      // 3. Prefer numbers with decimals
-      // 4. Receipts usually put the TOTAL at the BOTTOM, but Bank Slips often have TOTAL at TOP.
-      // For bank slips, the first 'high priority' match is often the correct one.
-      validCandidates.sort((a, b) => {
-        if (b.priority !== a.priority) return b.priority - a.priority;
-        return a.pos - b.pos; // Earlier in the doc (usually top for bank slips)
-      });
-      
-      finalAmount = validCandidates[0].val;
-      found = true;
-    }
-
-    // fallback: Global detection if no keywords or signs found anything
-    if (!found) {
-      const allNumbers = cleanedText.match(/\d+(\.\d+)?/g);
-      if (allNumbers) {
-        const globalCandidates = allNumbers
-          .map(m => parseFloat(m))
-          .filter(n => n > 0 && n < 1000000 && !skipYears.includes(n));
-        
-        if (globalCandidates.length > 0) {
-          const decimalMatches = cleanedText.match(/(\d+\.\d{2})/g);
-          finalAmount = decimalMatches ? Math.max(...decimalMatches.map(m => parseFloat(m))) : Math.max(...globalCandidates);
-          found = true;
-        }
-      }
-    }
-
-    if (found && finalAmount > 0) {
-      // 4. Determine Type
-      let type = "expense";
-      const incomeTriggers = [
-        "เงินเข้า", "รับเงิน", "ฝากเงิน", "โอนเข้า", "รับโอน", "income", "received", "deposit", "transfer in", "refund"
-      ];
-      const expenseTriggers = [
-        "โอนเงินสำเร็จ", "ถอนเงิน", "ชำระค่า", "จ่ายให้", "โอนไป", "จ่ายบิล", 
-        "transfer success", "withdrawal", "payment", "paid to", "bill payment"
-      ];
-      
-      // Explicitly check for "+" in original text near amount
-      const hasPlus = text.includes(`+${finalAmount.toLocaleString()}`) || text.includes(`+${finalAmount}`) || text.includes(`+ ${finalAmount}`);
-      
-      if (hasPlus || (incomeTriggers.some(kw => ocrTextLower.includes(kw)) && !expenseTriggers.some(kw => ocrTextLower.includes(kw)))) {
-        type = "income";
-      }
-      
-      // 5. Category detection
-      const category = detectCategory(ocrTextLower);
-
-      // 6. Wallet & Bank detection
-      let wallet = activeWallet || defaultWallet; 
-      const cashTriggers = ["เงินสด", "cash", "จ่ายสด"];
-      const bankTriggers = ["โอน", "transfer", "slip", "ธนาคาร", "สลิป", "success", "สำเร็จ", "qr", "คิวอาร์"];
-      
-      const hasCash = cashTriggers.some(kw => ocrTextLower.includes(kw));
-      const hasBank = bankTriggers.some(kw => ocrTextLower.includes(kw));
-
-      // Detect Bank Name
-      const bankNames = {
-        "SCB": ["scb", "ไทยพาณิชย์", "scb connect", "connect"],
-        "KBank": ["kbank", "กสิกร"],
-        "K-Bank": ["กสิกรไทย"],
-        "BBL": ["bbl", "กรุงเทพ", "bangkok bank"],
-        "KTB": ["ktb", "กรุงไทย", "krungthai"],
-        "GSB": ["gsb", "ออมสิน"],
-        "Krungsri": ["krungsri", "bay", "กรุงศรี"],
-        "TTB": ["ttb", "ทีทีบี"]
-      };
-
-      let detectedBank = "";
-      for (const [name, keywords] of Object.entries(bankNames)) {
-        if (keywords.some(kw => ocrTextLower.includes(kw))) {
-          detectedBank = name;
-          break;
-        }
-      }
-
-      if (hasCash && !hasBank) wallet = "cash";
+    if (found) {
+      const type = text.includes("เงินเข้า") || text.includes("รับเงิน") ? "income" : "expense";
+      const category = detectCategory(text);
+      const detectedBank = detectBank(text);
+      let wallet = "cash";
+      const hasBank = text.includes("กสิกร") || text.includes("ไทยพาณิชย์") || text.includes("กรุงไทย") || text.includes("โอน");
+      if (detectedBank) wallet = "bank";
       else if (hasBank) wallet = "bank";
 
       const finalDescription = detectedBank 
@@ -3217,54 +1943,18 @@ function HomeContent() {
     }
   };
 
-  const getAIInsight = (customTransactions = transactions) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
 
-    const todayTx = customTransactions.filter(t => new Date(t.date) >= today);
-    const todayExpenses = todayTx.filter(t => t.type === 'expense');
-    const todayIncome = todayTx.filter(t => t.type === 'income');
 
-    const totalSpent = todayExpenses.reduce((acc, t) => acc + t.amount, 0);
-    const totalIncome = todayIncome.reduce((acc, t) => acc + t.amount, 0);
-    const net = totalIncome - totalSpent;
 
-    const categoryTotals = todayExpenses.reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount;
-      return acc;
-    }, {});
 
-    const topCategories = Object.entries(categoryTotals)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3);
 
-    if (totalSpent === 0 && totalIncome === 0) return t.local_insight_zero;
 
-    const budgetLeft = budget - totalSpent;
-    const budgetText = budgetLeft >= 0
-      ? (lang === 'th' ? `งบวันนี้เหลือ ฿${budgetLeft.toLocaleString()} ค่ะ` : `Daily budget left: ฿${budgetLeft.toLocaleString()}`)
-      : (lang === 'th' ? `เกินงบวันนี้ ฿${Math.abs(budgetLeft).toLocaleString()} ค่ะ` : `Over daily budget by ฿${Math.abs(budgetLeft).toLocaleString()}`);
 
-    const topCatText = topCategories.length > 0
-      ? (lang === 'th'
-          ? `หมวดที่ใช้เยอะสุด: ${topCategories.map(([c, v]) => `${c} ฿${v.toLocaleString()}`).join(', ')}`
-          : `Top spend categories: ${topCategories.map(([c, v]) => `${c} ฿${v.toLocaleString()}`).join(', ')}`)
-      : (lang === 'th' ? 'วันนี้ยังไม่มีหมวดรายจ่ายเด่นค่ะ' : 'No top expense categories today');
 
-    const totalText = lang === 'th'
-      ? `วันนี้ใช้ไป ฿${totalSpent.toLocaleString()} รายรับ ฿${totalIncome.toLocaleString()} ยอดสุทธิ ฿${net.toLocaleString()} ค่ะ`
-      : `Today: Spent ฿${totalSpent.toLocaleString()}, Income ฿${totalIncome.toLocaleString()}, Net ฿${net.toLocaleString()}`;
 
-    const balanceText = lang === 'th'
-      ? `เงินคงเหลือ: ธนาคาร ฿${(balance.bank || 0).toLocaleString()} เงินสด ฿${(balance.cash || 0).toLocaleString()} รวม ฿${((balance.bank || 0) + (balance.cash || 0)).toLocaleString()} ค่ะ`
-      : `Balance: Bank ฿${(balance.bank || 0).toLocaleString()}, Cash ฿${(balance.cash || 0).toLocaleString()}, Total ฿${((balance.bank || 0) + (balance.cash || 0)).toLocaleString()}`;
 
-    const tip = totalSpent > budget * 0.8
-      ? (lang === 'th' ? 'แนะนำลดค่าใช้จ่ายในหมวดที่สูงสุดลงอีกนิดนะคะ 💖' : 'Try trimming the top category a bit today 💖')
-      : (lang === 'th' ? 'วันนี้คุมงบได้ดีมากเลยค่ะ ✨' : 'Great job staying on budget today ✨');
 
-    return `${totalText}\n${topCatText}\n${budgetText}\n${balanceText}\n${tip}`;
-  };
+  const getAIInsight = (customTransactions = transactions) => getLocalAIInsight(customTransactions, balance, budget, lang, t);
 
   const updateAIInsight = async (options = {}) => {
     if (!useSmartAI) return "";
@@ -3305,54 +1995,7 @@ function HomeContent() {
       });
       return;
     }
-    const transaction = transactions.find((t) => (t._id || t.id) === id);
-    if (transaction) {
-      // Optimistic update
-      setBalance((prev) => {
-        const updated = { ...prev };
-        if (transaction.type === "income") {
-          updated[transaction.wallet || "bank"] -= transaction.amount;
-        } else {
-          updated[transaction.wallet || "bank"] += transaction.amount;
-        }
-        return updated;
-      });
-
-      // Sync specific bank accounts
-      if (transaction.wallet === "bank" && transaction.accountId) {
-        setAccounts(prevAccounts => {
-          const updated = prevAccounts.map(acc => {
-            if (acc.id === transaction.accountId) {
-              return { 
-                ...acc, 
-                balance: transaction.type === "income" ? acc.balance - transaction.amount : acc.balance + transaction.amount 
-              };
-            }
-            return acc;
-          });
-          
-          // Save updated accounts to DB
-          fetch('/api/data', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ accounts: updated })
-          });
-          
-          return updated;
-        });
-      }
-
-      setTransactions((prev) => prev.filter((t) => (t._id || t.id) !== id));
-
-      // Sync with MongoDB
-      try {
-        await fetch(`/api/transactions?id=${transaction._id || transaction.id}`, {
-          method: 'DELETE',
-        });
-      } catch (error) {
-        console.warn("Failed to delete from MongoDB");
-      }
-    }
+    await deleteTransactionApi(id);
   };
 
   const addDebt = async (amount, person, type, note = "") => {
@@ -3470,27 +2113,6 @@ function HomeContent() {
     }
   };
 
-  const addReminder = async (desc, amount, date, wallet = "bank", category = "อื่นๆ") => {
-    try {
-      const res = await fetch('/api/reminders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: desc, amount, date, wallet, category })
-      });
-      const data = await res.json();
-      setReminders(prev => [data, ...prev].sort((a, b) => new Date(a.date) - new Date(b.date)));
-      
-      // Schedule notification in service worker
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'SCHEDULE_REMINDER',
-          reminder: data
-        });
-      }
-    } catch (error) {
-       console.error("Failed to add reminder");
-    }
-  };
 
   const deleteReminder = async (id) => {
     setReminders(prev => prev.filter(r => (r._id || r.id) !== id));
@@ -5508,363 +4130,25 @@ function HomeContent() {
 
         <div id="transaction-list-top" />
         
+        <div id="transaction-list-top" />
+        
         {(filteredAccountId || filteredWalletType || filteredTimeRange !== "all") && (
-          <motion.div 
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            style={{ 
-              display: 'flex', 
-              flexDirection: 'column',
-              gap: '12px',
-              padding: '16px', 
-              background: 'rgba(30, 41, 59, 0.7)', 
-              borderRadius: '24px',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-              marginBottom: '1.5rem',
-              backdropFilter: 'blur(10px)'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Filter size={14} style={{ color: '#3b82f6' }} />
-                <span style={{ fontSize: '13px', fontWeight: 700, color: 'white' }}>
-                  {filteredAccountId 
-                    ? `${lang === 'th' ? 'กำลังดู:' : 'Viewing:'} ${accounts.find(a => a.id === filteredAccountId)?.name || 'ธนาคาร'}`
-                    : filteredWalletType === 'cash'
-                      ? `${lang === 'th' ? 'กำลังดู:' : 'Viewing:'} ${t.cash}`
-                      : (lang === 'th' ? 'ตัวกรองรายการ' : 'Transaction Filter')}
-                </span>
-              </div>
-              <button 
-                onClick={() => { setFilteredAccountId(null); setFilteredWalletType(null); setFilteredTimeRange("all"); }}
-                style={{ 
-                  padding: '6px 12px', 
-                  borderRadius: '10px', 
-                  background: 'rgba(239, 68, 68, 0.1)', 
-                  border: '1px solid rgba(239, 68, 68, 0.2)', 
-                  color: '#ef4444', 
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  cursor: 'pointer'
-                }}
-              >
-                {lang === 'th' ? 'ล้างการกรอง' : 'Clear Filter'}
-              </button>
-            </div>
-
-            {/* Wallet Selection (Only if no specific bank is selected) */}
-            {/* Wallet Selection (Only if no specific bank is selected) */}
-            {!filteredAccountId ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => { setFilteredWalletType(filteredWalletType === 'cash' ? null : 'cash'); setFilteredAccountId(null); }}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      borderRadius: '12px',
-                      border: `1px solid ${filteredWalletType === 'cash' ? '#10b981' : 'var(--glass-border)'}`,
-                      background: filteredWalletType === 'cash' ? '#10b981' : 'rgba(255,255,255,0.05)',
-                      color: 'white',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      transition: 'all 0.2s',
-                      boxShadow: filteredWalletType === 'cash' ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
-                    }}
-                  >
-                    <Banknote size={14} /> {t.cash}
-                  </button>
-                  <button
-                    onClick={() => { setFilteredWalletType(filteredWalletType === 'bank' ? null : 'bank'); }}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      borderRadius: '12px',
-                      border: `1px solid ${filteredWalletType === 'bank' ? '#3b82f6' : 'var(--glass-border)'}`,
-                      background: filteredWalletType === 'bank' ? '#3b82f6' : 'rgba(255,255,255,0.05)',
-                      color: 'white',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      transition: 'all 0.2s',
-                      boxShadow: filteredWalletType === 'bank' ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none'
-                    }}
-                  >
-                    <CreditCard size={14} /> {lang === 'th' ? 'ธนาคารรวม' : 'All Banks'}
-                  </button>
-                </div>
-                
-                {/* Individual Bank List (Shown when 'bank' is selected or active) */}
-                {filteredWalletType === 'bank' && accounts.filter(a => a.type === 'bank').length > 0 && (
-                  <motion.div 
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    style={{ 
-                      display: 'flex', 
-                      gap: '6px', 
-                      overflowX: 'auto', 
-                      padding: '4px 0',
-                      marginTop: '4px' 
-                    }} 
-                    className="no-scrollbar"
-                  >
-                    {accounts.filter(a => a.type === 'bank').map(acc => {
-                      const bankMeta = acc.bankCode && BANK_DATA[acc.bankCode.toLowerCase()];
-                      return (
-                        <button
-                          key={acc.id}
-                          onClick={() => { setFilteredAccountId(acc.id); setFilteredWalletType(null); }}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '10px',
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid var(--glass-border)',
-                            color: 'white',
-                            fontSize: '11px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            whiteSpace: 'nowrap',
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          {bankMeta?.logo && (
-                            <img src={bankMeta.logo} alt="" style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'white' }} />
-                          )}
-                          {acc.name}
-                        </button>
-                      );
-                    })}
-                  </motion.div>
-                )}
-              </div>
-            ) : (
-              /* If a specific bank is already selected, show option to switch to other banks */
-              <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
-                 <button
-                    onClick={() => { setFilteredAccountId(null); setFilteredWalletType('bank'); }}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '10px',
-                      background: 'rgba(59, 130, 246, 0.1)',
-                      border: '1px solid rgba(59, 130, 246, 0.2)',
-                      color: '#60a5fa',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      whiteSpace: 'nowrap'
-                    }}
-                  >
-                    ← {lang === 'th' ? 'ธนาคารอื่นๆ' : 'Other Banks'}
-                  </button>
-                  {accounts.filter(a => a.type === 'bank' && a.id !== filteredAccountId).map(acc => {
-                    const bankMeta = acc.bankCode && BANK_DATA[acc.bankCode.toLowerCase()];
-                    return (
-                      <button
-                        key={acc.id}
-                        onClick={() => setFilteredAccountId(acc.id)}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '10px',
-                          background: 'rgba(255,255,255,0.05)',
-                          border: '1px solid var(--glass-border)',
-                          color: 'white',
-                          fontSize: '11px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {bankMeta?.logo && (
-                          <img src={bankMeta.logo} alt="" style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white' }} />
-                        )}
-                        {acc.name}
-                      </button>
-                    );
-                  })}
-              </div>
-            )}
-
-            {/* Time Range Buttons (Standard Segmented Control) */}
-            {(() => {
-              const activeColor = filteredAccountId 
-                ? (accounts.find(a => a.id === filteredAccountId)?.color || '#3b82f6')
-                : filteredWalletType === 'cash' 
-                  ? '#10b981' 
-                  : '#3b82f6';
-
-              return (
-                <div 
-                  style={{ 
-                    display: 'flex', 
-                    gap: '4px', 
-                    overflowX: 'auto', 
-                    padding: '4px',
-                    background: 'rgba(0,0,0,0.2)',
-                    borderRadius: '14px',
-                    border: '1px solid rgba(255,255,255,0.05)'
-                  }} 
-                  className="no-scrollbar"
-                >
-                  {[
-                    { label: lang === 'th' ? 'ทั้งหมด' : 'All', value: 'all' },
-                    { label: lang === 'th' ? 'วันนี้' : 'Today', value: '1d' },
-                    { label: lang === 'th' ? '7 วัน' : '7 Days', value: '7d' },
-                    { label: lang === 'th' ? '30 วัน' : '30 Days', value: '1m' },
-                    { label: lang === 'th' ? 'ระบุวัน' : 'Custom', value: 'custom', icon: <Calendar size={12} /> }
-                  ].map(range => (
-                    <button
-                      key={range.value}
-                      onClick={() => setFilteredTimeRange(range.value)}
-                      style={{
-                        flex: '1 0 auto',
-                        padding: '8px 16px',
-                        borderRadius: '10px',
-                        border: 'none',
-                        background: filteredTimeRange === range.value ? activeColor : 'transparent',
-                        color: filteredTimeRange === range.value ? 'white' : 'rgba(255,255,255,0.6)',
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        whiteSpace: 'nowrap',
-                        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                        boxShadow: filteredTimeRange === range.value ? `0 4px 20px ${activeColor}60` : 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      {range.icon}
-                      {range.label}
-                    </button>
-                  ))}
-                </div>
-              );
-            })()}
-
-            {/* Custom Range Picker (Standard Compact Layout) */}
-            {filteredTimeRange === 'custom' && (
-              <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '6px', 
-                  padding: '4px',
-                  marginTop: '4px'
-                }}
-              >
-                <div style={{ flex: 1, position: 'relative' }}>
-                  <input 
-                    type="date" 
-                    value={filteredCustomRange.start}
-                    onChange={(e) => setFilteredCustomRange(prev => ({ ...prev, start: e.target.value }))}
-                    style={{ 
-                      width: '100%', 
-                      background: 'rgba(255,255,255,0.03)', 
-                      border: '1px solid var(--glass-border)', 
-                      borderRadius: '10px', 
-                      color: 'white', 
-                      padding: '8px 10px', 
-                      fontSize: '12px',
-                      colorScheme: 'dark',
-                      textAlign: 'center'
-                    }} 
-                  />
-                </div>
-                <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px' }}>to</div>
-                <div style={{ flex: 1, position: 'relative' }}>
-                  <input 
-                    type="date" 
-                    value={filteredCustomRange.end}
-                    onChange={(e) => setFilteredCustomRange(prev => ({ ...prev, end: e.target.value }))}
-                    style={{ 
-                      width: '100%', 
-                      background: 'rgba(255,255,255,0.03)', 
-                      border: '1px solid var(--glass-border)', 
-                      borderRadius: '10px', 
-                      color: 'white', 
-                      padding: '8px 10px', 
-                      fontSize: '12px',
-                      colorScheme: 'dark',
-                      textAlign: 'center'
-                    }} 
-                  />
-                </div>
-              </motion.div>
-            )}
-
-            {/* Summary Box */}
-            {(() => {
-              const filtered = (transactions || []).filter(t => {
-                const matchesAccount = !filteredAccountId || String(t.accountId) === String(filteredAccountId);
-                if (!matchesAccount) return false;
-
-                const matchesWallet = !filteredWalletType || t.wallet === filteredWalletType;
-                if (!matchesWallet) return false;
-                
-                if (filteredTimeRange === "all") return true;
-                const now = new Date();
-                const txnDate = new Date(t.date);
-                const diffTime = Math.max(0, now - txnDate);
-                const diffDays = diffTime / (1000 * 60 * 60 * 24);
-                
-                if (filteredTimeRange === "1d") return diffDays <= 1;
-                if (filteredTimeRange === "2d") return diffDays <= 2;
-                if (filteredTimeRange === "7d") return diffDays <= 7;
-                if (filteredTimeRange === "1m") return diffDays <= 30;
-                
-                if (filteredTimeRange === "custom") {
-                  if (!filteredCustomRange.start && !filteredCustomRange.end) return true;
-                  const start = filteredCustomRange.start ? new Date(filteredCustomRange.start) : new Date(0);
-                  const end = filteredCustomRange.end ? new Date(filteredCustomRange.end) : new Date();
-                  start.setHours(0, 0, 0, 0);
-                  end.setHours(23, 59, 59, 999);
-                  return txnDate >= start && txnDate <= end;
-                }
-                return true;
-              });
-
-              const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-              const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
-              const net = totalIncome - totalExpense;
-
-              return (
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  background: 'rgba(255,255,255,0.02)', 
-                  padding: '14px', 
-                  borderRadius: '20px',
-                  border: `1px solid ${filteredAccountId ? (accounts.find(a => a.id === filteredAccountId)?.color + '40') : (filteredWalletType === 'cash' ? '#10b98140' : 'rgba(255,255,255,0.05)')}`,
-                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
-                }}>
-                  <div style={{ textAlign: 'center', flex: 1 }}>
-                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{t.income}</div>
-                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#10b981' }}>฿{totalIncome.toLocaleString()}</div>
-                  </div>
-                  <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 8px' }}></div>
-                  <div style={{ textAlign: 'center', flex: 1 }}>
-                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{t.expense}</div>
-                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#ef4444' }}>฿{totalExpense.toLocaleString()}</div>
-                  </div>
-                  <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 8px' }}></div>
-                  <div style={{ textAlign: 'center', flex: 1 }}>
-                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{lang === 'th' ? 'คงเหลือ' : 'Net'}</div>
-                    <div style={{ fontSize: '15px', fontWeight: 800, color: net >= 0 ? '#3b82f6' : '#f59e0b' }}>฿{net.toLocaleString()}</div>
-                  </div>
-                </div>
-              );
-            })()}
-          </motion.div>
+          <FilterPanel
+            filteredAccountId={filteredAccountId}
+            setFilteredAccountId={setFilteredAccountId}
+            filteredWalletType={filteredWalletType}
+            setFilteredWalletType={setFilteredWalletType}
+            filteredTimeRange={filteredTimeRange}
+            setFilteredTimeRange={setFilteredTimeRange}
+            filteredCustomRange={filteredCustomRange}
+            setFilteredCustomRange={setFilteredCustomRange}
+            accounts={accounts}
+            transactions={transactions}
+            lang={lang}
+            t={t}
+            showBankReport={showBankReport}
+            setShowBankReport={setShowBankReport}
+          />
         )}
 
         {transactions.length === 0 ? (
@@ -5898,228 +4182,27 @@ function HomeContent() {
                 return true;
               })
               .slice(0, visibleCount).map((txn) => {
-              const isHighlighted = highlightedTxnId === (txn._id || txn.id);
-              return (
-              <motion.div 
-                key={txn._id || txn.id}
-                data-txn-id={txn._id || txn.id}
-                layout 
-                initial={{ opacity: 0, x: -20 }} 
-                animate={{ 
-                  opacity: 1, 
-                  x: 0,
-                  scale: isHighlighted ? [1, 1.02, 1] : 1,
-                  boxShadow: isHighlighted ? '0 0 20px rgba(168, 85, 247, 0.5)' : 'none'
-                }} 
-                transition={isHighlighted ? { scale: { repeat: Infinity, duration: 1 } } : {}}
-                exit={{ opacity: 0, x: 20 }} 
-                className="transaction-item" 
-                style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  justifyContent: "space-between", 
-                  gap: "0.5rem",
-                  ...(isHighlighted ? {
-                    border: '2px solid #a855f7',
-                    background: 'rgba(168, 85, 247, 0.15)',
-                    borderRadius: '16px',
-                    position: 'relative',
-                    zIndex: 100
-                  } : {})
-                }}
-              >
-                {/* Tutorial highlight badge */}
-                {isHighlighted && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    style={{
-                      position: 'absolute',
-                      top: '-12px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      background: 'linear-gradient(135deg, #8b5cf6, #d946ef)',
-                      color: 'white',
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      padding: '3px 10px',
-                      borderRadius: '10px',
-                      whiteSpace: 'nowrap',
-                      zIndex: 101
+                const isHighlighted = highlightedTxnId === (txn._id || txn.id);
+                return (
+                  <TransactionItem
+                    key={txn._id || txn.id}
+                    txn={txn}
+                    isHighlighted={isHighlighted}
+                    expandedTransactionId={expandedTransactionId}
+                    setExpandedTransactionId={setExpandedTransactionId}
+                    lang={lang}
+                    t={t}
+                    isMobile={isMobile}
+                    accounts={accounts}
+                    onEdit={openEdit}
+                    onDelete={deleteTransaction}
+                    onViewImage={(url) => {
+                      setSelectedImage(url);
+                      setShowImageModal(true);
                     }}
-                  >
-                    ✨ {lang === 'th' ? 'ผลลัพธ์ Tutorial' : 'Tutorial Result'} ✨
-                  </motion.div>
-                )}
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1, minWidth: 0 }}>
-                  <div style={{ padding: "10px", borderRadius: "12px", background: txn.type === "income" ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)", color: txn.type === "income" ? "var(--success)" : "var(--danger)", flexShrink: 0 }}>
-                    {txn.type === "income" ? <ArrowUpCircle size={20} /> : <ArrowDownCircle size={20} />}
-                  </div>
-                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'nowrap', marginBottom: '4px', minWidth: 0 }}>
-                      <button
-                        onClick={() => setExpandedTransactionId(expandedTransactionId === (txn._id || txn.id) ? null : (txn._id || txn.id))}
-                        style={{
-                          fontWeight: "600", 
-                          fontSize: isMobile ? '0.85rem' : '0.95rem',
-                          background: 'none',
-                          border: 'none',
-                          color: 'inherit',
-                          cursor: 'pointer',
-                          padding: 0,
-                          textAlign: 'left',
-                          minWidth: 0,
-                          maxWidth: expandedTransactionId === (txn._id || txn.id) ? '100%' : 'auto',
-                          whiteSpace: expandedTransactionId === (txn._id || txn.id) ? 'normal' : 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: expandedTransactionId === (txn._id || txn.id) ? 'clip' : 'ellipsis',
-                          wordBreak: expandedTransactionId === (txn._id || txn.id) ? 'break-word' : 'normal'
-                        }}
-                      >
-                        {txn.description}
-                      </button>
-                      {txn.description.length > 35 && expandedTransactionId !== (txn._id || txn.id) && (
-                        <span style={{ fontSize: '12px', color: 'var(--accent-blue)', flexShrink: 0 }}>
-                          ▶
-                        </span>
-                      )}
-                      <span style={{ fontSize: '9px', color: 'var(--text-muted)', flexShrink: 0 }}>-</span>
-                      <span style={{ fontSize: '9px', color: 'var(--text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                        {new Date(txn.date).toLocaleString(lang === 'th' ? "th-TH" : "en-US", { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-                       <span style={{ 
-                         fontSize: '9px', 
-                         background: `${CATEGORY_COLORS[txn.category] || '#64748b'}20`, 
-                         color: CATEGORY_COLORS[txn.category] || '#64748b',
-                         padding: '2px 6px', 
-                         borderRadius: '6px',
-                         fontWeight: '600',
-                         border: `1px solid ${CATEGORY_COLORS[txn.category] || '#64748b'}30`,
-                         display: 'flex',
-                         alignItems: 'center',
-                         gap: '3px',
-                         flexShrink: 0
-                       }}>
-                          {(txn.icon && DYNAMIC_ICONS[txn.icon]) ? React.createElement(DYNAMIC_ICONS[txn.icon], { size: 10 }) : (CATEGORY_ICONS[txn.category] || <Tags size={10} />)}
-                         {!isMobile && (t.categories[txn.category] || txn.category)}
-                       </span>
-                       
-                       {/* Payment Method Tag */}
-                       <span style={{ 
-                         fontSize: '9px', 
-                         background: txn.wallet === 'cash' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(59, 130, 246, 0.1)', 
-                         color: txn.wallet === 'cash' ? '#10b981' : '#3b82f6',
-                         padding: '2px 6px', 
-                         borderRadius: '6px',
-                         fontWeight: '700',
-                         border: `1px solid ${txn.wallet === 'cash' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)'}`,
-                         display: 'flex',
-                         alignItems: 'center',
-                         gap: '3px',
-                         flexShrink: 0
-                       }}>
-                         {txn.wallet === 'cash' ? <Banknote size={10} /> : <CreditCard size={10} />}
-                         {txn.wallet === 'cash' 
-                           ? (lang === 'th' ? 'เงินสด' : 'Cash') 
-                           : (
-                             (() => {
-                               // Use String comparison for IDs to be safe
-                               const acc = accounts.find(a => String(a.id) === String(txn.accountId));
-                               // Try to find the logo if it's a known bank code
-                               const bankCode = acc?.bankCode || txn.bankCode;
-                               const bankMeta = bankCode && BANK_DATA[bankCode.toLowerCase()];
-                               const logoUrl = bankMeta?.logo;
-
-                               // If account found, show bank code (SCB) or custom name (uoteru)
-                               // Otherwise fallback to txn.bank text or generic "Bank"
-                               const displayName = acc 
-                                 ? ((acc.bankCode && acc.bankCode !== 'other') ? acc.bankCode.toUpperCase() : acc.name)
-                                 : (txn.bank || (lang === 'th' ? 'ธนาคาร' : 'Bank'));
-                               
-                               return (
-                                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                   {logoUrl ? (
-                                     <img 
-                                       src={logoUrl} 
-                                       alt={displayName} 
-                                       style={{ width: '12px', height: '12px', objectFit: 'contain', borderRadius: '50%' }} 
-                                     />
-                                   ) : (
-                                     <span>💳</span>
-                                   )}
-                                   {displayName}
-                                 </span>
-                               );
-                             })()
-                           )
-                         }
-                       </span>
-                       
-
-                       {txn.isScanned && (
-                         <span style={{ 
-                           fontSize: '10px', 
-                           background: 'rgba(139, 92, 246, 0.15)', 
-                           color: '#8b5cf6', 
-                           padding: isMobile ? '2px 6px' : '2px 8px', 
-                           borderRadius: '6px',
-                           display: 'flex',
-                           alignItems: 'center',
-                           gap: '3px',
-                           border: '1px solid rgba(139, 92, 246, 0.3)',
-                           flexShrink: 0
-                         }}>
-                           <Scan size={10} /> {lang === 'th' ? "สลิป" : "Slip"}
-                         </span>
-                       )}
-                       {txn.imageUrl && (
-                         <button
-                           onClick={() => {
-                             setSelectedImage(txn.imageUrl);
-                             setShowImageModal(true);
-                           }}
-                           style={{
-                             fontSize: '10px',
-                             background: 'none',
-                             color: '#60a5fa',
-                             padding: isMobile ? '2px 6px' : '2px 8px',
-                             borderRadius: '6px',
-                             display: 'flex',
-                             alignItems: 'center',
-                             gap: '3px',
-                             border: '1px solid rgba(59, 130, 246, 0.2)',
-                             cursor: 'pointer',
-                             textDecoration: 'none',
-                             flexShrink: 0
-                           }}
-                         >
-                           <Image size={10} /> {lang === 'th' ? "ดูรูป" : "View image"}
-                         </button>
-                       )}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
-                  <div style={{ 
-                    fontWeight: "800", 
-                    fontSize: isMobile ? '0.95rem' : '1.1rem',
-                    color: txn.type === "income" ? "var(--success)" : "var(--danger)",
-                    minWidth: isMobile ? '60px' : 'auto',
-                    textAlign: 'right',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {txn.type === "income" ? "+" : "-"} {txn.amount.toLocaleString()}
-                  </div>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexShrink: 0 }}>
-                    <button onClick={() => openEdit(txn)} style={{ background: "none", border: "none", color: "var(--accent-blue)", cursor: "pointer", opacity: 0.6, padding: '4px' }}><Edit2 size={16} /></button>
-                    <button onClick={() => deleteTransaction(txn._id || txn.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.6, padding: '4px' }}><Trash2 size={16} /></button>
-                  </div>
-                </div>
-              </motion.div>
-            );
-            })}
+                  />
+                );
+              })}
           </AnimatePresence>
         )}
 
@@ -6292,66 +4375,17 @@ function HomeContent() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {reminders.map((reminder) => {
-              const rDate = new Date(reminder.date);
-              const isToday = rDate.toDateString() === new Date().toDateString();
-              const isOverdue = rDate < new Date().setHours(0,0,0,0);
-              
-              return (
-                <motion.div 
-                  key={reminder._id || reminder.id} 
-                  layout 
-                  className="glass-card" 
-                  style={{ 
-                    padding: '1rem', 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    borderLeft: isToday ? '4px solid #ef4444' : (isOverdue ? '4px solid #f59e0b' : '1px solid var(--glass-border)')
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ 
-                      width: '40px', 
-                      height: '40px', 
-                      borderRadius: '12px', 
-                      background: isToday ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: isToday ? '#ef4444' : '#3b82f6'
-                    }}>
-                      <Clock size={20} />
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ fontWeight: 700, color: 'white' }}>{reminder.description}</span>
-                        {isToday && <span style={{ fontSize: '10px', background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>{t.upcoming}</span>}
-                        {isOverdue && !isToday && <span style={{ fontSize: '10px', background: '#f59e0b', color: 'white', padding: '2px 6px', borderRadius: '4px' }}>{t.overdue}</span>}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        {rDate && !isNaN(rDate) ? `${rDate.toLocaleDateString(lang === 'th' ? "th-TH" : "en-US", { day: 'numeric', month: 'short' })}, ${rDate.toLocaleTimeString(lang === 'th' ? "th-TH" : "en-US", { hour: '2-digit', minute: '2-digit' })}` : '—'} • {reminder?.wallet === 'bank' ? t.bank : t.cash}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 800, color: 'white' }}>฿{(reminder?.amount || 0).toLocaleString()}</div>
-                      <button 
-                        onClick={() => markReminderAsPaid(reminder)}
-                        style={{ background: 'var(--success)', border: 'none', color: 'white', fontSize: '10px', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-                      >
-                        {t.paid_already}
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                      <button onClick={() => openEditReminder(reminder)} style={{ background: "none", border: "none", color: "var(--accent-blue)", cursor: "pointer", opacity: 0.6, padding: '4px' }}><Edit2 size={16} /></button>
-                      <button onClick={() => deleteReminder(reminder._id || reminder.id)} style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", opacity: 0.6, padding: '4px' }}><Trash2 size={16} /></button>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
+            {reminders.map((reminder) => (
+              <ReminderItem
+                key={reminder._id || reminder.id}
+                reminder={reminder}
+                onMarkAsPaid={markReminderAsPaid}
+                onEdit={openEditReminder}
+                onDelete={deleteReminder}
+                lang={lang}
+                t={t}
+              />
+            ))}
           </div>
         )}
       </motion.div>
