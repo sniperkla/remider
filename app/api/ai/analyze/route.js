@@ -82,7 +82,7 @@ export async function POST(request) {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { transactions, budget, monthlyBudget, balance, lang = "th" } = await request.json();
+    const { transactions, budget, monthlyBudget, balance, lang = "th", aiModel = "llama-3.3-70b-versatile" } = await request.json();
     const isEn = lang === "en";
     
     // Check for Groq API Key Pool
@@ -140,7 +140,7 @@ export async function POST(request) {
             content: prompt,
           },
         ],
-        model: "llama-3.3-70b-versatile", // Using LLaMA 3
+        model: aiModel, // Using selected model
         temperature: 0.3,
         max_tokens: 300,
       });

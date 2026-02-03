@@ -48,7 +48,10 @@ import {
   History,
   MessageCircle,
   Image,
-  Plus
+  PlusCircle,
+  BellPlus,
+  Plus,
+  Filter
 } from "lucide-react";
 import Tesseract from "tesseract.js";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -347,7 +350,12 @@ function HomeContent() {
   const { data: session, status } = useSession();
 
   const [balance, setBalance] = useState({ bank: 0, cash: 0 });
+  const balanceRef = useRef(balance);
+  useEffect(() => { balanceRef.current = balance; }, [balance]);
+
   const [accounts, setAccounts] = useState([]);
+  const accountsRef = useRef(accounts);
+  useEffect(() => { accountsRef.current = accounts; }, [accounts]);
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
   const [newAccountName, setNewAccountName] = useState("");
   const [newAccountBalance, setNewAccountBalance] = useState("");
@@ -367,7 +375,12 @@ function HomeContent() {
   const [preventDelete, setPreventDelete] = useState(false);
   const [activeWallet, setActiveWallet] = useState("bank"); // Default wallet for manual entry
   const [viewMode, setViewMode] = useState("daily"); // daily or monthly
-  const [visibleCount, setVisibleCount] = useState(10);
+  const [visibleCount, setVisibleCount] = useState(20);
+  const [filteredAccountId, setFilteredAccountId] = useState(null);
+  const [filteredWalletType, setFilteredWalletType] = useState(null); // 'cash' or 'bank'
+  const [filteredTimeRange, setFilteredTimeRange] = useState("all"); // 1d, 2d, 7d, 1m, all, custom
+  const [filteredCustomRange, setFilteredCustomRange] = useState({ start: '', end: '' });
+  const [showBankReport, setShowBankReport] = useState(null); // { id, name, spentToday, spentMonth }
 
   const truncateText = (text, maxLength) => {
     if (!text || text.length <= maxLength) return text;
@@ -384,6 +397,7 @@ function HomeContent() {
   const [showHelp, setShowHelp] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [manualEntryMode, setManualEntryMode] = useState("transaction"); // transaction, debt, reminder
   const [showSettings, setShowSettings] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -395,6 +409,8 @@ function HomeContent() {
   const [editDebtPerson, setEditDebtPerson] = useState("");
   const [editDebtAmount, setEditDebtAmount] = useState("");
   const [editDebtNote, setEditDebtNote] = useState("");
+  const [manualDebtPerson, setManualDebtPerson] = useState("");
+  const [manualDebtType, setManualDebtType] = useState("lend"); // lend, borrow
   const [confirmModal, setConfirmModal] = useState({ show: false, title: "", onConfirm: null });
   const [expandedTransactionId, setExpandedTransactionId] = useState(null);
   const t = translations[lang];
@@ -725,9 +741,11 @@ function HomeContent() {
   const [useSmartAI, setUseSmartAI] = useState(true); // Toggle for Smart Agent (Default ON)
   const [ocrProvider, setOcrProvider] = useState("google"); // "tesseract" or "google"
   const [aiModel, setAiModel] = useState("llama-3.1-8b-instant"); // AI Model selection
+  const aiModelRef = useRef("llama-3.1-8b-instant");
+  useEffect(() => { aiModelRef.current = aiModel; }, [aiModel]);
   const [isAIToggleBlink, setIsAIToggleBlink] = useState(false);
   const aiToggleRef = useRef(null);
-  const [showToast, setShowToast] = useState({ show: false, title: "", message: "", type: "info" });
+  const [showToast, setShowToast] = useState({ show: false, title: "", message: "", type: "info", icon: null, color: null });
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isAppInstalled, setIsAppInstalled] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
@@ -1578,7 +1596,7 @@ function HomeContent() {
     setIsAILoading(true);
     try {
       // Use forced model (for scan operations) or user's selected model
-      const modelToUse = forceModel || aiModel;
+      const modelToUse = forceModel || aiModelRef.current;
       const userName = nickname || session?.user?.name?.split(' ')[0] || "";
       const fullName = session?.user?.name || "";
       const emailAlias = session?.user?.email ? session.user.email.split('@')[0] : "";
@@ -1616,6 +1634,22 @@ function HomeContent() {
       });
       const data = await res.json();
       setIsAILoading(false);
+      
+      // Local helper to match bank names to actual IDs from context
+      const findAccountId = (bankName, providedId) => {
+        // If it looks like a real ID, use it
+        if (providedId && providedId.length > 10 && !providedId.includes('<')) return providedId;
+        
+        // Try to match by name
+        if (!bankName && (!providedId || providedId.includes('<'))) return null;
+        const lowerName = (bankName || "").toLowerCase();
+        const match = accountsRef.current.find(a => 
+          a.name.toLowerCase().includes(lowerName) || 
+          lowerName.includes(a.name.toLowerCase()) ||
+          (a.bankCode && lowerName.includes(a.bankCode.toLowerCase()))
+        );
+        return match ? match.id : (providedId && !providedId.includes('<') ? providedId : null);
+      };
       
       if (!res.ok) throw new Error(data.message || "AI Error");
       
@@ -1712,7 +1746,11 @@ function HomeContent() {
       }
 
       if (data.action === "ADD_TRANSACTION") {
-         const { amount, type, category, description, wallet, bank, bankAccountId, icon } = data;
+         let { amount, type, category, description, wallet, bank, bankAccountId, icon } = data;
+         
+         // Heal ID if missing or placeholder
+         const actualId = findAccountId(bank, bankAccountId);
+         bankAccountId = actualId;
          const finalAmount = Number.isFinite(normalizedAmount) ? normalizedAmount : amount;
          if (!Number.isFinite(finalAmount) || finalAmount <= 0) {
            setAiMessage(lang === 'th'
@@ -1757,7 +1795,7 @@ function HomeContent() {
          const finalWallet = wallet || activeWallet;
          // Mark as tutorial if onboarding not completed (use refs to avoid stale closure)
          const isTutorialMode = !onboardingTasksRef.current.completed && showOnboardingRef.current;
-         addTransaction(finalAmount, type || "expense", description, category, finalWallet, bank, icon, requestSource === "ocr", imageUrl, isTutorialMode);
+          addTransaction(finalAmount, type || "expense", description, category, finalWallet, bank, icon, requestSource === "ocr", imageUrl, isTutorialMode, bankAccountId);
          
          const accountName = bankAccountId ? accounts.find(a => a.id === bankAccountId)?.name : null;
          const walletLabel = finalWallet === 'cash' 
@@ -1773,70 +1811,228 @@ function HomeContent() {
            completeOnboardingTask('voice');
          }
       } 
-      
+
       else if (data.action === "SWITCH_PRIMARY") {
-         const { wallet, bankAccountId } = data;
-         
-         if (wallet === 'cash') {
-           setActiveWallet('cash');
-           fetch('/api/data', {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ defaultWallet: 'cash' })
-           });
-           setShowToast({
-             show: true,
-             title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
-             message: lang === 'th' ? '💵 ตั้งเงินสดเป็นบัญชีหลักแล้ว' : '💵 Cash set as primary',
-             type: 'success'
-           });
-           setAiMessage(data.message || (lang === 'th' ? '💵 เปลี่ยนเป็นเงินสดแล้วค่ะ' : '💵 Switched to cash'));
-         } 
-         else if (wallet === 'bank' && bankAccountId) {
-           const targetAccount = accounts.find(a => a.id === bankAccountId);
-           if (targetAccount) {
-             setActiveWallet('bank');
-             setActiveBankAccountId(bankAccountId);
-             
-             // Auto-rearrange
-             const bankAccounts = accounts.filter(a => a.type === 'bank');
-             const otherAccounts = accounts.filter(a => a.type !== 'bank');
-             const filtered = bankAccounts.filter(a => a.id !== bankAccountId);
-             const updatedAccounts = [targetAccount, ...filtered, ...otherAccounts];
-             setAccounts(updatedAccounts);
-             
-             // Scroll
-             if (bankScrollRef.current) {
-               bankScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
-             }
-             
-             // Save
-             fetch('/api/data', {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({ 
-                 activeBankAccountId: bankAccountId, 
-                 defaultWallet: 'bank',
-                 accounts: updatedAccounts 
-               })
-             });
-             
-             setShowToast({
-               show: true,
-               title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
-               message: lang === 'th' ? `🏦 ตั้ง${targetAccount.name}เป็นบัญชีหลักแล้ว` : `🏦 ${targetAccount.name} set as primary`,
-               type: 'success'
-             });
-             setAiMessage(data.message || (lang === 'th' ? `🏦 เปลี่ยนเป็น${targetAccount.name}แล้วค่ะ` : `🏦 Switched to ${targetAccount.name}`));
-           }
-         }
+          let { wallet, bank, bankAccountId } = data;
+          
+          if (wallet === 'cash') {
+            setActiveWallet('cash');
+            setDefaultWallet('cash');
+            fetch('/api/data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ defaultWallet: 'cash' })
+            });
+            setShowToast({
+              show: true,
+              title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
+              message: lang === 'th' ? '💵 ตั้งเงินสดเป็นบัญชีหลักแล้ว' : '💵 Cash set as primary',
+              type: 'success'
+            });
+            setAiMessage(data.message || (lang === 'th' ? '💵 เปลี่ยนเป็นเงินสดแล้วค่ะ' : '💵 Switched to cash'));
+          } 
+          else if (wallet === 'bank') {
+            const healedId = findAccountId(bank, bankAccountId);
+            const targetAccount = accounts.find(a => a.id === healedId);
+            if (targetAccount) {
+              const targetId = targetAccount.id;
+              setActiveWallet('bank');
+              setDefaultWallet('bank');
+              setActiveBankAccountId(targetId);
+              
+              const bankAccounts = accounts.filter(a => a.type === 'bank');
+              const otherAccounts = accounts.filter(a => a.type !== 'bank');
+              const filtered = bankAccounts.filter(a => a.id !== targetId);
+              const updatedAccounts = [targetAccount, ...filtered, ...otherAccounts];
+              setAccounts(updatedAccounts);
+              
+              fetch('/api/data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  defaultWallet: 'bank', 
+                  activeBankAccountId: targetId,
+                  accounts: updatedAccounts 
+                })
+              });
+
+              setShowToast({
+                show: true,
+                title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
+                message: lang === 'th' ? `🏦 ตั้ง ${targetAccount.name} เป็นบัญชีหลักแล้ว` : `🏦 ${targetAccount.name} set as primary`,
+                type: 'success'
+              });
+
+              if (bankScrollRef.current) {
+                bankScrollRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+              }
+              
+              setAiMessage(data.message || (lang === 'th' ? `🏦 เปลี่ยนเป็น ${targetAccount.name} แล้วค่ะ` : `🏦 Switched to ${targetAccount.name}`));
+            }
+          }
+       }
+      else if (data.action === "FILTER_BANK") {
+          const { bankAccountId } = data;
+          if (bankAccountId) {
+            setFilteredAccountId(bankAccountId);
+            setFilteredWalletType(null); // Clear wallet filter when specific bank is picked
+            setAiMessage(data.message || (lang === 'th' ? `กรองรายการของ ${accounts.find(a => a.id === bankAccountId)?.name || 'ธนาคาร'} ให้แล้วค่ะ` : `Filtered transactions for ${accounts.find(a => a.id === bankAccountId)?.name || 'Bank'}`));
+            
+            // Scroll to transactions list
+            const txnList = document.getElementById('transaction-list-top');
+            if (txnList) txnList.scrollIntoView({ behavior: 'smooth' });
+          }
+       }
+
+       else if (data.action === "FILTER_WALLET") {
+          const { wallet } = data;
+          if (wallet) {
+            setFilteredWalletType(wallet);
+            setFilteredAccountId(null); // Clear specific bank when wallet is picked
+            setAiMessage(data.message || (lang === 'th' ? `กรองรายการของ ${wallet === 'cash' ? t.cash : 'ธนาคารรวม'} ให้แล้วค่ะ` : `Filtered transactions for ${wallet === 'cash' ? t.cash : 'All Banks'}`));
+            
+            // Scroll to transactions list
+            const txnList = document.getElementById('transaction-list-top');
+            if (txnList) txnList.scrollIntoView({ behavior: 'smooth' });
+          }
+       }
+
+       else if (data.action === "REPORT_WALLET") {
+          const { wallet } = data;
+          if (wallet) {
+            const now = new Date();
+            const todayStr = now.toDateString();
+            const thisMonth = now.getMonth();
+            const thisYear = now.getFullYear();
+            
+            const spentToday = (transactions || [])
+              .filter(t => t.type === 'expense' && t.wallet === wallet && new Date(t.date).toDateString() === todayStr)
+              .reduce((sum, t) => sum + t.amount, 0);
+              
+            const spentMonth = (transactions || [])
+              .filter(t => {
+                const d = new Date(t.date);
+                return t.type === 'expense' && t.wallet === wallet && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+              })
+              .reduce((sum, t) => sum + t.amount, 0);
+
+            setShowBankReport({
+              id: `wallet-${wallet}`,
+              name: wallet === 'cash' ? t.cash : (lang === 'th' ? 'ธนาคารรวม' : 'All Banks'),
+              color: wallet === 'cash' ? '#10b981' : '#3b82f6',
+              spentToday,
+              spentMonth
+            });
+            setAiMessage(data.message || (lang === 'th' ? `นี่คือสรุปยอดใช้จ่ายของ${wallet === 'cash' ? t.cash : 'ธนาคาร'}ค่ะ` : `Here is the spending report for ${wallet}`));
+          }
+       }
+
+      else if (data.action === "REPORT_BANK") {
+          const { bankAccountId } = data;
+          if (bankAccountId) {
+            const acc = accounts.find(a => a.id === bankAccountId);
+            if (acc) {
+              const now = new Date();
+              const todayStr = now.toDateString();
+              const thisMonth = now.getMonth();
+              const thisYear = now.getFullYear();
+              
+              const spentToday = (transactions || [])
+                .filter(t => t.type === 'expense' && t.accountId === bankAccountId && new Date(t.date).toDateString() === todayStr)
+                .reduce((sum, t) => sum + t.amount, 0);
+                
+              const spentMonth = (transactions || [])
+                .filter(t => {
+                  const d = new Date(t.date);
+                  return t.type === 'expense' && t.accountId === bankAccountId && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+                })
+                .reduce((sum, t) => sum + t.amount, 0);
+                
+              setShowBankReport({
+                id: bankAccountId,
+                name: acc.name,
+                color: acc.color,
+                spentToday,
+                spentMonth
+              });
+              setAiMessage(data.message || (lang === 'th' ? `นี่คือสรุปยอดใช้จ่ายของ ${acc.name} ค่ะ` : `Here is the spending report for ${acc.name}`));
+            }
+          }
       }
-      
+
       else if (data.action === "TRANSFER") {
-         const { amount, from_bank, to_bank, icon } = data;
-         const bankPath = from_bank && to_bank ? `${from_bank} ➔ ${to_bank}` : (from_bank || to_bank);
-         addTransaction(amount, "expense", lang === 'th' ? "โอนเงิน" : "Transfer", "เงินโอน", "bank", bankPath, icon || "ArrowRightLeft", false, imageUrl);
-         setAiMessage(data.message || (lang === 'th' ? `บันทึกรายการโอน ฿${amount} (${bankPath}) แล้วค่ะ` : `Recorded transfer of ฿${amount} (${bankPath})`));
+         let { amount, from_bank, to_bank, fromBankAccountId, toBankAccountId, from_wallet, to_wallet, icon } = data;
+         
+         const sourceWallet = from_wallet || "bank";
+         const destWallet = to_wallet || "bank";
+
+         const actualFromId = findAccountId(from_bank, fromBankAccountId);
+         const actualToId = findAccountId(to_bank, toBankAccountId);
+         
+         console.log("🔄 TRANSFER - Atomic Update:");
+         console.log("  From:", from_bank, actualFromId);
+         console.log("  To:", to_bank, actualToId);
+         console.log("  Amount:", amount);
+
+         // Atomic update - update BOTH accounts at once
+         const currentAccounts = [...accountsRef.current];
+         const updatedAccounts = currentAccounts.map(acc => {
+           if (acc.id === actualFromId) {
+             console.log(`  ✓ Deducting ${amount} from ${acc.name}: ${acc.balance} → ${acc.balance - amount}`);
+             return { ...acc, balance: acc.balance - amount };
+           }
+           if (acc.id === actualToId) {
+             console.log(`  ✓ Adding ${amount} to ${acc.name}: ${acc.balance} → ${acc.balance + amount}`);
+             return { ...acc, balance: acc.balance + amount };
+           }
+           return acc;
+         });
+         
+         // Update refs and state atomically
+         accountsRef.current = updatedAccounts;
+         setAccounts(updatedAccounts);
+
+         // Create transaction records
+         const fromDesc = lang === 'th' ? `โอนเงินไป ${to_bank}` : `Transfer to ${to_bank}`;
+         const toDesc = lang === 'th' ? `รับโอนจาก ${from_bank}` : `Transfer from ${from_bank}`;
+         
+         const expenseData = {
+           amount, type: "expense", description: fromDesc, category: "เงินโอน",
+           wallet: sourceWallet, bank: from_bank, accountId: actualFromId,
+           icon: icon || "ArrowRightLeft", date: new Date().toISOString()
+         };
+         const incomeData = {
+           amount, type: "income", description: toDesc, category: "เงินโอน",
+           wallet: destWallet, bank: to_bank, accountId: actualToId,
+           icon: icon || "ArrowRightLeft", date: new Date().toISOString()
+         };
+         
+         const tempId1 = Date.now();
+         const tempId2 = Date.now() + 1;
+         setTransactions(prev => [
+           { ...incomeData, id: tempId2, _id: tempId2 },
+           { ...expenseData, id: tempId1, _id: tempId1 },
+           ...prev
+         ]);
+
+         // Save to DB
+         fetch('/api/transactions', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify(expenseData)
+         });
+         fetch('/api/transactions', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify(incomeData)
+         });
+         fetch('/api/data', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ accounts: updatedAccounts })
+         });
+         
+         setAiMessage(data.message || (lang === 'th' ? `✅ บันทึกการโอน ฿${amount.toLocaleString()} เรียบร้อยแล้วค่ะ` : `✅ Recorded transfer of ฿${amount.toLocaleString()}`));
       }
       
       else if (data.action === "SET_BUDGET") {
@@ -1859,17 +2055,34 @@ function HomeContent() {
       }
 
       else if (data.action === "SET_BALANCE") {
+         const { wallet, bank, bankAccountId, amount } = data;
          const updates = {};
-         if (data.wallet === 'bank') updates.bank = data.amount;
-         if (data.wallet === 'cash') updates.cash = data.amount;
+         if (wallet === 'cash') updates.cash = amount;
+         if (wallet === 'bank') updates.bank = amount;
          
          const newBal = { ...balance, ...updates };
          setBalance(newBal);
+
+         let updatedAccounts = accounts;
+         if (wallet === 'bank') {
+            const healedId = findAccountId(bank, bankAccountId);
+            if (healedId) {
+              updatedAccounts = accounts.map(acc => 
+                acc.id === healedId ? { ...acc, balance: amount } : acc
+              );
+              setAccounts(updatedAccounts);
+            }
+         }
+
          fetch('/api/data', {
-            method: 'POST',
-            body: JSON.stringify({ balance: newBal })
-        });
-         setAiMessage(data.message || (lang === 'th' ? `ปรับยอดเงิน${data.wallet}เป็น ฿${data.amount}` : `Updated ${data.wallet} balance to ฿${data.amount}`));
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ 
+               balance: newBal,
+               accounts: updatedAccounts 
+             })
+         });
+         setAiMessage(data.message || (lang === 'th' ? `ปรับยอดเงิน${wallet}เป็น ฿${amount.toLocaleString()}` : `Updated ${wallet} balance to ฿${amount.toLocaleString()}`));
       }
       
       else if (data.action === "BORROW" || data.action === "LEND") {
@@ -2511,7 +2724,7 @@ function HomeContent() {
     return null;
   };
 
-  const addTransaction = async (amount, type, description, category = "อื่นๆ", wallet = "bank", bank = null, icon = null, isScanned = false, imageUrl = null, isTutorial = false) => {
+  const addTransaction = async (amount, type, description, category = "อื่นๆ", wallet = "bank", bank = null, icon = null, isScanned = false, imageUrl = null, isTutorial = false, forcedAccountId = null) => {
     const data = {
       amount,
       type,
@@ -2519,7 +2732,7 @@ function HomeContent() {
       category,
       wallet,
       bank,
-      accountId: wallet === 'bank' ? (activeBankAccountId || (accounts.find(a => a.type === 'bank')?.id) || null) : null,
+      accountId: wallet === 'bank' ? (forcedAccountId || activeBankAccountId || (accounts.find(a => a.type === 'bank')?.id) || null) : null,
       icon,
       isScanned,
       imageUrl,
@@ -2527,32 +2740,39 @@ function HomeContent() {
       isTutorial, // Mark as tutorial transaction
     };
 
-    // Update UI Optimistically
+    // Update UI Optimistically using Refs to avoid stale closure during rapid calls (like transfers)
     const tempId = Date.now();
     setTransactions((prev) => [{ ...data, id: tempId, _id: tempId }, ...prev]);
-    setBalance((prev) => {
-      const updated = { ...prev };
-      if (type === "income") {
-        updated[wallet] += amount;
-      } else {
-        updated[wallet] -= amount;
-      }
-      return updated;
-    });
+    
+    // Update Balance
+    const nextBalance = { ...balanceRef.current };
+    if (type === "income") nextBalance[wallet] += amount;
+    else nextBalance[wallet] -= amount;
+    balanceRef.current = nextBalance;
+    setBalance(nextBalance);
 
-    // Also update specific bank account if wallet is bank
-    let updatedAccounts = [...accounts];
-    if (wallet === "bank" && activeBankAccountId) {
-      updatedAccounts = accounts.map(acc => {
-        if (acc.id === activeBankAccountId) {
+    // Update Specific Bank Account
+    const targetId = forcedAccountId || activeBankAccountId;
+    console.log(`💰 addTransaction: ${type} ฿${amount} to ${wallet}, targetId: ${targetId}, forcedAccountId: ${forcedAccountId}`);
+    
+    let nextAccounts = [...accountsRef.current];
+    if (wallet === "bank" && targetId) {
+      const accountBefore = nextAccounts.find(a => a.id === targetId);
+      console.log(`   Account before:`, accountBefore?.name, accountBefore?.balance);
+      
+      nextAccounts = nextAccounts.map(acc => {
+        if (acc.id === targetId) {
+          const newBal = type === "income" ? acc.balance + amount : acc.balance - amount;
+          console.log(`   Updating ${acc.name}: ${acc.balance} → ${newBal}`);
           return {
             ...acc,
-            balance: type === "income" ? acc.balance + amount : acc.balance - amount
+            balance: newBal
           };
         }
         return acc;
       });
-      setAccounts(updatedAccounts);
+      accountsRef.current = nextAccounts;
+      setAccounts(nextAccounts);
     }
 
     // Skip MongoDB save for tutorial transactions
@@ -2568,18 +2788,17 @@ function HomeContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...data,
-          accounts: updatedAccounts // Sync accounts state to DB via transaction save (or handled by separate API call usually, but current page flow uses /api/data for profile)
+          accounts: nextAccounts
         }),
       });
       
-      // Since addTransaction only saves the transaction, we should also save the updated balance/accounts to UserProfile
-      const newBalanceObj = { ...balance, [wallet]: type === "income" ? (balance[wallet] || 0) + amount : (balance[wallet] || 0) - amount };
+      // Sync profile state with latest calculated values
       fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          balance: newBalanceObj,
-          accounts: updatedAccounts
+          balance: nextBalance,
+          accounts: nextAccounts
         }),
       });
       if (res.ok) {
@@ -2598,6 +2817,9 @@ function HomeContent() {
     setManualDesc(txn.description);
     setManualType(txn.type);
     setActiveWallet(txn.wallet || "bank");
+    if (txn.wallet === "bank" && txn.accountId) {
+      setActiveBankAccountId(txn.accountId);
+    }
     setShowManualEntry(true);
   };
 
@@ -2688,6 +2910,7 @@ function HomeContent() {
       type: manualType,
       description: manualDesc || (manualType === "income" ? t.income : t.expense),
       wallet: activeWallet,
+      accountId: activeWallet === 'bank' ? (activeBankAccountId || (accounts.find(a => a.type === 'bank')?.id) || null) : null,
       // Keep category if editing, or detect if new
       category: editingTransaction ? editingTransaction.category : (manualType === "income" ? (lang === 'th' ? "รายได้" : "Income") : (lang === 'th' ? "อื่นๆ" : "Other"))
     };
@@ -2701,6 +2924,10 @@ function HomeContent() {
         wallet: data.wallet,
         date: manualReminderDate ? new Date(manualReminderDate).toISOString() : editingReminder.date
       });
+    } else if (manualEntryMode === 'debt') {
+      addDebt(data.amount, manualDebtPerson, manualDebtType, manualDesc);
+    } else if (manualEntryMode === 'reminder') {
+      addReminder(data.description, data.amount, manualReminderDate, data.wallet);
     } else {
       // Mark as tutorial if onboarding not completed (use refs to avoid stale closure)
       const isTutorialMode = !onboardingTasksRef.current.completed && showOnboardingRef.current;
@@ -2712,6 +2939,7 @@ function HomeContent() {
     setManualAmount("");
     setManualDesc("");
     setManualType("expense");
+    setManualDebtPerson("");
     setManualReminderDate("");
     setEditingTransaction(null);
     setEditingReminder(null);
@@ -2945,9 +3173,9 @@ function HomeContent() {
       const category = detectCategory(ocrTextLower);
 
       // 6. Wallet & Bank detection
-      let wallet = defaultWallet; 
-      const cashTriggers = ["เงินสด", "cash", "receipt", "ใบเสร็จ"];
-      const bankTriggers = ["โอน", "transfer", "slip", "ธนาคาร", "สลิป", "success", "สำเร็จ"];
+      let wallet = activeWallet || defaultWallet; 
+      const cashTriggers = ["เงินสด", "cash", "จ่ายสด"];
+      const bankTriggers = ["โอน", "transfer", "slip", "ธนาคาร", "สลิป", "success", "สำเร็จ", "qr", "คิวอาร์"];
       
       const hasCash = cashTriggers.some(kw => ocrTextLower.includes(kw));
       const hasBank = bankTriggers.some(kw => ocrTextLower.includes(kw));
@@ -3046,7 +3274,7 @@ function HomeContent() {
       const res = await fetch('/api/ai/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactions, budget, monthlyBudget, balance, lang })
+        body: JSON.stringify({ transactions, budget, monthlyBudget, balance, lang, aiModel })
       });
       const data = await res.json();
       insightText = data.insight || getAIInsight();
@@ -3235,7 +3463,7 @@ function HomeContent() {
       await fetch('/api/data', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ budget, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, ocrProvider, language: lang, useSmartAI })
+        body: JSON.stringify({ budget, monthlyBudget, defaultWallet, nickname, groqKeys, preventDelete, ocrProvider, language: lang, useSmartAI, aiModel })
       });
     } catch (error) {
       console.error("Failed to save settings");
@@ -4080,24 +4308,35 @@ function HomeContent() {
           >
             <div className="glass-card" style={{ 
               padding: '1.25rem', 
-              border: '2px solid #8b5cf6', 
+              border: `2px solid ${showToast.color || '#8b5cf6'}`, 
               background: 'rgba(15, 23, 42, 0.95)',
-              boxShadow: '0 10px 25px -5px rgba(139, 92, 246, 0.5)',
+              boxShadow: `0 10px 25px -5px ${showToast.color ? showToast.color + '80' : 'rgba(139, 92, 246, 0.5)'}`,
               display: 'flex',
               gap: '15px',
-              position: 'relative'
+              position: 'relative',
+              borderRadius: '24px'
             }}>
               <div style={{ 
-                background: 'linear-gradient(135deg, #8b5cf6, #d946ef)', 
+                background: showToast.color || 'linear-gradient(135deg, #8b5cf6, #d946ef)', 
                 width: '45px', 
                 height: '45px', 
-                borderRadius: '12px',
+                borderRadius: '14px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 4px 10px rgba(139, 92, 246, 0.4)'
+                boxShadow: `0 4px 10px ${showToast.color ? showToast.color + '60' : 'rgba(139, 92, 246, 0.4)'}`,
+                flexShrink: 0,
+                overflow: 'hidden'
               }}>
-                <Bell color="white" size={24} className="animate-bounce" />
+                {showToast.icon ? (
+                  typeof showToast.icon === 'string' ? (
+                    <img src={showToast.icon} alt="" style={{ width: '85%', height: '85%', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' }} />
+                  ) : (
+                    React.cloneElement(showToast.icon, { color: 'white', size: 24 })
+                  )
+                ) : (
+                  <Bell color="white" size={24} className="animate-bounce" />
+                )}
               </div>
               <div style={{ flex: 1, textAlign: 'left' }}>
                 <div style={{ fontWeight: 800, color: 'white', fontSize: '15px', marginBottom: '2px' }}>{showToast.title}</div>
@@ -4452,7 +4691,7 @@ function HomeContent() {
                         opacity: activeBankAccountId === acc.id ? 1 : 0.7,
                         rotate: isDeleteMode ? [-1, 1.5, -1.5, 1, -1] : 0, 
                         boxShadow: activeWallet === 'bank' && activeBankAccountId === acc.id 
-                          ? ["0 0 0 2px rgba(255,255,255,1), 0 10px 30px rgba(59, 130, 246, 0.5)", "0 0 0 2px rgba(255,255,255,1), 0 10px 50px rgba(59, 130, 246, 0.8)"]
+                          ? [`0 0 0 2px rgba(255,255,255,1), 0 10px 30px ${acc.color}50`, `0 0 0 2px rgba(255,255,255,1), 0 10px 50px ${acc.color}80`]
                           : "0 4px 15px rgba(0,0,0,0.2)"
                       },
                       transition: {
@@ -4477,6 +4716,7 @@ function HomeContent() {
                           if (isDeleteMode) return; // Prevent selection if in delete mode
 
                           setActiveWallet('bank');
+                          setDefaultWallet('bank');
                           setActiveBankAccountId(acc.id);
                           
                           // Auto rearrange: move selected to first
@@ -4502,11 +4742,14 @@ function HomeContent() {
                             })
                           });
 
+                          const bMeta = acc.bankCode && BANK_DATA[acc.bankCode.toLowerCase()];
                           setShowToast({
                             show: true,
                             title: lang === 'th' ? "เปลี่ยนบัญชีแล้ว" : "Account Changed",
                             message: lang === 'th' ? `เลือกเป็น ${acc.name} และเลื่อนเป็นลำดับแรกแล้วค่ะ` : `Selected ${acc.name} and moved to first`,
-                            type: "success"
+                            type: "success",
+                            icon: bMeta?.logo,
+                            color: acc.color
                           });
                       }
                    };
@@ -4612,6 +4855,20 @@ function HomeContent() {
                              letterSpacing: '-0.5px'
                            }}>
                                ฿{acc.balance.toLocaleString()}
+                              {(() => {
+                                const todaySpent = (transactions || [])
+                                  .filter(t => t.type === 'expense' && String(t.accountId) === String(acc.id) && new Date(t.date).toDateString() === new Date().toDateString())
+                                  .reduce((sum, t) => sum + t.amount, 0);
+                                if (todaySpent > 0) {
+                                  return (
+                                    <div style={{ fontSize: '10px', opacity: 0.9, display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px', background: 'rgba(0,0,0,0.15)', padding: '2px 6px', borderRadius: '4px', width: 'fit-content' }}>
+                                      <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#ff4444' }}></div>
+                                      {lang === 'th' ? `วันนี้ใช้ไป: ฿${todaySpent.toLocaleString()}` : `Spent today: ฿${todaySpent.toLocaleString()}`}
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                            </div>
                            <div 
                              onClick={(e) => {
@@ -4638,14 +4895,14 @@ function HomeContent() {
                               right: '0',
                               fontSize: '10px',
                               padding: '6px 12px',
-                              background: 'linear-gradient(135deg, #3b82f6 0%, #2dd4bf 100%)',
+                              background: `linear-gradient(135deg, ${acc.color} 0%, white 200%)`,
                               color: 'white',
                               borderBottomLeftRadius: '24px',
                               borderTopRightRadius: '24px',
                               fontWeight: 800,
                               textTransform: 'uppercase',
                               letterSpacing: '0.5px',
-                              boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
+                              boxShadow: `0 4px 15px ${acc.color}60`,
                               zIndex: 10,
                               display: 'flex',
                               alignItems: 'center',
@@ -4695,6 +4952,7 @@ function HomeContent() {
                 }}
                 onClick={() => {
                   setActiveWallet('cash');
+                  setDefaultWallet('cash');
                   fetch('/api/data', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -4704,7 +4962,9 @@ function HomeContent() {
                     show: true,
                     title: lang === 'th' ? 'เปลี่ยนบัญชีหลัก' : 'Primary Changed',
                     message: lang === 'th' ? '💵 ตั้งเงินสดเป็นบัญชีหลักแล้ว' : '💵 Cash set as primary',
-                    type: 'success'
+                    type: 'success',
+                    icon: <Banknote />,
+                    color: '#10b981'
                   });
                 }}
                 style={{ 
@@ -4887,12 +5147,42 @@ function HomeContent() {
           </div>
           {activeTab === 'transactions' && (
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button 
+                onClick={() => {
+                  if (filteredAccountId || filteredTimeRange !== "all") {
+                    setFilteredAccountId(null);
+                    setFilteredTimeRange("all");
+                  } else {
+                    // Just show the UI by setting a default non-null state if needed, 
+                    // or just set a range. Let's set 'all' but we'll need to adjust 
+                    // the conditional rendering to show if explicitly requested.
+                    // Actually, let's just toggle '1d' to make it show up.
+                    setFilteredTimeRange("1d");
+                  }
+                }} 
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  color: (filteredAccountId || filteredTimeRange !== "all") 
+                    ? (filteredAccountId ? (accounts.find(a => a.id === filteredAccountId)?.color || '#3b82f6') : (filteredWalletType === 'cash' ? '#10b981' : '#3b82f6')) 
+                    : 'var(--text-muted)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '5px', 
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <Filter size={18} /> 
+                <span className="text-sm">{lang === 'th' ? "กรอง" : "Filter"}</span>
+              </button>
               <button onClick={() => setShowSummary(!showSummary)} style={{ background: 'none', border: 'none', color: 'var(--accent-blue)', display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
                 <BarChart3 size={18} /> <span className="text-sm">{lang === 'th' ? "ดูรายงาน" : "View Report"}</span>
               </button>
               <button 
                 ref={manualButtonRef}
                 onClick={() => {
+                  setManualEntryMode('transaction');
                   setEditingTransaction(null);
                   setManualAmount("");
                   setManualDesc("");
@@ -5216,11 +5506,398 @@ function HomeContent() {
             )}
         </AnimatePresence>
 
+        <div id="transaction-list-top" />
+        
+        {(filteredAccountId || filteredWalletType || filteredTimeRange !== "all") && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            style={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              gap: '12px',
+              padding: '16px', 
+              background: 'rgba(30, 41, 59, 0.7)', 
+              borderRadius: '24px',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              marginBottom: '1.5rem',
+              backdropFilter: 'blur(10px)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Filter size={14} style={{ color: '#3b82f6' }} />
+                <span style={{ fontSize: '13px', fontWeight: 700, color: 'white' }}>
+                  {filteredAccountId 
+                    ? `${lang === 'th' ? 'กำลังดู:' : 'Viewing:'} ${accounts.find(a => a.id === filteredAccountId)?.name || 'ธนาคาร'}`
+                    : filteredWalletType === 'cash'
+                      ? `${lang === 'th' ? 'กำลังดู:' : 'Viewing:'} ${t.cash}`
+                      : (lang === 'th' ? 'ตัวกรองรายการ' : 'Transaction Filter')}
+                </span>
+              </div>
+              <button 
+                onClick={() => { setFilteredAccountId(null); setFilteredWalletType(null); setFilteredTimeRange("all"); }}
+                style={{ 
+                  padding: '6px 12px', 
+                  borderRadius: '10px', 
+                  background: 'rgba(239, 68, 68, 0.1)', 
+                  border: '1px solid rgba(239, 68, 68, 0.2)', 
+                  color: '#ef4444', 
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                {lang === 'th' ? 'ล้างการกรอง' : 'Clear Filter'}
+              </button>
+            </div>
+
+            {/* Wallet Selection (Only if no specific bank is selected) */}
+            {/* Wallet Selection (Only if no specific bank is selected) */}
+            {!filteredAccountId ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => { setFilteredWalletType(filteredWalletType === 'cash' ? null : 'cash'); setFilteredAccountId(null); }}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      borderRadius: '12px',
+                      border: `1px solid ${filteredWalletType === 'cash' ? '#10b981' : 'var(--glass-border)'}`,
+                      background: filteredWalletType === 'cash' ? '#10b981' : 'rgba(255,255,255,0.05)',
+                      color: 'white',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s',
+                      boxShadow: filteredWalletType === 'cash' ? '0 4px 12px rgba(16, 185, 129, 0.3)' : 'none'
+                    }}
+                  >
+                    <Banknote size={14} /> {t.cash}
+                  </button>
+                  <button
+                    onClick={() => { setFilteredWalletType(filteredWalletType === 'bank' ? null : 'bank'); }}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      borderRadius: '12px',
+                      border: `1px solid ${filteredWalletType === 'bank' ? '#3b82f6' : 'var(--glass-border)'}`,
+                      background: filteredWalletType === 'bank' ? '#3b82f6' : 'rgba(255,255,255,0.05)',
+                      color: 'white',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      transition: 'all 0.2s',
+                      boxShadow: filteredWalletType === 'bank' ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none'
+                    }}
+                  >
+                    <CreditCard size={14} /> {lang === 'th' ? 'ธนาคารรวม' : 'All Banks'}
+                  </button>
+                </div>
+                
+                {/* Individual Bank List (Shown when 'bank' is selected or active) */}
+                {filteredWalletType === 'bank' && accounts.filter(a => a.type === 'bank').length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    style={{ 
+                      display: 'flex', 
+                      gap: '6px', 
+                      overflowX: 'auto', 
+                      padding: '4px 0',
+                      marginTop: '4px' 
+                    }} 
+                    className="no-scrollbar"
+                  >
+                    {accounts.filter(a => a.type === 'bank').map(acc => {
+                      const bankMeta = acc.bankCode && BANK_DATA[acc.bankCode.toLowerCase()];
+                      return (
+                        <button
+                          key={acc.id}
+                          onClick={() => { setFilteredAccountId(acc.id); setFilteredWalletType(null); }}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '10px',
+                            background: 'rgba(255,255,255,0.05)',
+                            border: '1px solid var(--glass-border)',
+                            color: 'white',
+                            fontSize: '11px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            whiteSpace: 'nowrap',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {bankMeta?.logo && (
+                            <img src={bankMeta.logo} alt="" style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'white' }} />
+                          )}
+                          {acc.name}
+                        </button>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </div>
+            ) : (
+              /* If a specific bank is already selected, show option to switch to other banks */
+              <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
+                 <button
+                    onClick={() => { setFilteredAccountId(null); setFilteredWalletType('bank'); }}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: '10px',
+                      background: 'rgba(59, 130, 246, 0.1)',
+                      border: '1px solid rgba(59, 130, 246, 0.2)',
+                      color: '#60a5fa',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    ← {lang === 'th' ? 'ธนาคารอื่นๆ' : 'Other Banks'}
+                  </button>
+                  {accounts.filter(a => a.type === 'bank' && a.id !== filteredAccountId).map(acc => {
+                    const bankMeta = acc.bankCode && BANK_DATA[acc.bankCode.toLowerCase()];
+                    return (
+                      <button
+                        key={acc.id}
+                        onClick={() => setFilteredAccountId(acc.id)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '10px',
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid var(--glass-border)',
+                          color: 'white',
+                          fontSize: '11px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {bankMeta?.logo && (
+                          <img src={bankMeta.logo} alt="" style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'white' }} />
+                        )}
+                        {acc.name}
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
+
+            {/* Time Range Buttons (Standard Segmented Control) */}
+            {(() => {
+              const activeColor = filteredAccountId 
+                ? (accounts.find(a => a.id === filteredAccountId)?.color || '#3b82f6')
+                : filteredWalletType === 'cash' 
+                  ? '#10b981' 
+                  : '#3b82f6';
+
+              return (
+                <div 
+                  style={{ 
+                    display: 'flex', 
+                    gap: '4px', 
+                    overflowX: 'auto', 
+                    padding: '4px',
+                    background: 'rgba(0,0,0,0.2)',
+                    borderRadius: '14px',
+                    border: '1px solid rgba(255,255,255,0.05)'
+                  }} 
+                  className="no-scrollbar"
+                >
+                  {[
+                    { label: lang === 'th' ? 'ทั้งหมด' : 'All', value: 'all' },
+                    { label: lang === 'th' ? 'วันนี้' : 'Today', value: '1d' },
+                    { label: lang === 'th' ? '7 วัน' : '7 Days', value: '7d' },
+                    { label: lang === 'th' ? '30 วัน' : '30 Days', value: '1m' },
+                    { label: lang === 'th' ? 'ระบุวัน' : 'Custom', value: 'custom', icon: <Calendar size={12} /> }
+                  ].map(range => (
+                    <button
+                      key={range.value}
+                      onClick={() => setFilteredTimeRange(range.value)}
+                      style={{
+                        flex: '1 0 auto',
+                        padding: '8px 16px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: filteredTimeRange === range.value ? activeColor : 'transparent',
+                        color: filteredTimeRange === range.value ? 'white' : 'rgba(255,255,255,0.6)',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                        boxShadow: filteredTimeRange === range.value ? `0 4px 20px ${activeColor}60` : 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      {range.icon}
+                      {range.label}
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+
+            {/* Custom Range Picker (Standard Compact Layout) */}
+            {filteredTimeRange === 'custom' && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px', 
+                  padding: '4px',
+                  marginTop: '4px'
+                }}
+              >
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <input 
+                    type="date" 
+                    value={filteredCustomRange.start}
+                    onChange={(e) => setFilteredCustomRange(prev => ({ ...prev, start: e.target.value }))}
+                    style={{ 
+                      width: '100%', 
+                      background: 'rgba(255,255,255,0.03)', 
+                      border: '1px solid var(--glass-border)', 
+                      borderRadius: '10px', 
+                      color: 'white', 
+                      padding: '8px 10px', 
+                      fontSize: '12px',
+                      colorScheme: 'dark',
+                      textAlign: 'center'
+                    }} 
+                  />
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.2)', fontSize: '10px' }}>to</div>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <input 
+                    type="date" 
+                    value={filteredCustomRange.end}
+                    onChange={(e) => setFilteredCustomRange(prev => ({ ...prev, end: e.target.value }))}
+                    style={{ 
+                      width: '100%', 
+                      background: 'rgba(255,255,255,0.03)', 
+                      border: '1px solid var(--glass-border)', 
+                      borderRadius: '10px', 
+                      color: 'white', 
+                      padding: '8px 10px', 
+                      fontSize: '12px',
+                      colorScheme: 'dark',
+                      textAlign: 'center'
+                    }} 
+                  />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Summary Box */}
+            {(() => {
+              const filtered = (transactions || []).filter(t => {
+                const matchesAccount = !filteredAccountId || String(t.accountId) === String(filteredAccountId);
+                if (!matchesAccount) return false;
+
+                const matchesWallet = !filteredWalletType || t.wallet === filteredWalletType;
+                if (!matchesWallet) return false;
+                
+                if (filteredTimeRange === "all") return true;
+                const now = new Date();
+                const txnDate = new Date(t.date);
+                const diffTime = Math.max(0, now - txnDate);
+                const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                
+                if (filteredTimeRange === "1d") return diffDays <= 1;
+                if (filteredTimeRange === "2d") return diffDays <= 2;
+                if (filteredTimeRange === "7d") return diffDays <= 7;
+                if (filteredTimeRange === "1m") return diffDays <= 30;
+                
+                if (filteredTimeRange === "custom") {
+                  if (!filteredCustomRange.start && !filteredCustomRange.end) return true;
+                  const start = filteredCustomRange.start ? new Date(filteredCustomRange.start) : new Date(0);
+                  const end = filteredCustomRange.end ? new Date(filteredCustomRange.end) : new Date();
+                  start.setHours(0, 0, 0, 0);
+                  end.setHours(23, 59, 59, 999);
+                  return txnDate >= start && txnDate <= end;
+                }
+                return true;
+              });
+
+              const totalIncome = filtered.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+              const totalExpense = filtered.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+              const net = totalIncome - totalExpense;
+
+              return (
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  background: 'rgba(255,255,255,0.02)', 
+                  padding: '14px', 
+                  borderRadius: '20px',
+                  border: `1px solid ${filteredAccountId ? (accounts.find(a => a.id === filteredAccountId)?.color + '40') : (filteredWalletType === 'cash' ? '#10b98140' : 'rgba(255,255,255,0.05)')}`,
+                  boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+                }}>
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{t.income}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#10b981' }}>฿{totalIncome.toLocaleString()}</div>
+                  </div>
+                  <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 8px' }}></div>
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{t.expense}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#ef4444' }}>฿{totalExpense.toLocaleString()}</div>
+                  </div>
+                  <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 8px' }}></div>
+                  <div style={{ textAlign: 'center', flex: 1 }}>
+                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{lang === 'th' ? 'คงเหลือ' : 'Net'}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 800, color: net >= 0 ? '#3b82f6' : '#f59e0b' }}>฿{net.toLocaleString()}</div>
+                  </div>
+                </div>
+              );
+            })()}
+          </motion.div>
+        )}
+
         {transactions.length === 0 ? (
           <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>{t.no_transactions}</div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {transactions.slice(0, visibleCount).map((txn) => {
+            {transactions
+              .filter(t => {
+                const matchesAccount = !filteredAccountId || String(t.accountId) === String(filteredAccountId);
+                if (!matchesAccount) return false;
+                
+                if (filteredTimeRange === "all") return true;
+                const now = new Date();
+                const txnDate = new Date(t.date);
+                const diffTime = Math.max(0, now - txnDate);
+                const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                
+                if (filteredTimeRange === "1d") return diffDays <= 1;
+                if (filteredTimeRange === "2d") return diffDays <= 2;
+                if (filteredTimeRange === "7d") return diffDays <= 7;
+                if (filteredTimeRange === "1m") return diffDays <= 30;
+                
+                if (filteredTimeRange === "custom") {
+                  if (!filteredCustomRange.start && !filteredCustomRange.end) return true;
+                  const start = filteredCustomRange.start ? new Date(filteredCustomRange.start) : new Date(0);
+                  const end = filteredCustomRange.end ? new Date(filteredCustomRange.end) : new Date();
+                  start.setHours(0, 0, 0, 0);
+                  end.setHours(23, 59, 59, 999);
+                  return txnDate >= start && txnDate <= end;
+                }
+                return true;
+              })
+              .slice(0, visibleCount).map((txn) => {
               const isHighlighted = highlightedTxnId === (txn._id || txn.id);
               return (
               <motion.div 
@@ -5496,6 +6173,33 @@ function HomeContent() {
               </div>
             </div>
 
+            <button 
+              onClick={() => {
+                setManualEntryMode('debt');
+                setEditingDebt(null);
+                setManualAmount("");
+                setManualDesc("");
+                setShowManualEntry(true);
+              }}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '16px',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px dashed var(--glass-border)',
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              <PlusCircle size={18} color="var(--primary)" />
+              {lang === 'th' ? 'เพิ่มรายการยืม/คืน' : 'Add Borrow/Lend'}
+            </button>
+
             {debts.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", background: 'rgba(255,255,255,0.02)', borderRadius: '24px' }}>
                 <ArrowRightLeft size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
@@ -5553,6 +6257,34 @@ function HomeContent() {
     </motion.div>
     ) : (
       <motion.div key="list-reminders" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+        <button 
+          onClick={() => {
+            setManualEntryMode('reminder');
+            setEditingReminder(null);
+            setManualAmount("");
+            setManualDesc("");
+            setManualReminderDate("");
+            setShowManualEntry(true);
+          }}
+          style={{
+            width: '100%',
+            padding: '12px',
+            borderRadius: '16px',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px dashed var(--glass-border)',
+            color: 'white',
+            fontSize: '14px',
+            fontWeight: 600,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            marginBottom: '1.25rem'
+          }}
+        >
+          <BellPlus size={18} color="#3b82f6" />
+          {lang === 'th' ? 'เพิ่มการแจ้งเตือน' : 'Add Reminder'}
+        </button>
         {reminders.length === 0 ? (
           <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", background: 'rgba(255,255,255,0.02)', borderRadius: '24px' }}>
              <Bell size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
@@ -5648,8 +6380,46 @@ function HomeContent() {
                     <div style={{ textAlign: 'center', marginBottom: '1rem', fontWeight: 700, fontSize: '1.1rem' }}>
                       {editingDebt ? (lang === 'th' ? 'แก้ไขการยืม/ให้ยืม' : 'Edit Borrow/Lend') : 
                        (editingTransaction ? (lang === 'th' ? 'แก้ไขรายการ' : 'Edit Transaction') : 
-                       (editingReminder ? (lang === 'th' ? 'แก้ไขการแจ้งเตือน' : 'Edit Reminder') : t.add_manual))}
+                       (editingReminder ? (lang === 'th' ? 'แก้ไขการแจ้งเตือน' : 'Edit Reminder') : (
+                         manualEntryMode === 'transaction' ? t.add_manual :
+                         (manualEntryMode === 'debt' ? (lang === 'th' ? 'เพิ่มรายการยืม/คืน' : 'Add Borrow/Lend') :
+                         (lang === 'th' ? 'เพิ่มการแจ้งเตือน' : 'Add Reminder'))
+                       )))}
                     </div>
+
+                    {/* Mode Switcher - Only show when NOT editing */}
+                    {!editingDebt && !editingTransaction && !editingReminder && (
+                      <div style={{ display: 'flex', gap: '8px', marginBottom: '1.25rem', padding: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '14px' }}>
+                        {[
+                          { id: 'transaction', label: lang === 'th' ? 'รายรับ-จ่าย' : 'Transaction', icon: <ArrowUpCircle size={14} /> },
+                          { id: 'debt', label: lang === 'th' ? 'ยืม-คืน' : 'Debt', icon: <ArrowRightLeft size={14} /> },
+                          { id: 'reminder', label: lang === 'th' ? 'เตือน' : 'Reminder', icon: <Bell size={14} /> }
+                        ].map(mode => (
+                          <button
+                            key={mode.id}
+                            onClick={() => setManualEntryMode(mode.id)}
+                            style={{
+                              flex: 1,
+                              padding: '8px 4px',
+                              borderRadius: '10px',
+                              border: 'none',
+                              background: manualEntryMode === mode.id ? 'var(--primary)' : 'transparent',
+                              color: 'white',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '4px',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            {mode.icon}
+                            {mode.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     
                     {editingDebt ? (
                       <form onSubmit={(e) => { e.preventDefault(); handleSaveDebt(); }} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -5681,21 +6451,101 @@ function HomeContent() {
                       </form>
                     ) : (
                     <form onSubmit={handleManualSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button type="button" onClick={() => setManualType('expense')} className="btn-primary" style={{ flex: 1, background: manualType === 'expense' ? 'var(--danger)' : 'var(--glass)' }}>{t.expense}</button>
-                            <button type="button" onClick={() => setManualType('income')} className="btn-primary" style={{ flex: 1, background: manualType === 'income' ? 'var(--success)' : 'var(--glass)' }}>{t.income}</button>
-                        </div>
+                        {manualEntryMode === 'debt' && (
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button type="button" onClick={() => setManualDebtType('lend')} className="btn-primary" style={{ flex: 1, background: manualDebtType === 'lend' ? '#10b981' : 'var(--glass)' }}>{lang === 'th' ? 'ให้ยืม' : 'Lend'}</button>
+                            <button type="button" onClick={() => setManualDebtType('borrow')} className="btn-primary" style={{ flex: 1, background: manualDebtType === 'borrow' ? '#ef4444' : 'var(--glass)' }}>{lang === 'th' ? 'ยืม' : 'Borrow'}</button>
+                          </div>
+                        )}
+                        {manualEntryMode === 'transaction' && (
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <button type="button" onClick={() => setManualType('expense')} className="btn-primary" style={{ flex: 1, background: manualType === 'expense' ? 'var(--danger)' : 'var(--glass)' }}>{t.expense}</button>
+                              <button type="button" onClick={() => setManualType('income')} className="btn-primary" style={{ flex: 1, background: manualType === 'income' ? 'var(--success)' : 'var(--glass)' }}>{t.income}</button>
+                          </div>
+                        )}
                         <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '12px' }}>
-                            <button type="button" onClick={() => setActiveWallet('bank')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: activeWallet === 'bank' ? '#3b82f6' : 'transparent', color: 'white', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                              <CreditCard size={12} /> {t.bank}
+                            <button type="button" onClick={() => setActiveWallet('bank')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: activeWallet === 'bank' ? '#3b82f6' : 'transparent', color: 'white', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}>
+                              <CreditCard size={14} /> 
+                              {activeWallet === 'bank' 
+                                ? (accounts.find(a => a.id === activeBankAccountId)?.name || (lang === 'th' ? "เลือกธนาคาร" : "Select Bank")) 
+                                : t.bank}
                             </button>
-                            <button type="button" onClick={() => setActiveWallet('cash')} style={{ flex: 1, padding: '8px', borderRadius: '8px', border: 'none', background: activeWallet === 'cash' ? '#10b981' : 'transparent', color: 'white', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                              <Banknote size={12} /> {t.cash}
+                            <button type="button" onClick={() => setActiveWallet('cash')} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: 'none', background: activeWallet === 'cash' ? '#10b981' : 'transparent', color: 'white', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.2s' }}>
+                              <Banknote size={14} /> {t.cash}
                             </button>
                         </div>
-                        <input type="number" placeholder={lang === 'th' ? "บาท" : "Amount (฿)"} value={manualAmount} onChange={e => setManualAmount(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} required />
-                        <input type="text" placeholder={t.description} value={manualDesc} onChange={e => setManualDesc(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} />
-                        {editingReminder && (
+
+                        {activeWallet === 'bank' && (
+                          <div style={{ marginTop: '0.5rem' }}>
+                            {accounts.filter(a => a.type === 'bank').length > 0 ? (
+                              <>
+                                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600, display: 'flex', justifyContent: 'space-between' }}>
+                                  <span>{lang === 'th' ? 'เลือกบัญชีที่ใช้:' : 'Select Account:'}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', padding: '4px 0' }} className="no-scrollbar">
+                                  {accounts.filter(a => a.type === 'bank').map(acc => {
+                                    const bankMeta = acc.bankCode && BANK_DATA[acc.bankCode.toLowerCase()];
+                                    const isActive = activeBankAccountId === acc.id;
+                                    return (
+                                      <button 
+                                        key={acc.id}
+                                        type="button"
+                                        onClick={() => setActiveBankAccountId(acc.id)}
+                                        style={{
+                                          padding: '8px 14px',
+                                          borderRadius: '16px',
+                                          border: `1px solid ${isActive ? 'transparent' : 'var(--glass-border)'}`,
+                                          background: isActive ? (acc.color || '#3b82f6') : 'rgba(255,255,255,0.05)',
+                                          color: 'white',
+                                          fontSize: '12px',
+                                          fontWeight: isActive ? 700 : 500,
+                                          whiteSpace: 'nowrap',
+                                          transition: 'all 0.2s',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '8px',
+                                          boxShadow: isActive ? `0 4px 15px ${acc.color}40` : 'none',
+                                          opacity: isActive ? 1 : 0.7,
+                                          transform: isActive ? 'scale(1.05)' : 'scale(1)'
+                                        }}
+                                      >
+                                        {bankMeta?.logo && (
+                                          <img src={bankMeta.logo} alt="" style={{ width: '16px', height: '16px', borderRadius: '50%', background: 'white', padding: '1px' }} />
+                                        )}
+                                        {acc.name}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            ) : (
+                              <div style={{ 
+                                padding: '10px', 
+                                borderRadius: '12px', 
+                                background: 'rgba(255,255,255,0.03)', 
+                                border: '1px dashed rgba(255,255,255,0.1)',
+                                textAlign: 'center',
+                                fontSize: '11px',
+                                color: 'var(--text-muted)'
+                              }}>
+                                {lang === 'th' ? 'บันทึกลงยอดธนาคารรวม (ไม่ได้ระบุบัญชี)' : 'Saving to Main Bank Total'}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {manualEntryMode === 'debt' && (
+                          <input 
+                            type="text" 
+                            placeholder={lang === 'th' ? "ชื่อคน (เช่น ส้ม, แม่)" : "Person's name"} 
+                            value={manualDebtPerson} 
+                            onChange={e => setManualDebtPerson(e.target.value)} 
+                            style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} 
+                            required 
+                          />
+                        )}
+                        <input type="number" placeholder={lang === 'th' ? "จำนวนเงิน (บาท)" : "Amount (฿)"} value={manualAmount} onChange={e => setManualAmount(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} required />
+                        <input type="text" placeholder={manualEntryMode === 'debt' ? (lang === 'th' ? "บันทึก (ถ้ามี)" : "Note") : t.description} value={manualDesc} onChange={e => setManualDesc(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} />
+                        {(editingReminder || manualEntryMode === 'reminder') && (
                           <div>
                             <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
                               {lang === 'th' ? 'เวลาแจ้งเตือน (UTC+7)' : 'Reminder Time (UTC+7)'}
@@ -6853,17 +7703,72 @@ function HomeContent() {
                        color: 'white', fontSize: '1rem'
                     }}
                   />
+                  {/* Bank Suggestions */}
+                  {newAccountName.length > 0 && (
+                    <div style={{ 
+                      marginTop: '10px', 
+                      display: 'flex', 
+                      gap: '8px', 
+                      overflowX: 'auto',
+                      padding: '4px 0',
+                    }} className="no-scrollbar">
+                      {Object.values(BANK_DATA)
+                        .filter(bank => 
+                          bank.keywords.some(kw => kw.toLowerCase().includes(newAccountName.toLowerCase())) ||
+                          bank.name.toLowerCase().includes(newAccountName.toLowerCase())
+                        )
+                        .map(bank => (
+                          <motion.button
+                            initial={{ opacity: 0, x: 10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            key={bank.code}
+                            onClick={() => setNewAccountName(bank.name)}
+                            style={{
+                              flexShrink: 0,
+                              background: 'rgba(255,255,255,0.05)',
+                              border: `1px solid ${bank.color}40`,
+                              padding: '6px 10px',
+                              borderRadius: '10px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <div style={{ 
+                              width: '16px', height: '16px', borderRadius: '50%', background: 'white', 
+                              padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' 
+                            }}>
+                              <img src={bank.logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            </div>
+                            <span style={{ fontSize: '11px', color: 'white', fontWeight: 600 }}>{bank.name}</span>
+                          </motion.button>
+                        ))}
+                    </div>
+                  )}
+
                   {/* Preview detected bank */}
                   {newAccountName && (
-                     <div style={{ marginTop: '8px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                     <div style={{ marginTop: '12px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ color: '#94a3b8' }}>Detected:</span>
-                        <span style={{ 
-                           color: detectBank(newAccountName).color, 
-                           fontWeight: 'bold',
-                           background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' 
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '6px',
+                          background: 'rgba(255,255,255,0.05)',
+                          padding: '4px 8px',
+                          borderRadius: '8px',
+                          border: `1px solid ${detectBank(newAccountName).color}40`
                         }}>
-                           {detectBank(newAccountName).name}
-                        </span>
+                          {detectBank(newAccountName).logo && (
+                            <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'white', padding: '1px' }}>
+                              <img src={detectBank(newAccountName).logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                            </div>
+                          )}
+                          <span style={{ color: detectBank(newAccountName).color, fontWeight: '800' }}>
+                            {detectBank(newAccountName).name}
+                          </span>
+                        </div>
                      </div>
                   )}
                </div>
@@ -6984,6 +7889,126 @@ function HomeContent() {
               zIndex: 110500 // Just below the mic-button-container (111000)
             }}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showBankReport && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 140000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+              background: 'rgba(10, 15, 26, 0.8)',
+              backdropFilter: 'blur(12px)'
+            }}
+            onClick={() => setShowBankReport(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: '400px',
+                background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98))',
+                borderRadius: '32px',
+                border: `1px solid ${showBankReport.color}40`,
+                boxShadow: `0 20px 60px -12px ${showBankReport.color}20`,
+                overflow: 'hidden',
+                position: 'relative'
+              }}
+            >
+              <div style={{ padding: '24px', background: `${showBankReport.color}15`, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                  <div style={{ 
+                    width: '40px', height: '40px', borderRadius: '12px', 
+                    background: showBankReport.color, color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: `0 4px 12px ${showBankReport.color}40`
+                  }}>
+                    <TrendingUp size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'white' }}>
+                      {showBankReport.name}
+                    </h3>
+                    <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                      {lang === 'th' ? 'สรุปยอดใช้จ่าย' : 'Spending Summary'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: '4px' }}>
+                    {lang === 'th' ? 'วันนี้' : 'Today'}
+                  </span>
+                  <div style={{ fontSize: '24px', fontWeight: 900, color: '#ef4444' }}>
+                    ฿{showBankReport.spentToday.toLocaleString()}
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(255,255,255,0.03)', padding: '16px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', display: 'block', marginBottom: '4px' }}>
+                    {lang === 'th' ? 'เดือนนี้' : 'This Month'}
+                  </span>
+                  <div style={{ fontSize: '24px', fontWeight: 900, color: '#ef4444' }}>
+                    ฿{showBankReport.spentMonth.toLocaleString()}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
+                  <button 
+                    onClick={() => {
+                      setFilteredAccountId(showBankReport.id);
+                      setShowBankReport(null);
+                      const txnList = document.getElementById('transaction-list-top');
+                      if (txnList) txnList.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    style={{ 
+                      flex: 1, 
+                      padding: '14px', 
+                      borderRadius: '16px', 
+                      background: showBankReport.color, 
+                      color: 'white', 
+                      border: 'none', 
+                      fontWeight: 700,
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                      boxShadow: `0 8px 20px ${showBankReport.color}40`
+                    }}
+                  >
+                    {lang === 'th' ? 'ดูรายการทั้งหมด' : 'View Transactions'}
+                  </button>
+                  <button 
+                    onClick={() => setShowBankReport(null)}
+                    style={{ 
+                      padding: '14px 20px', 
+                      borderRadius: '16px', 
+                      background: 'rgba(255,255,255,0.05)', 
+                      color: 'rgba(255,255,255,0.6)', 
+                      border: 'none', 
+                      fontWeight: 600,
+                      fontSize: '14px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {lang === 'th' ? 'ปิด' : 'Close'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
 
