@@ -115,6 +115,9 @@ function HomeContent() {
   const [filteredTimeRange, setFilteredTimeRange] = useState("all"); // 1d, 2d, 7d, 1m, all, custom
   const [filteredCustomRange, setFilteredCustomRange] = useState({ start: '', end: '' });
   const [showBankReport, setShowBankReport] = useState(null); // { id, name, spentToday, spentMonth }
+  const [debtFilterTag, setDebtFilterTag] = useState("");
+  const [txnFilterTag, setTxnFilterTag] = useState("");
+  const [debtFilterTimeRange, setDebtFilterTimeRange] = useState("all"); // all, today, 7d, 30d
 
   const truncateText = (text, maxLength) => {
     if (!text || text.length <= maxLength) return text;
@@ -1927,7 +1930,10 @@ function HomeContent() {
         date: manualReminderDate ? new Date(manualReminderDate).toISOString() : editingReminder.date
       });
     } else if (manualEntryMode === 'debt') {
-      addDebt(data.amount, manualDebtPerson, manualDebtType, manualDesc);
+      const tagPart = scanTag ? `[${scanTag}]` : "";
+      const finalNote = tagPart ? (manualDesc ? `${tagPart} ${manualDesc}` : tagPart) : manualDesc;
+      addDebt(data.amount, manualDebtPerson, manualDebtType, finalNote);
+      setScanTag("");
     } else if (manualEntryMode === 'reminder') {
       addReminder(data.description, data.amount, manualReminderDate, data.wallet);
     } else {
@@ -4346,6 +4352,10 @@ function HomeContent() {
             t={t}
             showBankReport={showBankReport}
             setShowBankReport={setShowBankReport}
+            presetTags={presetTags}
+            filterTag={txnFilterTag}
+            setFilterTag={setTxnFilterTag}
+            getIconComponent={getIconComponent}
           />
         )}
 
@@ -4357,6 +4367,9 @@ function HomeContent() {
               .filter(t => {
                 const matchesAccount = !filteredAccountId || String(t.accountId) === String(filteredAccountId);
                 if (!matchesAccount) return false;
+
+                const matchesTag = !txnFilterTag || t.category === txnFilterTag;
+                if (!matchesTag) return false;
                 
                 if (filteredTimeRange === "all") return true;
                 const now = new Date();
@@ -4427,12 +4440,8 @@ function HomeContent() {
     ) : activeTab === 'debts' ? (
     <motion.div key="list-debts" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
       {(() => {
-        const activeLends = debts.filter(d => d.type === 'lend' && d.status !== 'paid');
-        const activeBorrows = debts.filter(d => d.type === 'borrow' && d.status !== 'paid');
-        const historyDebts = debts.filter(d => d.status === 'paid');
-        
-        const totalLend = activeLends.reduce((sum, d) => sum + d.amount, 0);
-        const totalBorrow = activeBorrows.reduce((sum, d) => sum + d.amount, 0);
+        const totalLend = debts.filter(d => d.type === 'lend' && d.status !== 'paid').reduce((sum, d) => sum + d.amount, 0);
+        const totalBorrow = debts.filter(d => d.type === 'borrow' && d.status !== 'paid').reduce((sum, d) => sum + d.amount, 0);
 
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -4443,14 +4452,14 @@ function HomeContent() {
                   {lang === 'th' ? 'คนอื่นค้างเรา' : 'Others Owe Me'}
                 </div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981' }}>฿{totalLend.toLocaleString()}</div>
-                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>{activeLends.length} {lang === 'th' ? 'รายการ' : 'items'}</div>
+                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>{debts.filter(d => d.type === 'lend' && d.status !== 'paid').length} {lang === 'th' ? 'รายการ' : 'items'}</div>
               </div>
               <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '16px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
                 <div style={{ fontSize: '12px', color: '#ef4444', marginBottom: '4px', fontWeight: 600 }}>
                   {lang === 'th' ? 'เราค้างเขา' : 'I Owe Others'}
                 </div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444' }}>฿{totalBorrow.toLocaleString()}</div>
-                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>{activeBorrows.length} {lang === 'th' ? 'รายการ' : 'items'}</div>
+                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>{debts.filter(d => d.type === 'borrow' && d.status !== 'paid').length} {lang === 'th' ? 'รายการ' : 'items'}</div>
               </div>
             </div>
 
@@ -4481,69 +4490,186 @@ function HomeContent() {
               {lang === 'th' ? 'เพิ่มรายการยืม/คืน' : 'Add Borrow/Lend'}
             </button>
 
+            {debts.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                     <Filter size={12} /> {lang === 'th' ? 'ตัวกรอง' : 'Filters'}
+                   </div>
+                   {(debtFilterTag || debtFilterTimeRange !== 'all') && (
+                     <button 
+                       onClick={() => { setDebtFilterTag(""); setDebtFilterTimeRange("all"); }}
+                       style={{ background: 'none', border: 'none', color: '#a855f7', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                     >
+                       {lang === 'th' ? 'ล้างทั้งหมด' : 'Clear All'}
+                     </button>
+                   )}
+                 </div>
+                 
+                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                   {/* Time Range Filter */}
+                   <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
+                     {['all', 'today', '7d', '30d'].map(range => (
+                       <button
+                         key={range}
+                         onClick={() => setDebtFilterTimeRange(range)}
+                         style={{
+                           flexShrink: 0,
+                           padding: '6px 14px',
+                           borderRadius: '12px',
+                           fontSize: '11px',
+                           fontWeight: 600,
+                           border: '1px solid',
+                           borderColor: debtFilterTimeRange === range ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                           background: debtFilterTimeRange === range ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)',
+                           color: debtFilterTimeRange === range ? 'white' : 'var(--text-muted)',
+                         }}
+                       >
+                         {range === 'all' ? (lang === 'th' ? 'ทั้งหมด' : 'All') :
+                          range === 'today' ? (lang === 'th' ? 'วันนี้' : 'Today') :
+                          range === '7d' ? (lang === 'th' ? '7 วันที่แล้ว' : '7 Days') :
+                          (lang === 'th' ? '30 วันที่แล้ว' : '30 Days')}
+                       </button>
+                     ))}
+                   </div>
+
+                   {/* Tag Filter */}
+                   {presetTags.length > 0 && (
+                     <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
+                       {presetTags.map(tag => (
+                         <button
+                           key={tag.name}
+                           onClick={() => setDebtFilterTag(debtFilterTag === tag.name ? "" : tag.name)}
+                           style={{
+                             flexShrink: 0,
+                             padding: '6px 14px',
+                             borderRadius: '20px',
+                             fontSize: '11px',
+                             fontWeight: 600,
+                             border: '1px solid',
+                             borderColor: debtFilterTag === tag.name ? tag.color : 'rgba(255,255,255,0.05)',
+                             background: debtFilterTag === tag.name ? `${tag.color}40` : 'rgba(255,255,255,0.05)',
+                             color: 'white',
+                             display: 'flex',
+                             alignItems: 'center',
+                             gap: '6px',
+                           }}
+                         >
+                           {getIconComponent(tag.icon, 12, debtFilterTag === tag.name ? 'white' : tag.color)}
+                           {tag.name}
+                         </button>
+                       ))}
+                     </div>
+                   )}
+                 </div>
+              </div>
+            )}
+
             {debts.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", background: 'rgba(255,255,255,0.02)', borderRadius: '24px' }}>
                 <ArrowRightLeft size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
                 <p>{t.no_debts}</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                
-                {/* Active Lends (People owe me) */}
-                {activeLends.length > 0 && (
-                  <div>
-                    <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <ArrowUpCircle size={14} color="#10b981" /> {lang === 'th' ? 'คนอื่นติดเงินเรา' : 'Who Owes Me'}
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {activeLends.map(debt => (
-                        <DebtItem key={debt._id || debt.id} debt={debt} onToggle={() => toggleDebtStatus(debt._id || debt.id)} onDelete={() => deleteDebt(debt._id || debt.id)} onEdit={() => openEditDebt(debt)} lang={lang} t={t} />
-                      ))}
-                    </div>
-                  </div>
-                )}
+              (() => {
+                const filteredDebts = debts.filter(d => {
+                  // Time filter
+                  if (debtFilterTimeRange !== 'all') {
+                    const now = new Date();
+                    const dDate = new Date(d.date);
+                    const diffTime = Math.max(0, now - dDate);
+                    const diffDays = diffTime / (1000 * 60 * 60 * 24);
+                    
+                    if (debtFilterTimeRange === 'today') {
+                      if (dDate.toDateString() !== now.toDateString()) return false;
+                    } else if (debtFilterTimeRange === '7d') {
+                      if (diffDays > 7) return false;
+                    } else if (debtFilterTimeRange === '30d') {
+                      if (diffDays > 30) return false;
+                    }
+                  }
+                  
+                  // Tag filter
+                  if (debtFilterTag) {
+                    const tagId = `[${debtFilterTag}]`;
+                    if (!d.note || !d.note.includes(tagId)) return false;
+                  }
+                  
+                  return true;
+                });
 
-                {/* Active Borrows (I owe others) */}
-                {activeBorrows.length > 0 && (
-                  <div>
-                    <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <ArrowDownCircle size={14} color="#ef4444" /> {lang === 'th' ? 'เราติดเงินคนอื่น' : 'Who I Owe'}
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {activeBorrows.map(debt => (
-                        <DebtItem key={debt._id || debt.id} debt={debt} onToggle={() => toggleDebtStatus(debt._id || debt.id)} onDelete={() => deleteDebt(debt._id || debt.id)} onEdit={() => openEditDebt(debt)} lang={lang} t={t} />
-                      ))}
-                    </div>
-                  </div>
-                )}
+                const activeLends = filteredDebts.filter(d => d.type === 'lend' && d.status !== 'paid');
+                const activeBorrows = filteredDebts.filter(d => d.type === 'borrow' && d.status !== 'paid');
+                const historyDebts = filteredDebts.filter(d => d.status === 'paid');
 
-                {/* History */}
-                {historyDebts.length > 0 && (
-                  <div>
-                    <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.7 }}>
-                      <History size={14} /> {lang === 'th' ? 'ประวัติ (เคลียร์แล้ว)' : 'History (Completed)'}
-                    </h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', opacity: 0.6 }}>
-                      {historyDebts.map(debt => (
-                         <DebtItem 
-                           key={debt._id || debt.id} 
-                           debt={debt} 
-                           lang={lang}
-                           t={t}
-                           presetTags={presetTags}
-                           onToggle={() => toggleDebtStatus(debt._id || debt.id)}
-                           onDelete={() => deleteDebt(debt._id || debt.id)}
-                           onEdit={() => openEditDebt(debt)}
-                         />
-                      ))}
+                if (filteredDebts.length === 0 && debts.length > 0) {
+                  return (
+                    <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", background: 'rgba(255,255,255,0.02)', borderRadius: '24px' }}>
+                      <Filter size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                      <p>{lang === 'th' ? 'ไม่พบรายการที่ตรงกับตัวกรองค่ะ' : 'No items match your filters.'}</p>
                     </div>
+                  );
+                }
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    
+                    {/* Active Lends (People owe me) */}
+                    {activeLends.length > 0 && (
+                      <div>
+                        <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <ArrowUpCircle size={14} color="#10b981" /> {lang === 'th' ? 'คนอื่นติดเงินเรา' : 'Who Owes Me'}
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {activeLends.map(debt => (
+                            <DebtItem key={debt._id || debt.id} debt={debt} onToggle={() => toggleDebtStatus(debt._id || debt.id)} onDelete={() => deleteDebt(debt._id || debt.id)} onEdit={() => openEditDebt(debt)} lang={lang} t={t} presetTags={presetTags} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Active Borrows (I owe others) */}
+                    {activeBorrows.length > 0 && (
+                      <div>
+                        <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <ArrowDownCircle size={14} color="#ef4444" /> {lang === 'th' ? 'เราติดเงินคนอื่น' : 'Who I Owe'}
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                          {activeBorrows.map(debt => (
+                            <DebtItem key={debt._id || debt.id} debt={debt} onToggle={() => toggleDebtStatus(debt._id || debt.id)} onDelete={() => deleteDebt(debt._id || debt.id)} onEdit={() => openEditDebt(debt)} lang={lang} t={t} presetTags={presetTags} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* History */}
+                    {historyDebts.length > 0 && (
+                      <div>
+                        <h3 style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', opacity: 0.7 }}>
+                          <History size={14} /> {lang === 'th' ? 'ประวัติ (เคลียร์แล้ว)' : 'History (Completed)'}
+                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', opacity: 0.6 }}>
+                          {historyDebts.map(debt => (
+                             <DebtItem 
+                               key={debt._id || debt.id} 
+                               debt={debt} 
+                               lang={lang}
+                               t={t}
+                               presetTags={presetTags}
+                               onToggle={() => toggleDebtStatus(debt._id || debt.id)}
+                               onDelete={() => deleteDebt(debt._id || debt.id)}
+                               onEdit={() => openEditDebt(debt)}
+                             />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })()}
+                );
+              })())}
+            </div>
+          );
+        })()}
     </motion.div>
     ) : (
       <motion.div key="list-reminders" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
@@ -4775,14 +4901,48 @@ function HomeContent() {
                           </div>
                         )}
                         {manualEntryMode === 'debt' && (
-                          <input 
-                            type="text" 
-                            placeholder={lang === 'th' ? "ชื่อคน (เช่น ส้ม, แม่)" : "Person's name"} 
-                            value={manualDebtPerson} 
-                            onChange={e => setManualDebtPerson(e.target.value)} 
-                            style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} 
-                            required 
-                          />
+                          <>
+                            <input 
+                              type="text" 
+                              placeholder={lang === 'th' ? "ชื่อคน (เช่น ส้ม, แม่)" : "Person's name"} 
+                              value={manualDebtPerson} 
+                              onChange={e => setManualDebtPerson(e.target.value)} 
+                              style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} 
+                              required 
+                            />
+                            {presetTags.length > 0 && (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                 <label style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{lang === 'th' ? 'แท็ก:' : 'TAG:'}</label>
+                                 <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
+                                   {presetTags.map(tag => (
+                                     <button
+                                       key={tag.name}
+                                       type="button"
+                                       onClick={() => setScanTag(scanTag === tag.name ? "" : tag.name)}
+                                       style={{
+                                         flexShrink: 0,
+                                         padding: '8px 14px',
+                                         borderRadius: '16px',
+                                         fontSize: '11px',
+                                         fontWeight: 700,
+                                         border: '1px solid',
+                                         borderColor: scanTag === tag.name ? tag.color : 'rgba(255,255,255,0.05)',
+                                         background: scanTag === tag.name ? `${tag.color}30` : 'rgba(255,255,255,0.05)',
+                                         color: 'white',
+                                         display: 'flex',
+                                         alignItems: 'center',
+                                         gap: '6px',
+                                         transition: 'all 0.2s'
+                                       }}
+                                     >
+                                       {getIconComponent(tag.icon, 12, scanTag === tag.name ? 'white' : tag.color)}
+                                       {tag.name}
+                                     </button>
+                                   ))}
+                                 </div>
+                              </div>
+                            )}
+                          </>
                         )}
                         <input type="number" placeholder={lang === 'th' ? "จำนวนเงิน (บาท)" : "Amount (฿)"} value={manualAmount} onChange={e => setManualAmount(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} required />
                         <input type="text" placeholder={manualEntryMode === 'debt' ? (lang === 'th' ? "บันทึก (ถ้ามี)" : "Note") : t.description} value={manualDesc} onChange={e => setManualDesc(e.target.value)} style={{ padding: '1rem', borderRadius: '12px', border: '1px solid var(--glass-border)', background: 'var(--glass)', color: 'white' }} />

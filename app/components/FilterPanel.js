@@ -12,7 +12,8 @@ export default function FilterPanel({
   filteredCustomRange, setFilteredCustomRange,
   accounts, transactions,
   lang, t,
-  showBankReport, setShowBankReport // Optional if needed
+  showBankReport, setShowBankReport, // Optional if needed
+  presetTags = [], filterTag = "", setFilterTag, getIconComponent
 }) {
   
   // Calculate Summary Data based on current filters
@@ -22,6 +23,9 @@ export default function FilterPanel({
 
     const matchesWallet = !filteredWalletType || t.wallet === filteredWalletType;
     if (!matchesWallet) return false;
+
+    const matchesTag = !filterTag || t.category === filterTag;
+    if (!matchesTag) return false;
     
     if (filteredTimeRange === "all") return true;
     const now = new Date();
@@ -74,11 +78,18 @@ export default function FilterPanel({
               ? `${lang === 'th' ? 'กำลังดู:' : 'Viewing:'} ${accounts.find(a => a.id === filteredAccountId)?.name || 'ธนาคาร'}`
               : filteredWalletType === 'cash'
                 ? `${lang === 'th' ? 'กำลังดู:' : 'Viewing:'} ${t.cash}`
-                : (lang === 'th' ? 'ตัวกรองรายการ' : 'Transaction Filter')}
+                : filterTag
+                  ? `${lang === 'th' ? 'แท็ก:' : 'Tag:'} ${filterTag}`
+                  : (lang === 'th' ? 'ตัวกรองรายการ' : 'Transaction Filter')}
           </span>
         </div>
         <button 
-          onClick={() => { setFilteredAccountId(null); setFilteredWalletType(null); setFilteredTimeRange("all"); }}
+          onClick={() => { 
+            setFilteredAccountId(null); 
+            setFilteredWalletType(null); 
+            setFilteredTimeRange("all"); 
+            setFilterTag && setFilterTag("");
+          }}
           style={{ 
             padding: '6px 12px', 
             borderRadius: '10px', 
@@ -230,6 +241,36 @@ export default function FilterPanel({
                 </button>
               );
             })}
+        </div>
+      )}
+
+      {/* Tag Chips */}
+      {presetTags && presetTags.length > 0 && (
+        <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
+          {presetTags.map(tag => (
+            <button
+              key={tag.name}
+              onClick={() => setFilterTag(filterTag === tag.name ? "" : tag.name)}
+              style={{
+                flexShrink: 0,
+                padding: '6px 14px',
+                borderRadius: '12px',
+                background: filterTag === tag.name ? `${tag.color}30` : 'rgba(255,255,255,0.05)',
+                border: '1px solid',
+                borderColor: filterTag === tag.name ? tag.color : 'rgba(255,255,255,0.1)',
+                color: 'white',
+                fontSize: '11px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.2s'
+              }}
+            >
+              {getIconComponent && getIconComponent(tag.icon, 12, filterTag === tag.name ? 'white' : tag.color)}
+              {tag.name}
+            </button>
+          ))}
         </div>
       )}
 
