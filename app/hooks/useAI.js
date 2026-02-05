@@ -141,7 +141,8 @@ export default function useAI({
         }
       }
 
-      if (requestSource === "ocr" && data.action !== "ADD_TRANSACTION") {
+      // Only force ADD_TRANSACTION if it's NOT already a debt action
+      if (requestSource === "ocr" && data.action !== "ADD_TRANSACTION" && data.action !== "BORROW" && data.action !== "LEND") {
         if (hasValidAmount) {
           data.action = "ADD_TRANSACTION";
           data.amount = normalizedAmount;
@@ -358,16 +359,49 @@ export default function useAI({
          setAiMessage(data.message || (lang === 'th' ? `ปรับยอดเงิน${wallet}เป็น ฿${amount.toLocaleString()}` : `Updated ${wallet} balance to ฿${amount.toLocaleString()}`));
       }
       else if (data.action === "BORROW" || data.action === "LEND") {
-        const { amount, person, type, wallet, note } = data;
+        const { amount, person, type, wallet, note, category } = data;
         const debtType = data.action === "BORROW" ? "borrow" : "lend";
-        const debtRes = await fetch('/api/debts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, person, type: debtType, note }) });
-        const newDebt = await debtRes.json();
-        setDebts(prev => [newDebt, ...prev]);
-        const txnType = debtType === "borrow" ? "income" : "expense";
-        const txnDesc = debtType === "borrow" ? (lang === 'th' ? `ยืมจาก ${person}` : `Borrowed from ${person}`) : (lang === 'th' ? `ให้ ${person} ยืม` : `Lent to ${person}`);
-        addTransaction(amount, txnType, txnDesc, "การเงิน", wallet || activeWallet, null, "ArrowRightLeft");
-        setAiMessage(data.message || (lang === 'th' ? `บันทึกรายการ${debtType === 'borrow' ? 'ยืม' : 'ให้ยืม'} ฿${amount} (${person}) แล้วค่ะ` : `Recorded ${debtType} of ฿${amount} (${person})`));
-        setActiveTab("debts");
+        
+        // Fallback for Person: Use Tag (category) if Person is missing, otherwise default
+        let finalPerson = person;
+        if (!finalPerson || finalPerson === 'name') {
+           if (category && category !== 'การเงิน' && category !== 'Other' && category !== 'Borrow' && category !== 'Lend' && category !== 'ยืม' && category !== 'ให้ยืม') {
+             finalPerson = category;
+           } else {
+             finalPerson = lang === 'th' ? 'ไม่ระบุ' : 'Unknown';
+           }
+        }
+
+        // If a tag/category is provided and distinct from person, append to note
+        // IMPORTANT: Always wrap tag in brackets [Tag] so DebtItem can parse it visually
+        const finalNote = category && category !== finalPerson && category !== 'การเงิน' && category !== 'Other'
+          ? (note ? `[${category}] ${note}` : `[${category}]`)
+          : note;
+
+        try {
+          const debtRes = await fetch('/api/debts', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ amount, person: finalPerson, type: debtType, note: finalNote }) 
+          });
+          
+          if (!debtRes.ok) throw new Error("Failed to save debt");
+          
+          const newDebt = await debtRes.json();
+          setDebts(prev => [newDebt, ...prev]);
+
+          const txnType = debtType === "borrow" ? "income" : "expense";
+          const txnDesc = debtType === "borrow" 
+            ? (lang === 'th' ? `ยืมจาก ${finalPerson}` : `Borrowed from ${finalPerson}`) 
+            : (lang === 'th' ? `ให้ ${finalPerson} ยืม` : `Lent to ${finalPerson}`);
+          
+          addTransaction(amount, txnType, txnDesc, category || "การเงิน", wallet || activeWallet, null, "ArrowRightLeft");
+          setAiMessage(data.message || (lang === 'th' ? `บันทึกรายการ${debtType === 'borrow' ? 'ยืม' : 'ให้ยืม'} ฿${amount} (${finalPerson}) แล้วค่ะ` : `Recorded ${debtType} of ฿${amount} (${finalPerson})`));
+          setActiveTab("debts");
+        } catch (err) {
+          console.error("Debt Error:", err);
+          setAiMessage(lang === 'th' ? "เกิดข้อผิดพลาดในการบันทึกหนี้สินค่ะ" : "Error saving debt record");
+        }
       }
       else if (data.action === "SHOW_SUMMARY") {
         setShowSummary(true);

@@ -59,7 +59,14 @@ import {
   PlusCircle,
   BellPlus,
   Plus,
-  Filter
+  Filter,
+  Tag,
+  Briefcase,
+  Users,
+  Heart,
+  Star,
+  Coffee,
+  Check
 } from "lucide-react";
 
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
@@ -564,7 +571,7 @@ function HomeContent() {
             
             if (ocrText && ocrText.trim()) {
               console.log(`✅ OCR Success for ${entry.name}`);
-              processOcrText(ocrText, imageUrl);
+              processOcrText(ocrText, imageUrl, { mode: 'normal' });
               newItemsCount++;
             }
           } catch (ocrErr) {
@@ -642,6 +649,38 @@ function HomeContent() {
   const [pendingInstallPrompt, setPendingInstallPrompt] = useState(false);
   const [pendingTutorialStart, setPendingTutorialStart] = useState(false);
   const [showScanOptions, setShowScanOptions] = useState(false);
+  const [scanMode, setScanMode] = useState("normal"); // normal, borrow, lend
+  const [scanTag, setScanTag] = useState("");
+  // Tag Presets State
+  const [presetTags, setPresetTags] = useState([]);
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagColor, setNewTagColor] = useState("#8b5cf6");
+  const [newTagIcon, setNewTagIcon] = useState("Tag");
+
+  // DEBUG: Track presetTags changes
+  useEffect(() => {
+    console.log(`[DEBUG] presetTags state changed: ${presetTags.length} items`, presetTags);
+  }, [presetTags]);
+
+  // Fallback: Load tags from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== "undefined" && session?.user?.email) {
+      const localKey = `preset_tags_${session.user.email.toLowerCase()}`;
+      try {
+        const localData = localStorage.getItem(localKey);
+        if (localData) {
+          const parsed = JSON.parse(localData);
+          if (Array.isArray(parsed) && parsed.length > 0 && presetTags.length === 0) {
+            console.log("[DEBUG] Loading tags from fallback localStorage", parsed);
+            setPresetTags(parsed);
+          }
+        }
+      } catch (err) {
+        console.error("Local storage error:", err);
+      }
+    }
+  }, [session]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -955,10 +994,10 @@ function HomeContent() {
 
   useEffect(() => {
     const loadInitialData = async () => {
-      if (session) {
+      if (session?.user?.email) {
         setIsLoading(true);
         try {
-          const res = await fetch('/api/data');
+          const res = await fetch('/api/data', { cache: 'no-store' });
           if (res.ok) {
             const data = await res.json();
             if (data.balance) setBalance(data.balance);
@@ -1025,6 +1064,46 @@ function HomeContent() {
                   body: JSON.stringify({ hasSeenFAQ: true })
                 }).catch(err => console.error('Failed to save hasSeenFAQ to DB:', err));
               }, 1500);
+            }
+            
+            // Intelligent Tag Loading (Self-Healing)
+            if (data.presetTags && Array.isArray(data.presetTags) && data.presetTags.length > 0) {
+                // Server has tags, trust the server
+                setPresetTags(data.presetTags);
+                console.log("Profile data loaded, presetTags:", data.presetTags);
+                
+                // Sync to local backup
+                if (typeof window !== "undefined" && session?.user?.email) {
+                  localStorage.setItem(`preset_tags_${session.user.email.toLowerCase()}`, JSON.stringify(data.presetTags));
+                }
+            } else {
+                // Server returned empty/null tags. Check if we have a local backup to restore.
+                if (typeof window !== "undefined" && session?.user?.email) {
+                    const localKey = `preset_tags_${session.user.email.toLowerCase()}`;
+                    const localData = localStorage.getItem(localKey);
+                    if (localData) {
+                        try {
+                            const parsed = JSON.parse(localData);
+                            if (Array.isArray(parsed) && parsed.length > 0) {
+                                console.log("Server missing tags, restoring from local backup:", parsed);
+                                setPresetTags(parsed);
+                                
+                                // Silent Self-Heal: Push backup back to server
+                                fetch('/api/data', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ presetTags: parsed })
+                                }).then(() => console.log("Self-healing: Synced backup tags to server"))
+                                  .catch(err => console.error("Self-healing failed:", err));
+                            } else {
+                                // Local is also empty, so truly empty
+                                setPresetTags([]);
+                            }
+                        } catch (e) {
+                             setPresetTags([]);
+                        }
+                    }
+                }
             }
             
             // Load onboarding tasks progress from DB
@@ -1901,12 +1980,32 @@ function HomeContent() {
 
     setIsProcessingImage(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    
+    // Reset scan mode after processing
+    if (useSmartAI) {
+       setScanMode('normal');
+       setScanTag('');
+    }
   };
 
-  const processOcrText = (text, imageUrl = null) => {
+  const processOcrText = (text, imageUrl = null, options = {}) => {
+    // Determine mode and tag: options override state (important for background scans)
+    const currentMode = options.mode || scanMode;
+    const currentTag = options.tag || scanTag;
+
     // AI AGENT MODE FOR IMAGES
     if (useSmartAI) {
-        const compactText = text.replace(/\s+/g, " ").trim();
+        let compactText = text.replace(/\s+/g, " ").trim();
+
+        // Inject Context if scan mode is active - WRAP content to ensure it's not missed
+        if (currentMode === 'borrow') {
+             compactText = `IMPORTANT: USER EXPLICITLY SELECTED [Action: BORROW]. \n\nContent: ${compactText} \n\n[Tag: ${currentTag || (lang === 'th' ? "ยืม" : "Borrow")}]`;
+        } else if (currentMode === 'lend') {
+             compactText = `IMPORTANT: USER EXPLICITLY SELECTED [Action: LEND]. \n\nContent: ${compactText} \n\n[Tag: ${currentTag || (lang === 'th' ? "ให้ยืม" : "Lend")}]`;
+        }
+        
+        console.log("Processing OCR with Context:", { mode: currentMode, tag: currentTag });
+
         processAICommand(
           lang === 'th' ? `ช่วยดูข้อมูลจากสลิป/ใบเสร็จนี้หน่อย: ${compactText}` : `Scan this receipt/slip text: ${compactText}`,
           null,
@@ -2269,6 +2368,105 @@ function HomeContent() {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString(lang === 'th' ? "th-TH" : "en-US", { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const handleSavePresetTag = async () => {
+    if (!newTagName.trim()) return;
+    
+    const newTag = { 
+        name: newTagName.trim(), 
+        color: newTagColor, 
+        icon: newTagIcon 
+    };
+
+    const updatedTags = [...presetTags, newTag];
+
+    // Provide immediate visual feedback and local backup
+    setPresetTags(updatedTags);
+    if (typeof window !== "undefined" && session?.user?.email) {
+      localStorage.setItem(`preset_tags_${session.user.email.toLowerCase()}`, JSON.stringify(updatedTags));
+    }
+    setNewTagName("");
+    setIsCreatingTag(false);
+    
+    try {
+        console.log("Saving preset tags to DB:", updatedTags);
+        const res = await fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ presetTags: updatedTags })
+        });
+        
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`Server responded with ${res.status}: ${errorText}`);
+        }
+
+        const data = await res.json();
+        console.log("Successfully saved tags, server returned:", data.presetTags);
+        
+        // Sync state with what server actually has (just in case of parallel updates)
+        if (data.presetTags) {
+            setPresetTags(data.presetTags);
+        }
+    } catch (err) {
+        console.error("Failed to save preset tag:", err);
+        // Revert UI state on failure
+        setPresetTags(presetTags); 
+        setShowToast({ 
+            show: true, 
+            title: lang === 'th' ? 'บันทึกไม่สำเร็จ' : 'Save Failed', 
+            message: lang === 'th' ? 'เกิดข้อผิดพลาดในการบันทึกแท็ก กรุณาลองใหม่ค่ะ' : 'Could not save tag. Please try again.', 
+            type: 'error' 
+        });
+    }
+  };
+
+  const handleDeletePresetTag = async (tagToDelete) => {
+    const updatedTags = presetTags.filter(t => t.name !== tagToDelete.name);
+    
+    // Immediate UI feedback and local backup
+    setPresetTags(updatedTags);
+    if (typeof window !== "undefined" && session?.user?.email) {
+      localStorage.setItem(`preset_tags_${session.user.email.toLowerCase()}`, JSON.stringify(updatedTags));
+    }
+    if (scanTag === tagToDelete.name) setScanTag("");
+    
+    try {
+        console.log("Deleting tag, new set:", updatedTags);
+        const res = await fetch('/api/data', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ presetTags: updatedTags })
+        });
+        
+        if (!res.ok) throw new Error("Delete failed on server");
+        
+        const data = await res.json();
+        if (data.presetTags) setPresetTags(data.presetTags);
+    } catch (err) {
+        console.error("Failed to delete preset tag:", err);
+        // Revert on error
+        setPresetTags(presetTags);
+    }
+  };
+
+  const getIconComponent = (iconName, size=16, color="white") => {
+      // Map string names to actual Lucide components
+      const iconMap = {
+          'Tag': Tag,
+          'Briefcase': Briefcase,
+          'Home': HomeIcon,
+          'Users': Users,
+          'Heart': Heart,
+          'Star': Star,
+          'Coffee': Coffee,
+          'Utensils': Utensils,
+          'ShoppingBag': ShoppingBag,
+          'Car': Car
+      };
+      const Icon = iconMap[iconName] || Tag;
+      return <Icon size={size} color={color} />;
   };
 
   if (status === "loading") {
@@ -3708,7 +3906,7 @@ function HomeContent() {
             gap: '8px'
           }}
         >
-          <History size={16} /> {t.today_transactions}
+          <History size={16} /> {lang === 'th' ? "รายการ" : "Transactions"}
         </button>
         <button 
           onClick={() => setActiveTab('debts')}
@@ -3764,7 +3962,7 @@ function HomeContent() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             {activeTab === 'transactions' ? <Calendar size={16} /> : (activeTab === 'debts' ? <ArrowRightLeft size={16} /> : <Bell size={16} />)}
             <span className="text-sm">
-              {activeTab === 'transactions' ? (lang === 'th' ? "วันนี้" : "Today") : (activeTab === 'debts' ? t.debts : t.reminders)}
+              {activeTab === 'transactions' ? (lang === 'th' ? "รายการล่าสุด" : "Recent") : (activeTab === 'debts' ? t.debts : t.reminders)}
             </span>
           </div>
           {activeTab === 'transactions' && (
@@ -4327,7 +4525,16 @@ function HomeContent() {
                     </h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', opacity: 0.6 }}>
                       {historyDebts.map(debt => (
-                         <DebtItem key={debt._id || debt.id} debt={debt} onToggle={() => toggleDebtStatus(debt._id || debt.id)} onDelete={() => deleteDebt(debt._id || debt.id)} onEdit={() => openEditDebt(debt)} lang={lang} t={t} />
+                         <DebtItem 
+                           key={debt._id || debt.id} 
+                           debt={debt} 
+                           lang={lang}
+                           t={t}
+                           presetTags={presetTags}
+                           onToggle={() => toggleDebtStatus(debt._id || debt.id)}
+                           onDelete={() => deleteDebt(debt._id || debt.id)}
+                           onEdit={() => openEditDebt(debt)}
+                         />
                       ))}
                     </div>
                   </div>
@@ -4842,56 +5049,235 @@ function HomeContent() {
             {showScanOptions && (
                 <motion.div 
                     initial={{ opacity: 0, y: 10, scale: 0.8 }}
-                    animate={{ opacity: 1, y: -70, scale: 1 }}
+                    animate={{ opacity: 1, y: -20, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.8 }}
                     style={{
                         position: 'absolute',
-                        bottom: '100%', // Position above the button
+                        bottom: '100%', 
                         left: '50%',
                         transform: 'translateX(-50%)',
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '12px',
                         zIndex: 100,
-                        paddingBottom: '12px',
-                        alignItems: 'center'
+                        padding: '16px',
+                        borderRadius: '24px',
+                        background: 'rgba(15, 23, 42, 0.95)',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                        backdropFilter: 'blur(20px)',
+                        marginBottom: '10px',
+                        boxShadow: '0 10px 40px -10px rgba(0,0,0,0.6)',
+                        width: '240px'
                     }}
                 >
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                         <span style={{ fontSize: '10px', background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', color: 'white', whiteSpace: 'nowrap' }}>{lang === 'th' ? 'ถ่ายภาพ' : 'Camera'}</span>
-                        <label
-                            htmlFor="scan-camera-input"
-                            onClick={(e) => {
-                                setShowScanOptions(false);
-                                if (!isMobile) {
-                                  e.preventDefault();
-                                  setShowWebcam(true);
-                                }
-                            }}
-                            style={{
-                                width: '48px', height: '48px', borderRadius: '50%',
-                                background: '#a855f7', border: '2px solid rgba(255,255,255,0.2)',
-                                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', cursor: 'pointer'
-                            }}
-                        >
-                            <Camera size={20} />
-                        </label>
+                    {/* Mode Selection */}
+                    <div style={{ display: 'flex', width: '100%', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '4px', gap: '4px' }}>
+                        {['normal', 'borrow', 'lend'].map(mode => (
+                            <button
+                                key={mode}
+                                onClick={() => { setScanMode(mode); if(mode==='normal') setScanTag(""); }}
+                                style={{
+                                    flex: 1,
+                                    border: 'none',
+                                    background: scanMode === mode ? (mode === 'normal' ? 'var(--primary)' : (mode === 'borrow' ? '#ef4444' : '#10b981')) : 'transparent',
+                                    color: scanMode === mode ? 'white' : 'var(--text-muted)',
+                                    borderRadius: '8px',
+                                    padding: '6px 0',
+                                    fontSize: '10px',
+                                    fontWeight: 600,
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                {mode === 'normal' ? (lang === 'th' ? 'ปกติ' : 'Normal') : (mode === 'borrow' ? (lang === 'th' ? 'ยืม' : 'Borrow') : (lang === 'th' ? 'ให้ยืม' : 'Lend'))}
+                            </button>
+                        ))}
                     </div>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '10px', background: 'rgba(0,0,0,0.8)', padding: '2px 6px', borderRadius: '4px', color: 'white', whiteSpace: 'nowrap' }}>{lang === 'th' ? 'อัลบั้ม' : 'Gallery'}</span>
-                        <label
-                            htmlFor="scan-file-input"
-                            onClick={() => setShowScanOptions(false)}
-                            style={{
-                                width: '48px', height: '48px', borderRadius: '50%',
-                                background: 'var(--glass)', border: '1px solid var(--glass-border)',
-                                color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.3)', backdropFilter: 'blur(10px)', cursor: 'pointer'
-                            }}
-                        >
-                            <Image size={20} />
-                        </label>
+
+                    {/* Tag Presets & Selection */}
+                    {(scanMode !== 'normal') && (
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                           {!isCreatingTag ? (
+                             <>
+                               {/* Preset List */}
+                               <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
+                                  {presetTags.map((tag, idx) => (
+                                    <motion.button
+                                      key={idx}
+                                      whileTap={{ scale: 0.9 }}
+                                      onClick={() => setScanTag(tag.name)}
+                                      style={{
+                                        flexShrink: 0,
+                                        background: scanTag === tag.name ? tag.color : 'rgba(255,255,255,0.05)',
+                                        border: `1px solid ${tag.color}`,
+                                        borderRadius: '20px',
+                                        padding: '6px 12px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        cursor: 'pointer',
+                                        position: 'relative'
+                                      }}
+                                    >
+                                      {getIconComponent(tag.icon, 14, scanTag === tag.name ? 'white' : tag.color)}
+                                      <span style={{ fontSize: '11px', color: 'white', fontWeight: 600 }}>{tag.name}</span>
+                                      {/* Small Delete X for long press or hover? simpler to just require long press logic later, for now just rendering */}
+                                    </motion.button>
+                                  ))}
+                                  
+                                  {/* Add New Button */}
+                                  <motion.button
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => { setIsCreatingTag(true); setNewTagName(""); }}
+                                    style={{
+                                      flexShrink: 0,
+                                      background: 'rgba(255,255,255,0.1)',
+                                      borderRadius: '50%',
+                                      width: '32px', height: '32px',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      border: '1px dashed rgba(255,255,255,0.3)',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    <Plus size={16} color="white" />
+                                  </motion.button>
+                               </div>
+                               
+                               {/* Fallback Manual Input (if user doesn't want to save preset) */}
+                               <div style={{ position: 'relative' }}>
+                                 <input 
+                                     type="text" 
+                                     value={scanTag}
+                                     onChange={(e) => setScanTag(e.target.value)}
+                                     placeholder={lang === 'th' ? "หรือพิมพ์ชื่อแท็ก..." : "Or type tag name..."}
+                                     style={{
+                                         width: '100%',
+                                         background: 'rgba(0,0,0,0.3)',
+                                         border: '1px solid rgba(255,255,255,0.1)',
+                                         color: 'white',
+                                         padding: '8px 12px',
+                                         borderRadius: '12px',
+                                         fontSize: '12px'
+                                     }}
+                                 />
+                                 {scanTag && presetTags.find(t => t.name === scanTag) && (
+                                    <button 
+                                      onClick={() => handleDeletePresetTag(presetTags.find(t => t.name === scanTag))}
+                                      style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#ef4444', fontSize: '10px' }}
+                                    >
+                                      {lang === 'th' ? 'ลบแท็ก' : 'Delete'}
+                                    </button>
+                                 )}
+                               </div>
+                             </>
+                           ) : (
+                             /* Create New Tag Mode */
+                             <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '16px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{lang === 'th' ? 'สร้างแท็กใหม่' : 'Create New Tag'}</span>
+                                  <button onClick={() => setIsCreatingTag(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}><X size={14} /></button>
+                                </div>
+                                
+                                {/* Name Input */}
+                                <input 
+                                  autoFocus
+                                  value={newTagName}
+                                  onChange={(e) => setNewTagName(e.target.value)}
+                                  placeholder={lang === 'th' ? "ชื่อแท็ก (เช่น ที่ทำงาน)" : "Tag Name (e.g. Work)"}
+                                  style={{
+                                    width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                    borderRadius: '8px', padding: '8px', color: 'white', fontSize: '12px'
+                                  }}
+                                />
+                                
+                                {/* Color Picker */}
+                                <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                  {['#ef4444', '#f97316', '#84cc16', '#06b6d4', '#8b5cf6', '#ec4899'].map(c => (
+                                    <div 
+                                      key={c}
+                                      onClick={() => setNewTagColor(c)}
+                                      style={{ 
+                                        width: '20px', height: '20px', borderRadius: '50%', background: c,
+                                        border: newTagColor === c ? '2px solid white' : 'none', cursor: 'pointer'
+                                      }} 
+                                    />
+                                  ))}
+                                </div>
+                                
+                                {/* Icon Picker */}
+                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
+                                  {['Tag', 'Briefcase', 'Home', 'Users', 'Heart', 'Star', 'Coffee', 'Car'].map(icon => (
+                                    <div 
+                                      key={icon}
+                                      onClick={() => setNewTagIcon(icon)}
+                                      style={{ 
+                                        padding: '6px', borderRadius: '8px', 
+                                        background: newTagIcon === icon ? 'rgba(255,255,255,0.2)' : 'transparent',
+                                        cursor: 'pointer'
+                                      }}
+                                    >
+                                      {getIconComponent(icon, 16, newTagColor)}
+                                    </div>
+                                  ))}
+                                </div>
+                                
+                                <button
+                                  onClick={handleSavePresetTag}
+                                  disabled={!newTagName}
+                                  style={{
+                                    width: '100%', background: newTagName ? newTagColor : 'rgba(255,255,255,0.1)',
+                                    color: newTagName ? 'white' : 'rgba(255,255,255,0.3)',
+                                    border: 'none', borderRadius: '8px', padding: '8px', fontSize: '12px', fontWeight: 600
+                                  }}
+                                >
+                                  {lang === 'th' ? 'บันทึก' : 'Save'}
+                                </button>
+                             </div>
+                           )}
+                        </div>
+                    )}
+                    
+                    <div style={{ display: 'flex', justifyContent: 'space-around', width: '100%', paddingTop: '4px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                            <label
+                                htmlFor="scan-camera-input"
+                                onClick={(e) => {
+                                    setShowScanOptions(false);
+                                    if (!isMobile) {
+                                      e.preventDefault();
+                                      setShowWebcam(true);
+                                    }
+                                }}
+                                style={{
+                                    width: '48px', height: '48px', borderRadius: '50%',
+                                    background: 'linear-gradient(135deg, #a855f7, #9333ea)', 
+                                    border: 'none',
+                                    color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: '0 4px 12px rgba(168, 85, 247, 0.4)', cursor: 'pointer',
+                                    transition: 'transform 0.2s'
+                                }}
+                            >
+                                <Camera size={22} />
+                            </label>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{lang === 'th' ? 'กล้อง' : 'Camera'}</span>
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                            <label
+                                htmlFor="scan-file-input"
+                                onClick={() => setShowScanOptions(false)}
+                                style={{
+                                    width: '48px', height: '48px', borderRadius: '50%',
+                                    background: 'rgba(255,255,255,0.1)', 
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)', backdropFilter: 'blur(10px)', cursor: 'pointer',
+                                    transition: 'transform 0.2s'
+                                }}
+                            >
+                                <Image size={22} />
+                            </label>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{lang === 'th' ? 'อัลบั้ม' : 'Gallery'}</span>
+                        </div>
                     </div>
                 </motion.div>
             )}

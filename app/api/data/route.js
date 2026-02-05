@@ -15,7 +15,7 @@ export async function GET() {
     }
 
     await dbConnect();
-    const userId = session.user.email;
+    const userId = session.user.email.toLowerCase();
 
     // Get Profile (Balance/Budget)
     let profile = await UserProfile.findOne({ userId });
@@ -45,7 +45,6 @@ export async function GET() {
       balance: profile.balance,
       accounts: profile.accounts || [],
       budget: profile.budget,
-      budget: profile.budget,
       monthlyBudget: profile.monthlyBudget,
       defaultWallet: profile.defaultWallet,
       activeBankAccountId: profile.activeBankAccountId,
@@ -60,6 +59,7 @@ export async function GET() {
       hasSeenFAQ: profile.hasSeenFAQ,
       onboardingTasks: profile.onboardingTasks,
       lastAutoScan: profile.lastAutoScan,
+      presetTags: profile.presetTags || [],
       groqKeys: systemSetting.groqKeys,
       transactions: transactions,
       debts: debts
@@ -79,9 +79,9 @@ export async function POST(request) {
     }
 
     await dbConnect();
-    const userId = session.user.email;
+    const userId = session.user.email.toLowerCase();
     const body = await request.json();
-    const { budget, balance, accounts, monthlyBudget, defaultWallet, activeBankAccountId, nickname, groqKeys, preventDelete, clearAll, language, ocrProvider, aiModel, onboardingCompleted, tutorialCompleted, useSmartAI, hasSeenFAQ, onboardingTasks, lastAutoScan } = body;
+    const { budget, balance, accounts, monthlyBudget, defaultWallet, activeBankAccountId, nickname, groqKeys, preventDelete, clearAll, language, ocrProvider, aiModel, onboardingCompleted, tutorialCompleted, useSmartAI, hasSeenFAQ, onboardingTasks, lastAutoScan, presetTags } = body;
 
     // 0. Handle Clear All Data
     if (clearAll) {
@@ -109,12 +109,20 @@ export async function POST(request) {
     if (hasSeenFAQ !== undefined) updateData.hasSeenFAQ = hasSeenFAQ;
     if (onboardingTasks !== undefined) updateData.onboardingTasks = onboardingTasks;
     if (lastAutoScan !== undefined) updateData.lastAutoScan = lastAutoScan;
+    if (presetTags !== undefined) {
+      updateData.presetTags = presetTags;
+      console.log(`[API POST] Saving ${presetTags.length} tags for ${userId}`);
+    }
 
     const profile = await UserProfile.findOneAndUpdate(
       { userId },
       { $set: updateData },
-      { new: true, upsert: true }
+      { new: true, upsert: true, runValidators: true }
     );
+
+    if (presetTags !== undefined) {
+        console.log(`[API POST] Saved profile, now has ${profile.presetTags?.length} tags`);
+    }
 
     // 2. Update System Keys if provided
     if (groqKeys !== undefined) {
@@ -125,8 +133,14 @@ export async function POST(request) {
       );
     }
 
-    return NextResponse.json({ ...profile._doc, groqKeys });
+    return NextResponse.json({ 
+        ...profile._doc, 
+        groqKeys,
+        success: true,
+        savedPresetTags: profile.presetTags // Explicitly return this for debugging
+    });
   } catch (error) {
+    console.error("[API POST Error]:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

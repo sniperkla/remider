@@ -101,10 +101,27 @@ export default function TransactionItem({
                 whiteSpace: expandedTransactionId === (txn._id || txn.id) ? 'normal' : 'nowrap',
                 overflow: 'hidden',
                 textOverflow: expandedTransactionId === (txn._id || txn.id) ? 'clip' : 'ellipsis',
-                wordBreak: expandedTransactionId === (txn._id || txn.id) ? 'break-word' : 'normal'
+                wordBreak: expandedTransactionId === (txn._id || txn.id) ? 'break-word' : 'normal',
+                display: 'flex', alignItems: 'center', gap: '4px'
               }}
             >
-              {txn.description}
+              {(() => {
+                 const desc = txn.description;
+                 const tagMatch = desc.match(/^\[(.*?)\]/);
+                 if (tagMatch) {
+                    const tagName = tagMatch[1];
+                    const cleanDesc = desc.replace(tagMatch[0], '').trim() || tagName;
+                    // Try to find color from category or preset (passed in props? we assume global constant or generic)
+                    // Since we don't have presetTags here easily without prop drilling, we use a generic style
+                    return (
+                        <>
+                           <span style={{ fontSize: '10px', background: '#64748b30', color: '#cbd5e1', padding: '1px 4px', borderRadius: '4px', border: '1px solid #64748b50' }}>{tagName}</span>
+                           <span>{cleanDesc}</span>
+                        </>
+                    );
+                 }
+                 return desc;
+              })()}
             </button>
             {txn.description.length > 35 && expandedTransactionId !== (txn._id || txn.id) && (
               <span style={{ fontSize: '12px', color: 'var(--accent-blue)', flexShrink: 0 }}>▶</span>

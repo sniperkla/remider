@@ -138,7 +138,13 @@ ACTIONS (return JSON only):
 
 2. TRANSFER - Between accounts (when TWO banks mentioned!)
 {"action":"TRANSFER","amount":1000,"from_wallet":"bank","to_wallet":"bank","from_bank":"TrueMoney","to_bank":"SCB","fromBankAccountId":"<from_ID>","toBankAccountId":"<to_ID>","icon":"ArrowRightLeft","thought":"...","message":"..."}
+{"action":"TRANSFER","amount":1000,"from_wallet":"bank","to_wallet":"bank","from_bank":"TrueMoney","to_bank":"SCB","fromBankAccountId":"<from_ID>","toBankAccountId":"<to_ID>","icon":"ArrowRightLeft","thought":"...","message":"..."}
 CRITICAL: "โอนจาก X เข้า Y", "โอนเงินกับ X เข้า Y" = TRANSFER, not ADD_TRANSACTION!
+
+Rules for Overrides:
+- If text starts with "[Action: BORROW]", Output MUST be "BORROW".
+- If text starts with "[Action: LEND]", Output MUST be "LEND".
+- Ignore receipt content implying otherwise (e.g. "Total" or "Purchase") if Action is explicit.
 
 3. SWITCH_PRIMARY - Change primary wallet
 {"action":"SWITCH_PRIMARY","wallet":"cash"|"bank","bankAccountId":"<ID>","thought":"...","message":"..."}
@@ -154,7 +160,7 @@ Triggers: "เปลี่ยน", "ใช้", "switch to"
 - LEND (they owe you): "[Name] ยืมเงิน", "ให้ [Name] ยืม", "[Name] ติดเงินเรา", "คนอื่นติดเงินเรา", "เราให้ [Name] ยืม"
 - BORROW (you owe them): "ยืมเงิน [Name]", "ไปยืม [Name]", "เราติดเงิน [Name]", "ยืม [Name] มา"
 CRITICAL: "ติดเงินเรา" always means LEND. "ยืมเงิน [Name]" usually means BORROW from them.
-{"action":"BORROW"|"LEND","person":"name","amount":100,"thought":"...","message":"..."}
+{"action":"BORROW"|"LEND","person":"name","amount":100,"category":"tag_name","thought":"...","message":"..."}
 
 7. SHOW_SUMMARY
 {"action":"SHOW_SUMMARY","period":"today"|"week"|"month","thought":"...","message":"..."}
@@ -195,8 +201,9 @@ RULES:
 - Icons: Utensils,Coffee,Car,Fuel,ShoppingBag,Gamepad2,Home,HeartPulse,CreditCard,Wallet,ArrowRightLeft,DollarSign
 - Keep description in user's spoken language
 - For OCR: find "รวมเงิน/TOTAL", verify with CASH-CHANGE if available
-- Return ONLY valid JSON, no markdown
-- Message should ALWAYS be in the language: ${lang === 'th' ? 'Thai' : 'English'}`;
+- Return ONLY valid JSON, no markdown. ALL property names MUST be double-quoted (e.g. "action", not action).
+- Message should ALWAYS be in the language: ${lang === 'th' ? 'Thai' : 'English'}
+- EXPLICIT OVERRIDES: If text has "[Action: X]", force action X. If "[Tag: Y]", use Y as 'category'.`;
 
     // 3. Inference
     const completion = await groqClient.createCompletion({
@@ -220,7 +227,21 @@ RULES:
       jsonStr = jsonMatch[0];
     }
     
-    const actionData = JSON.parse(jsonStr);
+    const actionData = (() => {
+      try {
+        return JSON.parse(jsonStr);
+      } catch (parseError) {
+        console.warn("Initial JSON parse failed, attempting repair:", jsonStr);
+        // Attempt to fix unquoted keys (common AI error: { action: "..." } -> { "action": "..." })
+        const repaired = jsonStr.replace(/([{,]\s*)([a-zA-Z0-9_]+?)\s*:/g, '$1"$2":');
+        try {
+          return JSON.parse(repaired);
+        } catch (repairError) {
+          console.error("JSON Repair failed:", repaired);
+          throw parseError; // Throw original error to be caught by outer block
+        }
+      }
+    })();
 
     return NextResponse.json(actionData);
 

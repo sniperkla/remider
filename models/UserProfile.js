@@ -87,6 +87,14 @@ const UserProfileSchema = new mongoose.Schema({
   lastAutoScan: {
     type: Number,
     default: 0
+  },
+  presetTags: {
+    type: [{
+      name: { type: String, required: true },
+      color: { type: String, default: '#6366f1' },
+      icon: { type: String, default: 'Tag' }
+    }],
+    default: []
   }
 }, { timestamps: true });
 
