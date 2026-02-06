@@ -420,6 +420,114 @@ function HomeContent() {
        console.error("Failed to add reminder");
     }
   };
+  const addDebt = async (amount, person, type, note = "", wallet = null, bankAccountId = null) => {
+    try {
+      // 1. Auto-add transaction first to get ID
+      const txnType = type === "borrow" ? "income" : "expense";
+      const txnDesc = type === "borrow" 
+        ? (lang === 'th' ? `ยืมจาก ${person}` : `Borrowed from ${person}`)
+        : (lang === 'th' ? `ให้ ${person} ยืม` : `Lent to ${person}`);
+      
+      const finalWallet = wallet || activeWallet;
+      const txn = await addTransaction(amount, txnType, txnDesc, "การเงิน", finalWallet, null, "ArrowRightLeft", false, null, false, bankAccountId);
+      const transactionIds = txn ? [txn._id || txn.id] : [];
+
+      // 2. Add debt with linked transaction
+      const res = await fetch('/api/debts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, person, type, note, transactionIds, wallet: finalWallet, bankAccountId })
+      });
+      const data = await res.json();
+      setDebts(prev => [data, ...prev]);
+    } catch (error) {
+      console.error("Failed to add debt");
+    }
+  };
+
+  const toggleDebtStatus = async (id) => {
+    const debt = debts.find(d => (d._id || d.id) === id);
+    if (!debt) return;
+    const newStatus = debt.status === 'active' ? 'paid' : 'active';
+    
+    let updatedIds = [...(debt.transactionIds || [])];
+    
+    if (newStatus === 'paid') {
+      const txnType = debt.type === 'borrow' ? 'expense' : 'income';
+      const txnDesc = debt.type === 'borrow'
+        ? (lang === 'th' ? `คืน ${debt.person}` : `Paid back to ${debt.person}`)
+        : (lang === 'th' ? `รับคืนจาก ${debt.person}` : `Received back from ${debt.person}`);
+      const txn = await addTransaction(debt.amount, txnType, txnDesc, 'การเงิน', debt.wallet || activeWallet, null, 'ArrowRightLeft', false, null, false, null, id);
+      if (txn) updatedIds.push(txn._id || txn.id);
+    } else if (newStatus === 'active') {
+      // Try to remove the last payment transaction instead of adding an "Undo"
+      const lastTxnId = updatedIds.length > 1 ? updatedIds.pop() : null;
+      if (lastTxnId) {
+        await deleteTransactionApi(lastTxnId);
+      } else {
+        // Fallback: If only original txn exists or legacy, add a reversal
+        const txnType = debt.type === 'borrow' ? 'income' : 'expense';
+        const txnDesc = debt.type === 'borrow'
+          ? (lang === 'th' ? `ยกเลิกคืน ${debt.person}` : `Undo paid back to ${debt.person}`)
+          : (lang === 'th' ? `ยกเลิกรับคืนจาก ${debt.person}` : `Undo received back from ${debt.person}`);
+        const txn = await addTransaction(debt.amount, txnType, txnDesc, 'การเงิน', debt.wallet || activeWallet, null, 'ArrowRightLeft', false, null, false, null, id);
+        if (txn) updatedIds.push(txn._id || txn.id);
+      }
+    }
+
+    // Optimistic update
+    setDebts(prev => prev.map(d => (d._id || d.id) === id ? { ...d, status: newStatus, transactionIds: updatedIds } : d));
+    
+    try {
+      await fetch(`/api/debts?id=${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus, transactionIds: updatedIds })
+      });
+    } catch (error) {
+      console.warn("Failed to update debt status");
+    }
+  };
+
+  const deleteDebt = async (id) => {
+    const debt = debts.find(d => (d._id || d.id) === id);
+    if (!debt) return;
+
+    // 1. Delete all associated transactions
+    if (debt.transactionIds && debt.transactionIds.length > 0) {
+      for (const txnId of debt.transactionIds) {
+        await deleteTransactionApi(txnId);
+      }
+    } 
+    
+    // Always run heuristic search as fallback/safety to ensure clean state
+    const loanDesc = debt.type === "borrow" 
+      ? (lang === 'th' ? `ยืมจาก ${debt.person}` : `Borrowed from ${debt.person}`)
+      : (lang === 'th' ? `ให้ ${debt.person} ยืม` : `Lent to ${debt.person}`);
+    
+    const payDesc = debt.type === "borrow"
+      ? (lang === 'th' ? `คืน ${debt.person}` : `Paid back to ${debt.person}`)
+      : (lang === 'th' ? `รับคืนจาก ${debt.person}` : `Received back from ${debt.person}`);
+
+    const relatedTxns = transactions.filter(t => 
+      (t.debtId === (debt._id || debt.id)) ||
+      (t.amount === debt.amount && (t.description === loanDesc || t.description === payDesc || t.description.includes(debt.person)))
+    );
+    
+    for (const txn of relatedTxns) {
+      // Avoid double deleting if already handled by transactionIds
+      if (!debt.transactionIds?.includes(txn._id || txn.id)) {
+        await deleteTransactionApi(txn._id || txn.id);
+      }
+    }
+
+    setDebts(prev => prev.filter(d => (d._id || d.id) !== id));
+    try {
+      await fetch(`/api/debts?id=${id}`, { method: 'DELETE' });
+    } catch (error) {
+      console.warn("Failed to delete debt");
+    }
+  };
 
   const { processAICommand, isAILoading } = useAI({
     session, lang, t, nickname,
@@ -2101,114 +2209,6 @@ function HomeContent() {
     await deleteTransactionApi(id);
   };
 
-  const addDebt = async (amount, person, type, note = "", wallet = null, bankAccountId = null) => {
-    try {
-      // 1. Auto-add transaction first to get ID
-      const txnType = type === "borrow" ? "income" : "expense";
-      const txnDesc = type === "borrow" 
-        ? (lang === 'th' ? `ยืมจาก ${person}` : `Borrowed from ${person}`)
-        : (lang === 'th' ? `ให้ ${person} ยืม` : `Lent to ${person}`);
-      
-      const finalWallet = wallet || activeWallet;
-      const txn = await addTransaction(amount, txnType, txnDesc, "การเงิน", finalWallet, null, "ArrowRightLeft", false, null, false, bankAccountId);
-      const transactionIds = txn ? [txn._id || txn.id] : [];
-
-      // 2. Add debt with linked transaction
-      const res = await fetch('/api/debts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, person, type, note, transactionIds, wallet: finalWallet, bankAccountId })
-      });
-      const data = await res.json();
-      setDebts(prev => [data, ...prev]);
-    } catch (error) {
-      console.error("Failed to add debt");
-    }
-  };
-
-  const toggleDebtStatus = async (id) => {
-    const debt = debts.find(d => (d._id || d.id) === id);
-    if (!debt) return;
-    const newStatus = debt.status === 'active' ? 'paid' : 'active';
-    
-    let updatedIds = [...(debt.transactionIds || [])];
-    
-    if (newStatus === 'paid') {
-      const txnType = debt.type === 'borrow' ? 'expense' : 'income';
-      const txnDesc = debt.type === 'borrow'
-        ? (lang === 'th' ? `คืน ${debt.person}` : `Paid back to ${debt.person}`)
-        : (lang === 'th' ? `รับคืนจาก ${debt.person}` : `Received back from ${debt.person}`);
-      const txn = await addTransaction(debt.amount, txnType, txnDesc, 'การเงิน', debt.wallet || activeWallet, null, 'ArrowRightLeft', false, null, false, null, id);
-      if (txn) updatedIds.push(txn._id || txn.id);
-    } else if (newStatus === 'active') {
-      // Try to remove the last payment transaction instead of adding an "Undo"
-      const lastTxnId = updatedIds.length > 1 ? updatedIds.pop() : null;
-      if (lastTxnId) {
-        await deleteTransactionApi(lastTxnId);
-      } else {
-        // Fallback: If only original txn exists or legacy, add a reversal
-        const txnType = debt.type === 'borrow' ? 'income' : 'expense';
-        const txnDesc = debt.type === 'borrow'
-          ? (lang === 'th' ? `ยกเลิกคืน ${debt.person}` : `Undo paid back to ${debt.person}`)
-          : (lang === 'th' ? `ยกเลิกรับคืนจาก ${debt.person}` : `Undo received back from ${debt.person}`);
-        const txn = await addTransaction(debt.amount, txnType, txnDesc, 'การเงิน', debt.wallet || activeWallet, null, 'ArrowRightLeft', false, null, false, null, id);
-        if (txn) updatedIds.push(txn._id || txn.id);
-      }
-    }
-
-    // Optimistic update
-    setDebts(prev => prev.map(d => (d._id || d.id) === id ? { ...d, status: newStatus, transactionIds: updatedIds } : d));
-    
-    try {
-      await fetch(`/api/debts?id=${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus, transactionIds: updatedIds })
-      });
-    } catch (error) {
-      console.warn("Failed to update debt status");
-    }
-  };
-
-  const deleteDebt = async (id) => {
-    const debt = debts.find(d => (d._id || d.id) === id);
-    if (!debt) return;
-
-    // 1. Delete all associated transactions
-    if (debt.transactionIds && debt.transactionIds.length > 0) {
-      for (const txnId of debt.transactionIds) {
-        await deleteTransactionApi(txnId);
-      }
-    } 
-    
-    // Always run heuristic search as fallback/safety to ensure clean state
-    const loanDesc = debt.type === "borrow" 
-      ? (lang === 'th' ? `ยืมจาก ${debt.person}` : `Borrowed from ${debt.person}`)
-      : (lang === 'th' ? `ให้ ${debt.person} ยืม` : `Lent to ${debt.person}`);
-    
-    const payDesc = debt.type === "borrow"
-      ? (lang === 'th' ? `คืน ${debt.person}` : `Paid back to ${debt.person}`)
-      : (lang === 'th' ? `รับคืนจาก ${debt.person}` : `Received back from ${debt.person}`);
-
-    const relatedTxns = transactions.filter(t => 
-      (t.debtId === (debt._id || debt.id)) ||
-      (t.amount === debt.amount && (t.description === loanDesc || t.description === payDesc || t.description.includes(debt.person)))
-    );
-    
-    for (const txn of relatedTxns) {
-      // Avoid double deleting if already handled by transactionIds
-      if (!debt.transactionIds?.includes(txn._id || txn.id)) {
-        await deleteTransactionApi(txn._id || txn.id);
-      }
-    }
-
-    setDebts(prev => prev.filter(d => (d._id || d.id) !== id));
-    try {
-      await fetch(`/api/debts?id=${id}`, { method: 'DELETE' });
-    } catch (error) {
-      console.warn("Failed to delete debt");
-    }
-  };
 
   const openEditDebt = (debt) => {
     setEditingDebt(debt);

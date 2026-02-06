@@ -395,17 +395,29 @@ export default function FilterPanel({
         boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
       }}>
         <div style={{ textAlign: 'center', flex: 1 }}>
-          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{t.income}</div>
+          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+            {filterTag && (filterTag.includes('ยืม') || filterTag.includes('คืน') || filterTag.toLowerCase().includes('borrow') || filterTag.toLowerCase().includes('lend')) 
+              ? (lang === 'th' ? 'ได้รับ/รับคืน' : 'Received') 
+              : t.income}
+          </div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#10b981' }}>฿{totalIncome.toLocaleString()}</div>
         </div>
         <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 8px' }}></div>
         <div style={{ textAlign: 'center', flex: 1 }}>
-          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{t.expense}</div>
+          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+            {filterTag && (filterTag.includes('ยืม') || filterTag.includes('คืน') || filterTag.toLowerCase().includes('borrow') || filterTag.toLowerCase().includes('lend'))
+              ? (lang === 'th' ? 'ให้ไป/จ่ายคืน' : 'Given/Paid') 
+              : t.expense}
+          </div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: '#ef4444' }}>฿{totalExpense.toLocaleString()}</div>
         </div>
         <div style={{ width: '1px', background: 'rgba(255,255,255,0.08)', margin: '0 8px' }}></div>
         <div style={{ textAlign: 'center', flex: 1 }}>
-          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>{lang === 'th' ? 'คงเหลือ' : 'Net'}</div>
+          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px' }}>
+             {filterTag && (filterTag.includes('ยืม') || filterTag.includes('คืน') || filterTag.toLowerCase().includes('borrow') || filterTag.toLowerCase().includes('lend'))
+               ? (lang === 'th' ? 'ยอดสุทธิ' : 'Balance') 
+               : (lang === 'th' ? 'คงเหลือ' : 'Net')}
+          </div>
           <div style={{ fontSize: '15px', fontWeight: 800, color: net >= 0 ? '#3b82f6' : '#f59e0b' }}>฿{net.toLocaleString()}</div>
         </div>
       </div>
