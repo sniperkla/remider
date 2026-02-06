@@ -117,7 +117,8 @@ function HomeContent() {
   const [showBankReport, setShowBankReport] = useState(null); // { id, name, spentToday, spentMonth }
   const [debtFilterTag, setDebtFilterTag] = useState("");
   const [txnFilterTag, setTxnFilterTag] = useState("");
-  const [debtFilterTimeRange, setDebtFilterTimeRange] = useState("all"); // all, today, 7d, 30d
+  const [debtFilterTimeRange, setDebtFilterTimeRange] = useState("all"); // all, today, 7d, 30d, custom
+  const [debtFilterCustomRange, setDebtFilterCustomRange] = useState({ start: '', end: '' });
 
   const truncateText = (text, maxLength) => {
     if (!text || text.length <= maxLength) return text;
@@ -4484,8 +4485,45 @@ function HomeContent() {
     ) : activeTab === 'debts' ? (
     <motion.div key="list-debts" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
       {(() => {
-        const totalLend = debts.filter(d => d.type === 'lend' && d.status !== 'paid').reduce((sum, d) => sum + d.amount, 0);
-        const totalBorrow = debts.filter(d => d.type === 'borrow' && d.status !== 'paid').reduce((sum, d) => sum + d.amount, 0);
+        // Apply all filters first
+        const filteredDebts = debts.filter(d => {
+          // Time filter
+          if (debtFilterTimeRange !== 'all') {
+            const now = new Date();
+            const dDate = new Date(d.date);
+            const diffTime = Math.max(0, now - dDate);
+            const diffDays = diffTime / (1000 * 60 * 60 * 24);
+            
+            if (debtFilterTimeRange === 'today') {
+              if (dDate.toDateString() !== now.toDateString()) return false;
+            } else if (debtFilterTimeRange === '7d') {
+              if (diffDays > 7) return false;
+            } else if (debtFilterTimeRange === '30d') {
+              if (diffDays > 30) return false;
+            } else if (debtFilterTimeRange === 'custom') {
+              if (!debtFilterCustomRange.start && !debtFilterCustomRange.end) return true;
+              const start = debtFilterCustomRange.start ? new Date(debtFilterCustomRange.start) : new Date(0);
+              const end = debtFilterCustomRange.end ? new Date(debtFilterCustomRange.end) : new Date();
+              start.setHours(0, 0, 0, 0);
+              end.setHours(23, 59, 59, 999);
+              if (dDate < start || dDate > end) return false;
+            }
+          }
+          
+          // Tag filter
+          if (debtFilterTag) {
+            const tagId = `[${debtFilterTag}]`;
+            if (!d.note || !d.note.includes(tagId)) return false;
+          }
+          
+          return true;
+        });
+
+        // Calculate totals from filtered debts
+        const activeLends = filteredDebts.filter(d => d.type === 'lend' && d.status !== 'paid');
+        const activeBorrows = filteredDebts.filter(d => d.type === 'borrow' && d.status !== 'paid');
+        const totalLend = activeLends.reduce((sum, d) => sum + d.amount, 0);
+        const totalBorrow = activeBorrows.reduce((sum, d) => sum + d.amount, 0);
 
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -4493,17 +4531,21 @@ function HomeContent() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
               <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
                 <div style={{ fontSize: '12px', color: '#10b981', marginBottom: '4px', fontWeight: 600 }}>
-                  {lang === 'th' ? 'คนอื่นค้างเรา' : 'Others Owe Me'}
+                  {debtFilterTag 
+                    ? (lang === 'th' ? `คนอื่นค้างเรา (${debtFilterTag})` : `Others Owe Me (${debtFilterTag})`)
+                    : (lang === 'th' ? 'คนอื่นค้างเรา' : 'Others Owe Me')}
                 </div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981' }}>฿{totalLend.toLocaleString()}</div>
-                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>{debts.filter(d => d.type === 'lend' && d.status !== 'paid').length} {lang === 'th' ? 'รายการ' : 'items'}</div>
+                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>{activeLends.length} {lang === 'th' ? 'รายการ' : 'items'}</div>
               </div>
               <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '1rem', borderRadius: '16px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
                 <div style={{ fontSize: '12px', color: '#ef4444', marginBottom: '4px', fontWeight: 600 }}>
-                  {lang === 'th' ? 'เราค้างเขา' : 'I Owe Others'}
+                  {debtFilterTag 
+                    ? (lang === 'th' ? `เราค้างเขา (${debtFilterTag})` : `I Owe Others (${debtFilterTag})`)
+                    : (lang === 'th' ? 'เราค้างเขา' : 'I Owe Others')}
                 </div>
                 <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#ef4444' }}>฿{totalBorrow.toLocaleString()}</div>
-                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>{debts.filter(d => d.type === 'borrow' && d.status !== 'paid').length} {lang === 'th' ? 'รายการ' : 'items'}</div>
+                <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>{activeBorrows.length} {lang === 'th' ? 'รายการ' : 'items'}</div>
               </div>
             </div>
 
@@ -4542,7 +4584,7 @@ function HomeContent() {
                    </div>
                    {(debtFilterTag || debtFilterTimeRange !== 'all') && (
                      <button 
-                       onClick={() => { setDebtFilterTag(""); setDebtFilterTimeRange("all"); }}
+                       onClick={() => { setDebtFilterTag(""); setDebtFilterTimeRange("all"); setDebtFilterCustomRange({ start: '', end: '' }); }}
                        style={{ background: 'none', border: 'none', color: '#a855f7', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
                      >
                        {lang === 'th' ? 'ล้างทั้งหมด' : 'Clear All'}
@@ -4553,7 +4595,7 @@ function HomeContent() {
                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                    {/* Time Range Filter */}
                    <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
-                     {['all', 'today', '7d', '30d'].map(range => (
+                     {['all', 'today', '7d', '30d', 'custom'].map(range => (
                        <button
                          key={range}
                          onClick={() => setDebtFilterTimeRange(range)}
@@ -4567,15 +4609,79 @@ function HomeContent() {
                            borderColor: debtFilterTimeRange === range ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
                            background: debtFilterTimeRange === range ? 'rgba(139, 92, 246, 0.2)' : 'rgba(255,255,255,0.05)',
                            color: debtFilterTimeRange === range ? 'white' : 'var(--text-muted)',
+                           display: 'flex',
+                           alignItems: 'center',
+                           gap: '4px'
                          }}
                        >
+                         {range === 'custom' && <Calendar size={12} />}
                          {range === 'all' ? (lang === 'th' ? 'ทั้งหมด' : 'All') :
                           range === 'today' ? (lang === 'th' ? 'วันนี้' : 'Today') :
-                          range === '7d' ? (lang === 'th' ? '7 วันที่แล้ว' : '7 Days') :
-                          (lang === 'th' ? '30 วันที่แล้ว' : '30 Days')}
+                          range === '7d' ? (lang === 'th' ? '7 วัน' : '7 Days') :
+                          range === '30d' ? (lang === 'th' ? '30 วัน' : '30 Days') :
+                          (lang === 'th' ? 'ระบุวัน' : 'Custom')}
                        </button>
                      ))}
                    </div>
+
+                   {/* Custom Date Picker */}
+                   {debtFilterTimeRange === 'custom' && (
+                     <motion.div 
+                       initial={{ opacity: 0, height: 0 }}
+                       animate={{ opacity: 1, height: 'auto' }}
+                       style={{ 
+                         display: 'flex', 
+                         alignItems: 'center', 
+                         gap: '8px', 
+                         padding: '8px',
+                         background: 'rgba(139, 92, 246, 0.1)',
+                         borderRadius: '12px',
+                         border: '1px solid rgba(139, 92, 246, 0.2)'
+                       }}
+                     >
+                       <div style={{ flex: 1 }}>
+                         <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>
+                           {lang === 'th' ? 'จาก' : 'From'}
+                         </label>
+                         <input 
+                           type="date" 
+                           value={debtFilterCustomRange.start}
+                           onChange={(e) => setDebtFilterCustomRange(prev => ({ ...prev, start: e.target.value }))}
+                           style={{ 
+                             width: '100%', 
+                             background: 'rgba(255,255,255,0.05)', 
+                             border: '1px solid rgba(255,255,255,0.1)', 
+                             borderRadius: '8px', 
+                             color: 'white', 
+                             padding: '8px', 
+                             fontSize: '12px',
+                             colorScheme: 'dark'
+                           }} 
+                         />
+                       </div>
+                       <div style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12px', marginTop: '16px' }}>→</div>
+                       <div style={{ flex: 1 }}>
+                         <label style={{ fontSize: '9px', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '4px' }}>
+                           {lang === 'th' ? 'ถึง' : 'To'}
+                         </label>
+                         <input 
+                           type="date" 
+                           value={debtFilterCustomRange.end}
+                           onChange={(e) => setDebtFilterCustomRange(prev => ({ ...prev, end: e.target.value }))}
+                           style={{ 
+                             width: '100%', 
+                             background: 'rgba(255,255,255,0.05)', 
+                             border: '1px solid rgba(255,255,255,0.1)', 
+                             borderRadius: '8px', 
+                             color: 'white', 
+                             padding: '8px', 
+                             fontSize: '12px',
+                             colorScheme: 'dark'
+                           }} 
+                         />
+                       </div>
+                     </motion.div>
+                   )}
 
                    {/* Tag Filter */}
                    {presetTags.length > 0 && (
@@ -4630,6 +4736,13 @@ function HomeContent() {
                       if (diffDays > 7) return false;
                     } else if (debtFilterTimeRange === '30d') {
                       if (diffDays > 30) return false;
+                    } else if (debtFilterTimeRange === 'custom') {
+                      if (!debtFilterCustomRange.start && !debtFilterCustomRange.end) return true;
+                      const start = debtFilterCustomRange.start ? new Date(debtFilterCustomRange.start) : new Date(0);
+                      const end = debtFilterCustomRange.end ? new Date(debtFilterCustomRange.end) : new Date();
+                      start.setHours(0, 0, 0, 0);
+                      end.setHours(23, 59, 59, 999);
+                      if (dDate < start || dDate > end) return false;
                     }
                   }
                   
