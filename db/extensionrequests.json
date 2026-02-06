@@ -1,0 +1,138 @@
+[
+  {
+    "_id": {
+      "$oid": "6979c9a08a300b5102928e16"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "customerAccountId": {
+      "$oid": "6979c24b8a300b5102928c13"
+    },
+    "licenseSource": "customerAccount",
+    "username": "sniperkla",
+    "licenseCode": "QDRA-3ICV-94YJ-5GDT",
+    "currentExpiry": "04/02/2569 15:01",
+    "requestedPlan": "365",
+    "requestedDays": 365,
+    "cumulativePlanDays": 372,
+    "totalExtendedDays": 365,
+    "status": "approved",
+    "requestedAt": {
+      "$date": "2026-01-28T08:32:32.503Z"
+    },
+    "processedAt": {
+      "$date": "2026-01-28T08:32:32.503Z"
+    },
+    "processedBy": "system",
+    "createdAt": {
+      "$date": "2026-01-28T08:32:32.504Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T08:32:32.504Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6979c9ab8a300b5102928e3a"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "customerAccountId": {
+      "$oid": "6979c21e8a300b5102928be0"
+    },
+    "licenseSource": "customerAccount",
+    "username": "sniperkla",
+    "licenseCode": "LOT-MP5S-VTD6-5V0A",
+    "currentExpiry": "04/02/2569 15:00",
+    "requestedPlan": "7",
+    "requestedDays": 7,
+    "cumulativePlanDays": 14,
+    "totalExtendedDays": 7,
+    "status": "approved",
+    "requestedAt": {
+      "$date": "2026-01-28T08:32:43.370Z"
+    },
+    "processedAt": {
+      "$date": "2026-01-28T08:32:43.370Z"
+    },
+    "processedBy": "system",
+    "createdAt": {
+      "$date": "2026-01-28T08:32:43.371Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T08:32:43.371Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6979c9b78a300b5102928e5e"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "customerAccountId": {
+      "$oid": "6979c21e8a300b5102928be0"
+    },
+    "licenseSource": "customerAccount",
+    "username": "sniperkla",
+    "licenseCode": "LOT-MP5S-VTD6-5V0A",
+    "currentExpiry": "11/02/2569 15:00",
+    "requestedPlan": "7",
+    "requestedDays": 7,
+    "cumulativePlanDays": 21,
+    "totalExtendedDays": 14,
+    "status": "approved",
+    "requestedAt": {
+      "$date": "2026-01-28T08:32:55.910Z"
+    },
+    "processedAt": {
+      "$date": "2026-01-28T08:32:55.910Z"
+    },
+    "processedBy": "system",
+    "createdAt": {
+      "$date": "2026-01-28T08:32:55.912Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T08:32:55.912Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697b2eee2bcf736b22091e05"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "customerAccountId": {
+      "$oid": "697b2e8f2bcf736b22091d78"
+    },
+    "licenseSource": "customerAccount",
+    "username": "sniperkla",
+    "licenseCode": "QDRA-LU85-BZWI-9VLS",
+    "currentExpiry": "05/02/2569 16:55",
+    "requestedPlan": "365",
+    "requestedDays": 365,
+    "cumulativePlanDays": 372,
+    "totalExtendedDays": 365,
+    "status": "approved",
+    "requestedAt": {
+      "$date": "2026-01-29T09:57:02.761Z"
+    },
+    "processedAt": {
+      "$date": "2026-01-29T09:57:02.761Z"
+    },
+    "processedBy": "system",
+    "createdAt": {
+      "$date": "2026-01-29T09:57:02.761Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T09:57:02.761Z"
+    },
+    "__v": 0
+  }
+]

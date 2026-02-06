@@ -1,0 +1,100 @@
+[
+  {
+    "_id": {
+      "$oid": "6911bdff7fec912e5d111f18"
+    },
+    "key": "lot-partner",
+    "__v": 0,
+    "createdAt": {
+      "$date": "2025-11-10T10:27:11.811Z"
+    },
+    "description": "EA คำนวณและจัดการ Lot Size อัจฉริยะ ช่วยคุมความเสี่ยงและออกออเดอร์แม่นยำตามแผน Money Management",
+    "isActive": true,
+    "name": "LOT (Partner IB)",
+    "notifyTelegram": true,
+    "requiresAdminApproval": true,
+    "requiresLicensePurchase": false,
+    "settings": {},
+    "sortOrder": 2,
+    "updatedAt": {
+      "$date": "2026-02-04T07:43:09.162Z"
+    },
+    "allowChangeAccount": false,
+    "requiresAffiliate": true,
+    "downloadUrl": "https://cdn.eaqdragon.com/bot-downloads%2F1770190986797-Q-DRAGONs_LOT.rar",
+    "features": [],
+    "iconUrl": "",
+    "myfxbookId": "11875359",
+    "showOnPublicPage": true,
+    "myfxbookUrl": "",
+    "technicalKey": "lot",
+    "myfxbookImages": [
+      "https://cdn.eaqdragon.com/bot-downloads%2F1769654287794-11s.jpg",
+      "https://cdn.eaqdragon.com/bot-downloads%2F1769654287551-12s.jpg",
+      "https://cdn.eaqdragon.com/bot-downloads%2F1769656140492-13s.jpg"
+    ]
+  },
+  {
+    "_id": {
+      "$oid": "6915af973b0d422b054c8e97"
+    },
+    "key": "qdragon",
+    "name": "QDRAGON",
+    "description": "EA เวอร์ชันมาตรฐานสำหรับ Day Traders มาพร้อมระบบ Trend Following และ Stop-Loss อัตโนมัติ ช่วยให้สร้างโอกาสให้พอร์ตเติบโตได้อย่างมั่นใจ",
+    "requiresLicensePurchase": true,
+    "requiresAdminApproval": false,
+    "notifyTelegram": true,
+    "allowChangeAccount": true,
+    "isActive": true,
+    "sortOrder": 1,
+    "createdAt": {
+      "$date": "2025-11-13T10:14:47.828Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T16:46:42.837Z"
+    },
+    "__v": 0,
+    "downloadUrl": "https://cdn.eaqdragon.com/bot-downloads%2F1769618799380-Q-DRAGON.zip",
+    "features": [],
+    "iconUrl": "",
+    "myfxbookId": "",
+    "requiresAffiliate": false,
+    "showOnPublicPage": true,
+    "myfxbookUrl": "",
+    "technicalKey": "",
+    "myfxbookImages": []
+  },
+  {
+    "_id": {
+      "$oid": "69735a30d0189b34c2c33feb"
+    },
+    "key": "lot-purchase",
+    "technicalKey": "lot",
+    "name": "LOT (Purchase)",
+    "description": "EA คำนวณและจัดการ Lot Size อัจฉริยะ ช่วยคุมความเสี่ยงและออกออเดอร์แม่นยำตามแผน Money Management",
+    "requiresLicensePurchase": true,
+    "requiresAffiliate": false,
+    "requiresAdminApproval": false,
+    "notifyTelegram": true,
+    "allowChangeAccount": true,
+    "downloadUrl": "https://cdn.eaqdragon.com/bot-downloads%2F1770191000283-Q-DRAGONs_LOT.rar",
+    "iconUrl": "",
+    "features": [],
+    "showOnPublicPage": false,
+    "myfxbookId": "",
+    "myfxbookUrl": "",
+    "isActive": true,
+    "sortOrder": 3,
+    "createdAt": {
+      "$date": "2026-01-23T11:23:28.635Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T07:43:22.883Z"
+    },
+    "__v": 0,
+    "myfxbookImages": [
+      "https://cdn.eaqdragon.com/bot-downloads%2F1769654349899-11s.jpg",
+      "https://cdn.eaqdragon.com/bot-downloads%2F1769654349838-12s.jpg"
+    ]
+  }
+]

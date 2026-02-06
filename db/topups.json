@@ -1,0 +1,184 @@
+[
+  {
+    "_id": {
+      "$oid": "69679127f0a90c7a638aa518"
+    },
+    "userId": {
+      "$oid": "6967907ff0a90c7a638aa4ed"
+    },
+    "username": "mthestar99",
+    "amount": 12000,
+    "points": 12000,
+    "paymentMethod": "qrpromptpay",
+    "paymentProof": "https://res.cloudinary.com/duccez2xz/image/upload/v1768395049/topup-proofs/up14yeeiphivj69zo1z5.jpg",
+    "status": "approved",
+    "transactionRef": "",
+    "createdAt": {
+      "$date": "2026-01-14T12:50:47.416Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-14T12:52:38.041Z"
+    },
+    "__v": 0,
+    "processedAt": {
+      "$date": "2026-01-14T12:52:38.041Z"
+    },
+    "processedBy": "admin"
+  },
+  {
+    "_id": {
+      "$oid": "69732a1ba0e53a5e4a4aacc7"
+    },
+    "userId": {
+      "$oid": "69732830a0e53a5e4a4aac6f"
+    },
+    "username": "Aem",
+    "amount": 12000,
+    "points": 12000,
+    "paymentMethod": "bank_transfer",
+    "paymentProof": "https://res.cloudinary.com/duccez2xz/image/upload/v1769155101/topup-proofs/jupxriy3mquyzg713j9y.jpg",
+    "status": "approved",
+    "transactionRef": "",
+    "createdAt": {
+      "$date": "2026-01-23T07:58:19.676Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-23T07:59:16.835Z"
+    },
+    "__v": 0,
+    "processedAt": {
+      "$date": "2026-01-23T07:59:16.834Z"
+    },
+    "processedBy": "admin"
+  },
+  {
+    "_id": {
+      "$oid": "6979905a1460e2babc843eba"
+    },
+    "userId": {
+      "$oid": "69548cc46deedc15932e7015"
+    },
+    "username": "iautba",
+    "amount": 300000,
+    "points": 300000,
+    "paymentMethod": "bank_transfer",
+    "paymentProof": "https://res.cloudinary.com/duccez2xz/image/upload/v1769574492/topup-proofs/s25mklttbyyhvoeuwnke.jpg",
+    "status": "approved",
+    "transactionRef": "",
+    "createdAt": {
+      "$date": "2026-01-28T04:28:10.699Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T04:29:01.942Z"
+    },
+    "__v": 0,
+    "processedAt": {
+      "$date": "2026-01-28T04:29:01.941Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "6979937c1460e2babc844053"
+    },
+    "userId": {
+      "$oid": "69548cc46deedc15932e7015"
+    },
+    "username": "iautba",
+    "amount": 30000000000,
+    "points": 30000000000,
+    "paymentMethod": "bank_transfer",
+    "paymentProof": "https://res.cloudinary.com/duccez2xz/image/upload/v1769575293/topup-proofs/ufqfpwqrr1vs0afxnhbe.jpg",
+    "status": "approved",
+    "transactionRef": "",
+    "createdAt": {
+      "$date": "2026-01-28T04:41:32.085Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T04:41:36.958Z"
+    },
+    "__v": 0,
+    "processedAt": {
+      "$date": "2026-01-28T04:41:36.958Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "697a3dc3b761a8ca5f3a46cd"
+    },
+    "userId": {
+      "$oid": "697a3c4bb761a8ca5f3a45ba"
+    },
+    "username": "boss",
+    "amount": 1000,
+    "points": 1000,
+    "paymentMethod": "qrpromptpay",
+    "paymentProof": "https://res.cloudinary.com/duccez2xz/image/upload/v1769618885/topup-proofs/d2oxpg2tqewre7fp0h4d.jpg",
+    "status": "approved",
+    "transactionRef": "",
+    "createdAt": {
+      "$date": "2026-01-28T16:48:03.740Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T16:48:39.612Z"
+    },
+    "__v": 0,
+    "processedAt": {
+      "$date": "2026-01-28T16:48:39.611Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "697b496eb30bc4ec457e388a"
+    },
+    "userId": {
+      "$oid": "6967907ff0a90c7a638aa4ed"
+    },
+    "username": "mthestar99",
+    "amount": 12000,
+    "points": 12000,
+    "paymentMethod": "qrpromptpay",
+    "paymentProof": "https://res.cloudinary.com/duccez2xz/image/upload/v1769687408/topup-proofs/nil7ki5kctwjr89hhxwy.jpg",
+    "status": "approved",
+    "transactionRef": "",
+    "createdAt": {
+      "$date": "2026-01-29T11:50:06.076Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T11:50:47.257Z"
+    },
+    "__v": 0,
+    "processedAt": {
+      "$date": "2026-01-29T11:50:47.257Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "6982fbcf0cbb80145c07f391"
+    },
+    "userId": {
+      "$oid": "6982fac20cbb80145c07f33b"
+    },
+    "username": "Onuma2537",
+    "amount": 1000,
+    "points": 1000,
+    "paymentMethod": "qrpromptpay",
+    "paymentProof": "https://res.cloudinary.com/duccez2xz/image/upload/v1770191826/topup-proofs/cv5ooimgunlgcy9a31a4.jpg",
+    "status": "approved",
+    "transactionRef": "",
+    "createdAt": {
+      "$date": "2026-02-04T07:57:03.957Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T08:18:43.139Z"
+    },
+    "__v": 0,
+    "processedAt": {
+      "$date": "2026-02-04T08:18:43.139Z"
+    },
+    "processedBy": "น้องกล้า"
+  }
+]

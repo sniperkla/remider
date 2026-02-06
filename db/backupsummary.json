@@ -1,0 +1,109 @@
+{
+  "backupDate": "2026-02-05T14:45:42.454Z",
+  "folderId": "1zyDHrEWM30DdirfmQyrhnw3r8_ALMA29",
+  "collections": [
+    {
+      "collection": "botversions",
+      "success": true,
+      "documentCount": 3
+    },
+    {
+      "collection": "emaillogs",
+      "success": true,
+      "documentCount": 136
+    },
+    {
+      "collection": "adminusers",
+      "success": true,
+      "documentCount": 2
+    },
+    {
+      "collection": "userquotas",
+      "success": true,
+      "documentCount": 4
+    },
+    {
+      "collection": "linemessages",
+      "success": true,
+      "documentCount": 0
+    },
+    {
+      "collection": "extensionrequests",
+      "success": true,
+      "documentCount": 4
+    },
+    {
+      "collection": "coderequests",
+      "success": true,
+      "documentCount": 0
+    },
+    {
+      "collection": "pendingnotifications",
+      "success": true,
+      "documentCount": 14
+    },
+    {
+      "collection": "plansettings",
+      "success": true,
+      "documentCount": 10
+    },
+    {
+      "collection": "systemsettings",
+      "success": true,
+      "documentCount": 38
+    },
+    {
+      "collection": "topups",
+      "success": true,
+      "documentCount": 7
+    },
+    {
+      "collection": "botversionrequests",
+      "success": true,
+      "documentCount": 17
+    },
+    {
+      "collection": "users",
+      "success": true,
+      "documentCount": 16
+    },
+    {
+      "collection": "lineusers",
+      "success": true,
+      "documentCount": 11
+    },
+    {
+      "collection": "customeraccounts",
+      "success": true,
+      "documentCount": 67
+    },
+    {
+      "collection": "platformsettings",
+      "success": true,
+      "documentCount": 12
+    },
+    {
+      "collection": "pointtransactions",
+      "success": true,
+      "documentCount": 3
+    },
+    {
+      "collection": "useractivities",
+      "success": true,
+      "documentCount": 490
+    },
+    {
+      "collection": "transactions",
+      "success": true,
+      "documentCount": 1
+    },
+    {
+      "collection": "userprofiles",
+      "success": true,
+      "documentCount": 1
+    }
+  ],
+  "totalCollections": 20,
+  "successfulBackups": 20,
+  "failedBackups": 0
+}

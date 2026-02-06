@@ -26,6 +26,7 @@ export default function useAI({
   // Data Methods
   addTransaction,
   addReminder,
+  addDebt,
   // Refs
   accountsRef,
   transactionsRef,
@@ -359,8 +360,11 @@ export default function useAI({
          setAiMessage(data.message || (lang === 'th' ? `ปรับยอดเงิน${wallet}เป็น ฿${amount.toLocaleString()}` : `Updated ${wallet} balance to ฿${amount.toLocaleString()}`));
       }
       else if (data.action === "BORROW" || data.action === "LEND") {
-        const { amount, person, type, wallet, note, category } = data;
+        const { amount, person, type, wallet, note, category, bank, bankAccountId } = data;
         const debtType = data.action === "BORROW" ? "borrow" : "lend";
+        
+        // Resolve account ID if bank mentioned
+        const actualBankId = findAccountId(bank, bankAccountId);
         
         // Fallback for Person: Use Tag (category) if Person is missing, otherwise default
         let finalPerson = person;
@@ -372,30 +376,12 @@ export default function useAI({
            }
         }
 
-        // If a tag/category is provided and distinct from person, append to note
-        // IMPORTANT: Always wrap tag in brackets [Tag] so DebtItem can parse it visually
         const finalNote = category && category !== finalPerson && category !== 'การเงิน' && category !== 'Other'
           ? (note ? `[${category}] ${note}` : `[${category}]`)
           : note;
 
         try {
-          const debtRes = await fetch('/api/debts', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ amount, person: finalPerson, type: debtType, note: finalNote }) 
-          });
-          
-          if (!debtRes.ok) throw new Error("Failed to save debt");
-          
-          const newDebt = await debtRes.json();
-          setDebts(prev => [newDebt, ...prev]);
-
-          const txnType = debtType === "borrow" ? "income" : "expense";
-          const txnDesc = debtType === "borrow" 
-            ? (lang === 'th' ? `ยืมจาก ${finalPerson}` : `Borrowed from ${finalPerson}`) 
-            : (lang === 'th' ? `ให้ ${finalPerson} ยืม` : `Lent to ${finalPerson}`);
-          
-          addTransaction(amount, txnType, txnDesc, category || "การเงิน", wallet || activeWallet, null, "ArrowRightLeft");
+          await addDebt(amount, finalPerson, debtType, finalNote, wallet, actualBankId);
           setAiMessage(data.message || (lang === 'th' ? `บันทึกรายการ${debtType === 'borrow' ? 'ยืม' : 'ให้ยืม'} ฿${amount} (${finalPerson}) แล้วค่ะ` : `Recorded ${debtType} of ฿${amount} (${finalPerson})`));
           setActiveTab("debts");
         } catch (err) {

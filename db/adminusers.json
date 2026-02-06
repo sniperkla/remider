@@ -1,0 +1,38 @@
+[
+  {
+    "_id": {
+      "$oid": "6975045782141469919a0bbb"
+    },
+    "username": "sniperkla",
+    "passwordHash": "$2b$10$IlkVs/9fA6F9lRkQpxlTluB/Cy3QYbyJsA84t3XvAH6DxWNYDwxRa",
+    "nickname": "น้องกล้า",
+    "role": "admin",
+    "isActive": true,
+    "hiddenTabs": [],
+    "createdAt": {
+      "$date": "2026-01-24T17:41:43.901Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T17:41:43.906Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697b2891c3f7f2bdf4d84030"
+    },
+    "username": "sniperkla1",
+    "passwordHash": "$2b$10$LQuH1lHu449fPXnD8Xe9Ye/EaYIOLyALgfhvPLG8D6i5O.aG1LUKK",
+    "nickname": "kk",
+    "role": "admin",
+    "isActive": true,
+    "hiddenTabs": [],
+    "createdAt": {
+      "$date": "2026-01-29T09:29:53.240Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T09:29:53.240Z"
+    },
+    "__v": 0
+  }
+]

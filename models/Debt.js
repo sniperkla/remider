@@ -34,6 +34,10 @@ const DebtSchema = new mongoose.Schema({
   },
   dueDate: {
     type: Date,
+  },
+  transactionIds: {
+    type: [String],
+    default: []
   }
 }, { timestamps: true });
 

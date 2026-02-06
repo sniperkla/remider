@@ -1,0 +1,20 @@
+[
+  {
+    "_id": {
+      "$oid": "697cebf02e32e97ed54373d4"
+    },
+    "userId": "sniperkla@gmail.com",
+    "balance": {
+      "bank": -1007,
+      "cash": 0
+    },
+    "budget": 1000,
+    "createdAt": {
+      "$date": "2026-01-30T17:35:44.079Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T17:36:15.857Z"
+    },
+    "__v": 0
+  }
+]

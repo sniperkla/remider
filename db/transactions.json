@@ -1,0 +1,23 @@
+[
+  {
+    "_id": {
+      "$oid": "697cec0f2e32e97ed54373de"
+    },
+    "userId": "sniperkla@gmail.com",
+    "amount": 1007,
+    "type": "expense",
+    "description": "สแกนจากสลิป/บิล",
+    "category": "อาหาร",
+    "wallet": "bank",
+    "date": {
+      "$date": "2026-01-30T17:36:15.658Z"
+    },
+    "createdAt": {
+      "$date": "2026-01-30T17:36:15.765Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T17:36:15.765Z"
+    },
+    "__v": 0
+  }
+]

@@ -1,0 +1,73 @@
+[
+  {
+    "_id": {
+      "$oid": "697ac0da24a4971d3276a258"
+    },
+    "userId": {
+      "$oid": "69548cc46deedc15932e7015"
+    },
+    "type": "deduction",
+    "amount": 50,
+    "balance": 29999851950,
+    "description": "Account number changed from 1 to 257288156 for license LOTP-VYI1-1FTD-CZ0I",
+    "reference": "account_change_LOTP-VYI1-1FTD-CZ0I",
+    "status": "completed",
+    "createdAt": {
+      "$date": "2026-01-29T02:07:22.184Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T02:07:22.184Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6983146e7c481e9dc9d8b508"
+    },
+    "userId": {
+      "$oid": "6982fac20cbb80145c07f33b"
+    },
+    "type": "credit",
+    "amount": 1000,
+    "balance": 1000,
+    "description": "Credits added by admin: refund",
+    "reference": "admin_adjustment_1770198126926",
+    "status": "completed",
+    "metadata": {
+      "adminAction": "manual_credit_adjustment",
+      "reason": "refund"
+    },
+    "createdAt": {
+      "$date": "2026-02-04T09:42:06.928Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T09:42:06.928Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69832472758a5616ddd69bff"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "type": "credit",
+    "amount": 100000000000,
+    "balance": 100028666077,
+    "description": "Credits added by admin: test",
+    "reference": "admin_adjustment_1770202226150",
+    "status": "completed",
+    "metadata": {
+      "adminAction": "manual_credit_adjustment",
+      "reason": "test"
+    },
+    "createdAt": {
+      "$date": "2026-02-04T10:50:26.152Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T10:50:26.152Z"
+    },
+    "__v": 0
+  }
+]

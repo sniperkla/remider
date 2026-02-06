@@ -160,7 +160,7 @@ Triggers: "เปลี่ยน", "ใช้", "switch to"
 - LEND (they owe you): "[Name] ยืมเงิน", "ให้ [Name] ยืม", "[Name] ติดเงินเรา", "คนอื่นติดเงินเรา", "เราให้ [Name] ยืม"
 - BORROW (you owe them): "ยืมเงิน [Name]", "ไปยืม [Name]", "เราติดเงิน [Name]", "ยืม [Name] มา"
 CRITICAL: "ติดเงินเรา" always means LEND. "ยืมเงิน [Name]" usually means BORROW from them.
-{"action":"BORROW"|"LEND","person":"name","amount":100,"category":"tag_name","thought":"...","message":"..."}
+{"action":"BORROW"|"LEND","person":"name","amount":100,"category":"tag_name","wallet":"cash"|"bank","bankAccountId":"<ID>","bank":"SCB","thought":"...","message":"..."}
 
 7. SHOW_SUMMARY
 {"action":"SHOW_SUMMARY","period":"today"|"week"|"month","thought":"...","message":"..."}

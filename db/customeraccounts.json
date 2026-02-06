@@ -1,0 +1,1830 @@
+[
+  {
+    "_id": {
+      "$oid": "68d96c26be36efb9537f1eec"
+    },
+    "user": "บชหลัก",
+    "license": "S8VC-DBPA-IDZB-G6YC",
+    "expireDate": "28/09/2668 17:11",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "200950767",
+    "plan": 999999,
+    "activatedAt": {
+      "$date": "2025-09-28T17:11:02.567Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-09-28T17:11:02.568Z"
+    },
+    "updatedAt": {
+      "$date": "2025-11-04T00:41:46.896Z"
+    },
+    "__v": 0,
+    "notified": false,
+    "userLineId": "Uaf88d815d7fde816c8c58036208ea9a3"
+  },
+  {
+    "_id": {
+      "$oid": "68d96d76be36efb9537f1ef2"
+    },
+    "user": "บช แข่ง",
+    "license": "TL3C-8TPH-F392-RC5B",
+    "expireDate": "28/09/2569 17:16",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "2100919391",
+    "plan": 365,
+    "activatedAt": {
+      "$date": "2025-09-28T17:16:38.570Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-09-28T17:16:38.575Z"
+    },
+    "updatedAt": {
+      "$date": "2025-09-28T17:16:38.575Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68d97167be36efb9537f1efa"
+    },
+    "user": "เดโม244759570",
+    "license": "OGSV-NH0X-MNRS-1GB0",
+    "expireDate": "28/09/2668 17:33",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "244759570",
+    "plan": 999999,
+    "activatedAt": {
+      "$date": "2025-09-28T17:33:27.480Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-09-28T17:33:27.480Z"
+    },
+    "updatedAt": {
+      "$date": "2025-09-28T17:40:36.450Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68da70fabe36efb9537f1f72"
+    },
+    "user": "เดโม่เทส planH",
+    "license": "NSBH-33MW-TDNM-09P3",
+    "expireDate": "29/09/2668 11:43",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "274331049",
+    "plan": 999999,
+    "activatedAt": {
+      "$date": "2025-09-29T11:43:54.540Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-09-29T11:43:54.541Z"
+    },
+    "updatedAt": {
+      "$date": "2025-10-05T06:44:26.349Z"
+    },
+    "__v": 0,
+    "isDemo": false
+  },
+  {
+    "_id": {
+      "$oid": "68dce3b93dde4a9e5caf8d7e"
+    },
+    "user": "เครืองเทสเดโม่",
+    "license": "CIAM-W61R-L0KZ-756T",
+    "expireDate": "01/10/2668 08:18",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "274269615",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-01T08:18:01.083Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-01T08:18:01.089Z"
+    },
+    "updatedAt": {
+      "$date": "2025-10-01T08:18:01.089Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68dd41f57f794f152b81db45"
+    },
+    "user": "iautba",
+    "license": "QL-MG83UUII-L3ZNSR",
+    "expireDate": "14/02/2569 18:39",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "1111111",
+    "plan": 30,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-01T15:00:05.370Z"
+    },
+    "createdBy": "user",
+    "adminGenerated": false,
+    "createdAt": {
+      "$date": "2025-10-01T15:00:05.373Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-13T11:39:31.930Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68de82c67e7e2130af8bae99"
+    },
+    "user": "270133113",
+    "license": "QZUF-P9HY-24XC-FA3G",
+    "expireDate": "02/10/2668 13:48",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "270133113",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-02T13:48:54.182Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-02T13:48:54.183Z"
+    },
+    "updatedAt": {
+      "$date": "2025-10-02T13:48:54.183Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68e01eec6a13ef548bfb2d09"
+    },
+    "user": "CT EA Q DRAGONv450PlanL",
+    "license": "PXLJ-G7OD-WMG3-JXO9",
+    "expireDate": "03/10/2668 19:07",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "227920682",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-03T19:07:24.998Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-03T19:07:24.998Z"
+    },
+    "updatedAt": {
+      "$date": "2025-10-03T19:07:24.998Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68e0ed1c6a13ef548bfb2d25"
+    },
+    "user": "FB Krisanapon Yodmuang",
+    "license": "ALE4-H9FX-API2-DU35",
+    "expireDate": "06/11/2568 09:47",
+    "status": "expired",
+    "platform": "mt5",
+    "accountNumber": "109260607",
+    "plan": 33,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-04T09:47:08.492Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-04T09:47:08.493Z"
+    },
+    "updatedAt": {
+      "$date": "2025-11-11T10:03:02.571Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68e152946a13ef548bfb2e17"
+    },
+    "user": "vantagemarkets A",
+    "license": "DHCP-G2LD-FML7-PV1E",
+    "expireDate": "04/10/2668 17:00",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "11661995",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-04T17:00:04.815Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-04T17:00:04.816Z"
+    },
+    "updatedAt": {
+      "$date": "2025-10-04T17:00:04.816Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68e15ceb6a13ef548bfb2e1d"
+    },
+    "user": "11077297",
+    "license": "2SPL-XE8R-EG1X-319K",
+    "expireDate": "04/10/2668 17:44",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "11077297",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-04T17:44:11.893Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-04T17:44:11.893Z"
+    },
+    "updatedAt": {
+      "$date": "2025-10-06T02:31:30.154Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68e34b1ffc4d387361320a26"
+    },
+    "user": "ลค FB2 Panupong Saipaisri 1000",
+    "license": "20H8-63ZS-VGH9-2VBG",
+    "expireDate": "07/11/2568 04:52",
+    "status": "expired",
+    "platform": "mt5",
+    "accountNumber": "96032904",
+    "plan": 31,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-06T04:52:47.724Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-06T04:52:47.726Z"
+    },
+    "updatedAt": {
+      "$date": "2025-11-11T10:02:42.720Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68e3e1ccfc4d387361320a55"
+    },
+    "user": "พี่นัด",
+    "license": "POQU-6VB0-WDFU-ZW3Q",
+    "expireDate": "10/01/2569 15:35",
+    "status": "expired",
+    "platform": "mt4",
+    "accountNumber": "194604692",
+    "plan": 31,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-06T15:35:40.769Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-06T15:35:40.771Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-10T09:00:00.036Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68e65aa069442b3cda422ff6"
+    },
+    "user": "FB2 Chokchai Kanteung",
+    "license": "8SVT-EEBP-VKAZ-7FJ9",
+    "expireDate": "27/01/2569 05:50",
+    "status": "expired",
+    "platform": "mt5",
+    "accountNumber": "159755236",
+    "plan": 31,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-08T12:35:44.416Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-08T12:35:44.420Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-26T23:01:13.798Z"
+    },
+    "__v": 0,
+    "userLineId": "U8099d0931e235dc4e0192dbbfcf27c73",
+    "notified": true
+  },
+  {
+    "_id": {
+      "$oid": "68e66b7e9f43856cf97b6875"
+    },
+    "user": "บัญชีเทรดหลักแอดมิน (บช กล้า)",
+    "license": "0NN7-4DY6-QEAQ-2IIK",
+    "expireDate": "08/10/2668 13:47",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "218102516",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-08T13:47:42.667Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-08T13:47:42.668Z"
+    },
+    "updatedAt": {
+      "$date": "2025-10-08T13:47:42.668Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68e7798b9f43856cf97b6912"
+    },
+    "user": "LINE ρờя",
+    "license": "HY4Y-P5RW-5NEK-KNUP",
+    "expireDate": "05/01/2569 00:16",
+    "status": "expired",
+    "platform": "mt5",
+    "accountNumber": "18991106",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-09T08:59:55.312Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-09T08:59:55.312Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-04T17:31:08.762Z"
+    },
+    "__v": 0,
+    "userLineId": "Uccbaf0fdecb1675c3ad843d374ee05e1",
+    "notified": true
+  },
+  {
+    "_id": {
+      "$oid": "68e7a36f9f43856cf97b692f"
+    },
+    "user": "FB Natthakit Phuthubthim ",
+    "license": "ANN3-YL12-F8DD-JG8X",
+    "expireDate": "10/11/2568 11:58",
+    "status": "expired",
+    "platform": "mt5",
+    "accountNumber": "183635808",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-09T11:58:39.264Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-09T11:58:39.265Z"
+    },
+    "updatedAt": {
+      "$date": "2025-11-11T10:02:21.694Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "68f6fc58250113a4953d73e0"
+    },
+    "user": "FB2 Bunyat Nakasiri ",
+    "license": "XJ8K-FXWA-ZF36-ZEPD",
+    "expireDate": "24/01/2569 03:22",
+    "status": "expired",
+    "platform": "mt5",
+    "accountNumber": "159695136",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-10-21T03:22:00.584Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-10-21T03:22:00.588Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-23T20:31:13.080Z"
+    },
+    "__v": 0,
+    "userLineId": "U4b486a2847b4d3cf2515a9854ea093e1",
+    "notified": true
+  },
+  {
+    "_id": {
+      "$oid": "6905ac20bed1064710888ddb"
+    },
+    "user": "FB2 Boss Mindset",
+    "license": "T6UY-QLL0-O07E-1H0W",
+    "expireDate": "11/02/2569 13:43",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "267600738",
+    "plan": 37,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-11-01T06:43:44.238Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-11-01T06:43:44.239Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-05T17:10:57.576Z"
+    },
+    "__v": 0,
+    "notified": false,
+    "userLineId": "Ucb30944dc81059753d8ef39b6cebbf75"
+  },
+  {
+    "_id": {
+      "$oid": "691d3a57e82fb150593979f5"
+    },
+    "user": "บช LOT เทสพอตเงินจริง",
+    "license": "90MN-UEYQ-LB7W-5T1J",
+    "expireDate": "19/11/2668 10:32",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "257148360",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-11-19T03:32:39.777Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-11-19T03:32:39.781Z"
+    },
+    "updatedAt": {
+      "$date": "2025-11-19T03:32:39.781Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "691d722fe82fb15059397a13"
+    },
+    "user": "vtmarkets  บชเช็น เงินจริง",
+    "license": "RQF3-R5JQ-59WQ-661M",
+    "expireDate": "19/11/2668 14:30",
+    "status": "valid",
+    "platform": "mt5",
+    "accountNumber": "20468386",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-11-19T07:30:55.253Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-11-19T07:30:55.254Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-15T19:50:49.507Z"
+    },
+    "__v": 0,
+    "notified": false,
+    "userLineId": "Ude78d67332f99ed142683bbd27a7fa7e"
+  },
+  {
+    "_id": {
+      "$oid": "69226aa7e82fb15059397b01"
+    },
+    "user": "FB2 Arigato Memori ",
+    "license": "1ULW-AZPF-UIC8-2M8J",
+    "expireDate": "25/12/2568 09:00",
+    "status": "expired",
+    "platform": "mt5",
+    "accountNumber": "263202696",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-11-23T02:00:07.447Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-11-23T02:00:07.449Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-25T23:00:00.061Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "692458d8e82fb15059397b57"
+    },
+    "user": "FB2 Pook Apiwat ",
+    "license": "NM4C-D36B-LV41-DPLQ",
+    "expireDate": "26/12/2568 20:08",
+    "status": "expired",
+    "platform": "mt5",
+    "accountNumber": "159757222",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-11-24T13:08:40.502Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-11-24T13:08:40.503Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-26T23:01:06.690Z"
+    },
+    "__v": 0,
+    "userLineId": "Ue1a234182b07b1e75ce02b886dd53dd6",
+    "notified": true
+  },
+  {
+    "_id": {
+      "$oid": "6925d213e82fb15059397be6"
+    },
+    "user": "FB22 Boss Mindset ",
+    "license": "YH5H-LOUH-LMAS-0JOH",
+    "expireDate": "28/12/2568 22:58",
+    "status": "expired",
+    "platform": "mt5",
+    "accountNumber": "19629159",
+    "plan": 33,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-11-25T15:58:11.680Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "createdAt": {
+      "$date": "2025-11-25T15:58:11.681Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-28T23:01:07.136Z"
+    },
+    "__v": 0,
+    "userLineId": "Ucb30944dc81059753d8ef39b6cebbf75",
+    "notified": true
+  },
+  {
+    "_id": {
+      "$oid": "692865dd91e5c3251637271e"
+    },
+    "user": "FB2 Man Hopylisy ",
+    "license": "LOT-BWK1-FWGZQ",
+    "expireDate": "29/12/2568 21:53",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "257196270",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-11-27T14:53:17.047Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-11-27T14:53:17.049Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.104Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "692c0718f03b47d89a395d3a"
+    },
+    "user": "FB2 อ้อย เฟอร์นิเจอร์ ",
+    "license": "QDRA-RWWG-9ML8-CWD7",
+    "expireDate": "01/01/2569 15:58",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "183380748",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-11-30T08:58:00.983Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-11-30T08:58:00.984Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.149Z"
+    },
+    "__v": 0,
+    "userLineId": "U1a4d27d6fc091a8608485bac9d4344c5",
+    "notified": true,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "692dbbde905cc2599e73f792"
+    },
+    "user": "FB2 Nakin Sudtilaek ",
+    "license": "QDRA-OR0W-BLYQ-X4KH",
+    "expireDate": "02/01/2569 23:01",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "183715515",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-01T16:01:34.796Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-01T16:01:34.798Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.194Z"
+    },
+    "__v": 0,
+    "userLineId": "U0846e5e369e7dafa667e1f0cef1cbf9a",
+    "notified": true,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "692ee94f905cc2599e73f929"
+    },
+    "user": "FB2 Stai Bang1",
+    "license": "QDRA-M1DQ-LMLV-56H4",
+    "expireDate": "03/01/2569 20:27",
+    "status": "expired",
+    "platform": "vantage",
+    "accountNumber": "23064490",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-02T13:27:43.009Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-02T13:27:43.010Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.240Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "692ee987905cc2599e73f92f"
+    },
+    "user": "FB2 Stai Bang2",
+    "license": "QDRA-QALR-9OH4-JREC",
+    "expireDate": "03/01/2569 20:28",
+    "status": "expired",
+    "platform": "vantage",
+    "accountNumber": "23064491",
+    "plan": 9,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-02T13:28:39.909Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-02T13:28:39.909Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.286Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "692ee99c905cc2599e73f935"
+    },
+    "user": "FB2 Stai Bang3",
+    "license": "QDRA-CWX3-VM4P-N7JY",
+    "expireDate": "03/01/2569 20:29",
+    "status": "expired",
+    "platform": "vantage",
+    "accountNumber": "23064492",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-02T13:29:00.381Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-02T13:29:00.382Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.333Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "692ee9b4905cc2599e73f93b"
+    },
+    "user": "FB2 Stai Bang4",
+    "license": "QDRA-7PPH-BLBF-PZVO",
+    "expireDate": "03/01/2569 20:29",
+    "status": "expired",
+    "platform": "vantage",
+    "accountNumber": "23064493",
+    "plan": 92,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-02T13:29:24.597Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-02T13:29:24.598Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.379Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "692f9e0a905cc2599e73faee"
+    },
+    "user": "FB2 Natthapong Koman ",
+    "license": "QDRA-N478-976Y-WVX4",
+    "expireDate": "04/01/2569 09:18",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "263216173",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-03T02:18:50.705Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-03T02:18:50.705Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.424Z"
+    },
+    "__v": 0,
+    "userLineId": "U38c57bce38383003d7d4110f2db6d58b",
+    "notified": true,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "692feadc905cc2599e73fb8b"
+    },
+    "user": "FB2 เค 'คองแคง  (HonDa Jazz Club)",
+    "license": "QDRA-MHT3-NFS0-1EVJ",
+    "expireDate": "04/01/2569 14:46",
+    "status": "expired",
+    "platform": "xm",
+    "accountNumber": "91947407",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-03T07:46:36.643Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-03T07:46:36.644Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.469Z"
+    },
+    "__v": 0,
+    "userLineId": "U6bf91d437922088df261684b428c355d",
+    "notified": true,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "693236897f2d75286b448e94"
+    },
+    "user": "FB2 Voraphon Soponvutikul ",
+    "license": "QDRA-J4ZG-KE23-2O3Q",
+    "expireDate": "06/01/2569 08:34",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "200724911",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-05T01:34:01.455Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-05T01:34:01.458Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.515Z"
+    },
+    "__v": 0,
+    "userLineId": "U105110c716554ff94bab35b22108f9e1",
+    "notified": true,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "6939aa657bdb1fae999ef35a"
+    },
+    "user": "FB21 Boss Mindset ",
+    "license": "QDRA-39UP-Y9FP-ADUH",
+    "expireDate": "18/01/2569 18:14",
+    "status": "expired",
+    "platform": "vantage",
+    "accountNumber": "600629",
+    "plan": 39,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-10T17:14:13.129Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-10T17:14:13.134Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.627Z"
+    },
+    "__v": 0,
+    "userLineId": "Ucb30944dc81059753d8ef39b6cebbf75",
+    "notified": true,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "693aae757bdb1fae999ef716"
+    },
+    "user": "FB24 Boss Mindset ",
+    "license": "QDRA-WRTM-LU9J-XW0F",
+    "expireDate": "19/01/2569 12:43",
+    "status": "expired",
+    "platform": "vantage",
+    "accountNumber": "21705089",
+    "plan": 39,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-11T11:43:49.383Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-11T11:43:49.388Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.673Z"
+    },
+    "__v": 0,
+    "userLineId": "Ucb30944dc81059753d8ef39b6cebbf75",
+    "notified": true,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "693e438e7bdb1fae999ef883"
+    },
+    "user": "FB2 Popi Ton ",
+    "license": "QDRA-I14G-385Z-M73L",
+    "expireDate": "15/01/2569 05:56",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "20466808",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-14T04:56:46.127Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-14T04:56:46.131Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.720Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "693fc99e83eb31f71149ff98"
+    },
+    "user": "FB2 Natikorn Kedsarin ",
+    "license": "QDRA-ONOF-QBUH-EME8",
+    "expireDate": "16/01/2569 15:41",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "183737342",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-15T08:41:02.039Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-15T08:41:02.042Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.767Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "6947a3fd83eb31f7114a0aeb"
+    },
+    "user": "ทดสอบบบ",
+    "license": "LOT-KGJI-F124-67MA",
+    "expireDate": "21/12/2668 14:38",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "415015214",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-21T07:38:37.095Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "lot",
+    "createdAt": {
+      "$date": "2025-12-21T07:38:37.106Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:43.815Z"
+    },
+    "__v": 0,
+    "backendKey": "lot"
+  },
+  {
+    "_id": {
+      "$oid": "694ad912a6aa932f1edf9826"
+    },
+    "user": "Nana Sira ",
+    "license": "QDRA-FUH7-2MG8-82IJ",
+    "expireDate": "25/01/2569 01:01",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "218334286",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-23T18:01:54.491Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-23T18:01:54.497Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T18:31:13.227Z"
+    },
+    "__v": 0,
+    "userLineId": "U174df40a435282eeffa06eeeff93a720",
+    "notified": true,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "694c06bf1621c4bf455bd2a2"
+    },
+    "user": "Tony Vilaikaew",
+    "license": "QDRA-EHJ9-H3GJ-16O5",
+    "expireDate": "25/01/2569 22:29",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "183766206",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-24T15:29:03.790Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-24T15:29:03.792Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-25T15:31:13.497Z"
+    },
+    "__v": 0,
+    "userLineId": "U09ccff6fcfd0115296fc67718e7e4a05",
+    "notified": true,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "694cb62ecf9d6e0ad87ab0b7"
+    },
+    "user": "P'Aem Minor ",
+    "license": "QDRA-FDPO-9EVD-4TOY",
+    "expireDate": "31/01/2569 10:57",
+    "status": "suspended",
+    "platform": "exness",
+    "accountNumber": "201693983",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-25T03:57:34.040Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-25T03:57:34.042Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-31T02:49:14.821Z"
+    },
+    "__v": 0,
+    "userLineId": "U7384f22a436101de7e2220a50f1eda8a",
+    "backendKey": "qdragon",
+    "lastNearlyExpiredNotifiedAt": {
+      "$date": "2026-01-30T17:01:14.551Z"
+    },
+    "notified": true
+  },
+  {
+    "_id": {
+      "$oid": "694cfc91cf9d6e0ad87ab0d7"
+    },
+    "user": "myFX",
+    "license": "QDRA-SH3D-BTGX-E7K0",
+    "expireDate": "25/12/2668 15:57",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "183767483",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-25T08:57:53.716Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-25T08:57:53.718Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:44.001Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "694d47bcc20ede93c0624e82"
+    },
+    "user": "FB2 Tui Prapanvitayasit ",
+    "license": "QDRA-GUW7-G1LR-389O",
+    "expireDate": "26/01/2569 21:18",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "183767919",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-25T14:18:36.149Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-25T14:18:36.153Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-26T14:31:13.714Z"
+    },
+    "__v": 0,
+    "userLineId": "U0df95f3a3763c9731c06ca351a514388",
+    "notified": true,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "694e2543995b46485c47bf60"
+    },
+    "user": "FB2 Luo Xiaohong",
+    "license": "QDRA-BS22-9GN5-UUGL",
+    "expireDate": "02/03/2569 13:03",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "275788356",
+    "plan": 34,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-26T06:03:47.300Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-26T06:03:47.302Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-26T07:19:39.114Z"
+    },
+    "__v": 0,
+    "userLineId": "U32e0b2844f7c514bb779c19b0ca45c18",
+    "backendKey": "qdragon",
+    "lastNearlyExpiredNotifiedAt": {
+      "$date": "2026-01-26T06:07:13.419Z"
+    },
+    "notified": false
+  },
+  {
+    "_id": {
+      "$oid": "694f819098502b5cefbd9fc9"
+    },
+    "user": "BTC บชจริงเทส",
+    "license": "LOT-V5GU-KH0B-FTMS",
+    "expireDate": "27/12/2668 13:49",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "183770921",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-27T06:49:52.206Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "lot",
+    "createdAt": {
+      "$date": "2025-12-27T06:49:52.208Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:44.196Z"
+    },
+    "__v": 0,
+    "backendKey": "lot"
+  },
+  {
+    "_id": {
+      "$oid": "6950155d98502b5cefbda0bb"
+    },
+    "user": "LOT-Q-DRAGON",
+    "license": "LOT-5U7C-JSTQ-66DA",
+    "expireDate": "28/12/2668 00:20",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "257245303",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-27T17:20:29.420Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "lot",
+    "createdAt": {
+      "$date": "2025-12-27T17:20:29.422Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:44.243Z"
+    },
+    "__v": 0,
+    "backendKey": "lot"
+  },
+  {
+    "_id": {
+      "$oid": "69534d796deedc15932e6dbb"
+    },
+    "user": "เดโม่เทส vt",
+    "license": "LOT-Q4N1-A8W4-E3ZR",
+    "expireDate": "30/12/2668 10:56",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "1010847",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-30T03:56:41.124Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "lot",
+    "createdAt": {
+      "$date": "2025-12-30T03:56:41.126Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:44.291Z"
+    },
+    "__v": 0,
+    "backendKey": "lot"
+  },
+  {
+    "_id": {
+      "$oid": "69534f246deedc15932e6dc1"
+    },
+    "user": "Santi Sangkrai ",
+    "license": "QDRA-MZSB-5H94-WIFQ",
+    "expireDate": "31/01/2569 11:03",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "159814619",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-30T04:03:48.850Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-30T04:03:48.851Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-31T04:31:14.961Z"
+    },
+    "__v": 0,
+    "userLineId": "U89e338459836fd3057c47895bd10e84e",
+    "backendKey": "qdragon",
+    "notified": true
+  },
+  {
+    "_id": {
+      "$oid": "69552449fb83fc8345d98a6c"
+    },
+    "user": "Peerapak Lerdsuwan",
+    "license": "QDRA-0RMR-FAIF-VGUY",
+    "expireDate": "05/03/2569 20:25",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "201707153",
+    "plan": 64,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2025-12-31T13:25:29.451Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2025-12-31T13:25:29.454Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:44.383Z"
+    },
+    "__v": 0,
+    "notified": false,
+    "userLineId": "U9e4c5bd6c65fa191139e1667ae4bba7e",
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "69567c858f1128fa38addc66"
+    },
+    "user": "Harid Dew Sutin ",
+    "license": "QDRA-7UMM-EGL0-NZ8Q",
+    "expireDate": "03/02/2569 20:54",
+    "status": "expired",
+    "platform": "exness",
+    "accountNumber": "159818025",
+    "plan": 33,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-01T13:54:13.467Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2026-01-01T13:54:13.469Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-03T14:01:15.562Z"
+    },
+    "__v": 0,
+    "userLineId": "U08ba87e3435382b97600f05c2d39a5c1",
+    "backendKey": "qdragon",
+    "notified": true
+  },
+  {
+    "_id": {
+      "$oid": "696243a0f0a90c7a638aa306"
+    },
+    "user": "ETO Markets - Demo Account",
+    "license": "LOT-6QJ6-0UJ7-HML2",
+    "expireDate": "10/01/2669 19:18",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "9208962",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-10T12:18:40.321Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "lot",
+    "createdAt": {
+      "$date": "2026-01-10T12:18:40.322Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:44.520Z"
+    },
+    "__v": 0,
+    "backendKey": "lot"
+  },
+  {
+    "_id": {
+      "$oid": "69679216f0a90c7a638aa5a4"
+    },
+    "user": "mthestar99",
+    "license": "QDRA-Y6I2-ISA1-IZR9",
+    "expireDate": "02/01/2619 19:54",
+    "status": "valid",
+    "platform": "vantage",
+    "accountNumber": "20689087",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-14T12:54:46.185Z"
+    },
+    "createdBy": "user",
+    "adminGenerated": false,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2026-01-14T12:54:46.196Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:44.565Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "696923cdf0a90c7a638aa849"
+    },
+    "user": "159840042",
+    "license": "QDRA-Q4QK-LH0N-C5D5",
+    "expireDate": "16/01/2669 00:28",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "159840042",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-15T17:28:45.817Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2026-01-15T17:28:45.819Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:44.674Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "697328c6a0e53a5e4a4aacb1"
+    },
+    "user": "183817363 บชจริง เทสแผน H",
+    "license": "QDRA-C22C-1O33-LXPU",
+    "expireDate": "23/01/2669 14:52",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "183817363",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-23T07:52:38.497Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "createdAt": {
+      "$date": "2026-01-23T07:52:38.498Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-24T08:45:44.769Z"
+    },
+    "__v": 0,
+    "backendKey": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "697956c71460e2babc843d48"
+    },
+    "user": "Aem",
+    "license": "QDRA-6NCU-ZMSH-81B9",
+    "expireDate": "16/01/2619 07:22",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "201693983",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-28T00:22:31.161Z"
+    },
+    "createdBy": "user",
+    "adminGenerated": false,
+    "botVersionKey": "qdragon",
+    "backendKey": "qdragon",
+    "note": "",
+    "createdAt": {
+      "$date": "2026-01-28T00:22:31.184Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-31T02:46:40.782Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6979856d1460e2babc843e4e"
+    },
+    "user": "Standard Cent N2 เทส บช จริง ",
+    "license": "QDRA-VH9A-L4TF-PZKL",
+    "expireDate": "28/01/2669 10:41",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "159867398",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-28T03:41:33.586Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "backendKey": "qdragon",
+    "note": "",
+    "source": "admin",
+    "createdAt": {
+      "$date": "2026-01-28T03:41:33.590Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T03:41:33.590Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697987d61460e2babc843e57"
+    },
+    "user": "Standard Cent N1 เทส บช จริง",
+    "license": "QDRA-9FHZ-U6GN-T5AT",
+    "expireDate": "28/01/2669 10:51",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "159867393",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-28T03:51:50.630Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "qdragon",
+    "backendKey": "qdragon",
+    "note": "",
+    "source": "admin",
+    "createdAt": {
+      "$date": "2026-01-28T03:51:50.631Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T03:51:50.631Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697a3e0db761a8ca5f3a473f"
+    },
+    "user": "boss",
+    "license": "QDRA-2RP9-V3JR-24OY",
+    "expireDate": "01/03/2569 23:49",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "265702907",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-28T16:49:17.127Z"
+    },
+    "createdBy": "user",
+    "adminGenerated": false,
+    "botVersionKey": "qdragon",
+    "backendKey": "qdragon",
+    "note": "",
+    "createdAt": {
+      "$date": "2026-01-28T16:49:17.134Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T16:50:25.637Z"
+    },
+    "__v": 0,
+    "notified": false,
+    "userLineId": "Ucb30944dc81059753d8ef39b6cebbf75"
+  },
+  {
+    "_id": {
+      "$oid": "697a5a27a503831fd5e84719"
+    },
+    "user": "iautba",
+    "license": "LOTP-VYI1-1FTD-CZ0I",
+    "expireDate": "17/01/2619 01:49",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "257288156",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-28T18:49:11.289Z"
+    },
+    "createdBy": "user",
+    "adminGenerated": false,
+    "botVersionKey": "lot-purchase",
+    "backendKey": "lot",
+    "note": "",
+    "createdAt": {
+      "$date": "2026-01-28T18:49:11.296Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T02:07:22.180Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697b40afb30bc4ec457e379d"
+    },
+    "user": "boss",
+    "license": "LOT-431P-RD1Z-W8LK",
+    "expireDate": "29/01/2669 23:59",
+    "status": "valid",
+    "platform": "eto_markets27_4",
+    "accountNumber": "8154639",
+    "plan": 999999,
+    "isDemo": false,
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "LOT",
+    "note": "",
+    "activatedAt": {
+      "$date": "2026-01-29T11:12:47.889Z"
+    },
+    "createdAt": {
+      "$date": "2026-01-29T11:12:47.889Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T11:12:47.889Z"
+    },
+    "__v": 0,
+    "backendKey": "lot"
+  },
+  {
+    "_id": {
+      "$oid": "697b4cd7b30bc4ec457e3911"
+    },
+    "user": "mthestar99",
+    "license": "LOTP-I1RO-BNEA-26Z7",
+    "expireDate": "17/01/2619 19:04",
+    "status": "valid",
+    "platform": "vantage",
+    "accountNumber": "11815427",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-29T12:04:39.550Z"
+    },
+    "createdBy": "user",
+    "adminGenerated": false,
+    "botVersionKey": "lot-purchase",
+    "backendKey": "lot",
+    "note": "",
+    "createdAt": {
+      "$date": "2026-01-29T12:04:39.569Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T12:52:35.327Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697c5976b30bc4ec457e3f0a"
+    },
+    "user": "Buncha4198",
+    "license": "LOT-GEW2-UBVG-DYJX",
+    "expireDate": "30/01/2669 23:59",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "183836933",
+    "plan": 999999,
+    "isDemo": false,
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "lot",
+    "note": "",
+    "activatedAt": {
+      "$date": "2026-01-30T07:10:46.728Z"
+    },
+    "createdAt": {
+      "$date": "2026-01-30T07:10:46.728Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T07:40:38.783Z"
+    },
+    "__v": 0,
+    "backendKey": "lot"
+  },
+  {
+    "_id": {
+      "$oid": "697ca7acdd39b57e56c538be"
+    },
+    "user": "272726144 บชเทส",
+    "license": "LOT-T04A-TNTA-QA3Z",
+    "expireDate": "30/01/2669 19:44",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "272726144",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-30T12:44:28.919Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "lot-purchase",
+    "backendKey": "lot",
+    "note": "",
+    "source": "admin",
+    "createdAt": {
+      "$date": "2026-01-30T12:44:28.921Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T12:44:28.921Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697d0007dd39b57e56c53b55"
+    },
+    "user": "เทส H m5",
+    "license": "LOT-H9AS-9DDZ-LY8A",
+    "expireDate": "31/01/2669 02:01",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "415224958",
+    "plan": 999999,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-01-30T19:01:27.463Z"
+    },
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "lot-purchase",
+    "backendKey": "lot",
+    "note": "",
+    "source": "admin",
+    "createdAt": {
+      "$date": "2026-01-30T19:01:27.464Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T19:01:27.464Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6982bc63dd39b57e56c542f6"
+    },
+    "user": "somphop",
+    "license": "LOT-BHNT-8BJ2-IELW",
+    "expireDate": "04/02/2669 23:59",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "183853894",
+    "plan": 999999,
+    "isDemo": false,
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "lot-partner",
+    "backendKey": "lot",
+    "note": "",
+    "activatedAt": {
+      "$date": "2026-02-04T03:26:27.051Z"
+    },
+    "createdAt": {
+      "$date": "2026-02-04T03:26:27.051Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T03:26:27.051Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69834628758a5616ddd69d5b"
+    },
+    "user": "Onuma2537",
+    "license": "QDRA-MNQY-ENKH-55TA",
+    "expireDate": "13/03/2569 20:14",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "257248792",
+    "plan": 32,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-02-04T13:14:16.378Z"
+    },
+    "createdBy": "user",
+    "adminGenerated": false,
+    "botVersionKey": "qdragon",
+    "backendKey": "qdragon",
+    "note": "",
+    "createdAt": {
+      "$date": "2026-02-04T13:14:16.388Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T13:18:29.097Z"
+    },
+    "__v": 0
+  }
+]

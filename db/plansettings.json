@@ -1,0 +1,242 @@
+[
+  {
+    "_id": {
+      "$oid": "68dcdda5c11d399f0c334328"
+    },
+    "name": "Monthly",
+    "days": 32,
+    "price": 1000,
+    "points": 1000,
+    "description": "Most popular monthly plan",
+    "isActive": true,
+    "isLifetime": false,
+    "sortOrder": 2,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "__v": 0,
+    "createdAt": {
+      "$date": "2025-10-01T07:52:05.741Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-23T07:17:32.944Z"
+    },
+    "botVersionKey": "qdragon",
+    "quotaKeys": 1
+  },
+  {
+    "_id": {
+      "$oid": "68dcdda5c11d399f0c334329"
+    },
+    "name": "Quarterly",
+    "days": 96,
+    "price": 2700,
+    "points": 2700,
+    "description": "Save more with quarterly plan",
+    "isActive": true,
+    "isLifetime": false,
+    "sortOrder": 3,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "__v": 0,
+    "createdAt": {
+      "$date": "2025-10-01T07:52:05.741Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-23T07:17:38.535Z"
+    },
+    "botVersionKey": "qdragon",
+    "quotaKeys": 1
+  },
+  {
+    "_id": {
+      "$oid": "68dcdda5c11d399f0c33432a"
+    },
+    "name": "Semi-Annual",
+    "days": 192,
+    "price": 4800,
+    "points": 4800,
+    "description": "Great value for 6 months",
+    "isActive": true,
+    "isLifetime": false,
+    "sortOrder": 4,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "__v": 0,
+    "createdAt": {
+      "$date": "2025-10-01T07:52:05.741Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-23T07:17:44.059Z"
+    },
+    "botVersionKey": "qdragon",
+    "quotaKeys": 1
+  },
+  {
+    "_id": {
+      "$oid": "68dcdda5c11d399f0c33432b"
+    },
+    "name": "Annual",
+    "days": 384,
+    "price": 8400,
+    "points": 8400,
+    "description": "Best value - full year access",
+    "isActive": true,
+    "isLifetime": false,
+    "sortOrder": 5,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "__v": 0,
+    "createdAt": {
+      "$date": "2025-10-01T07:52:05.741Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-23T07:17:50.473Z"
+    },
+    "botVersionKey": "qdragon",
+    "quotaKeys": 1
+  },
+  {
+    "_id": {
+      "$oid": "68dcdda5c11d399f0c33432c"
+    },
+    "name": "Lifetime",
+    "days": 999999,
+    "price": 12000,
+    "points": 12000,
+    "description": "One-time payment, lifetime access",
+    "isActive": true,
+    "isLifetime": true,
+    "sortOrder": 6,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "__v": 0,
+    "createdAt": {
+      "$date": "2025-10-01T07:52:05.742Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-27T14:16:53.812Z"
+    },
+    "botVersionKey": "qdragon",
+    "quotaKeys": 1
+  },
+  {
+    "_id": {
+      "$oid": "69732e1465cfa8d35e4e1df6"
+    },
+    "name": "One - time purchase",
+    "days": 999999,
+    "price": 12000,
+    "points": 12000,
+    "description": "ซื้อครั้งเดียวใช้ได้ตลอดชีพ",
+    "isActive": true,
+    "isLifetime": true,
+    "sortOrder": 0,
+    "botVersionKey": "lot-purchase",
+    "quotaKeys": 1,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-23T08:15:16.601Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-23T11:24:27.077Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69732f4165cfa8d35e4e1dff"
+    },
+    "name": "30 License",
+    "days": 999999,
+    "price": 300000,
+    "points": 300000,
+    "description": "ได้รับ 30 License สำหรับสร้างเอง ตอนไหน เมื่อไหร่ก็ได้ ผ่านหน้าแดชบอร์ด",
+    "isActive": true,
+    "isLifetime": true,
+    "sortOrder": 3,
+    "botVersionKey": "lot-purchase",
+    "quotaKeys": 30,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-23T08:20:17.959Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-25T06:14:07.080Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6975b46aab1dc908af716274"
+    },
+    "name": "10 License",
+    "days": 999999,
+    "price": 100000,
+    "points": 100000,
+    "description": "ได้รับ 10 License สำหรับสร้างเอง ตอนไหน เมื่อไหร่ก็ได้ ผ่านหน้าแดชบอร์ด",
+    "isActive": true,
+    "isLifetime": true,
+    "sortOrder": 2,
+    "botVersionKey": "lot-purchase",
+    "quotaKeys": 10,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-25T06:12:58.988Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-25T06:13:52.203Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697992d71460e2babc843f8f"
+    },
+    "name": "10 LICENSE - Q-DRAGON",
+    "days": 999999,
+    "price": 100000,
+    "points": 100000,
+    "description": "ได้รับ 10 License สำหรับสร้างเอง ตอนไหน เมื่อไหร่ก็ได้ ผ่านหน้าแดชบอร์ด",
+    "isActive": true,
+    "isLifetime": true,
+    "sortOrder": 7,
+    "botVersionKey": "qdragon",
+    "quotaKeys": 10,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-28T04:38:47.432Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T04:39:38.282Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6979933b1460e2babc844010"
+    },
+    "name": "30 LICENSE - Q-DRAGON",
+    "days": 999999,
+    "price": 300000,
+    "points": 300000,
+    "description": "ได้รับ 30 License สำหรับสร้างเอง ตอนไหน เมื่อไหร่ก็ได้ ผ่านหน้าแดชบอร์ด",
+    "isActive": true,
+    "isLifetime": true,
+    "sortOrder": 8,
+    "botVersionKey": "qdragon",
+    "quotaKeys": 30,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-28T04:40:27.401Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T04:40:27.401Z"
+    },
+    "__v": 0
+  }
+]

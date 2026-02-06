@@ -1,0 +1,380 @@
+[
+  {
+    "_id": {
+      "$oid": "697c43ecb30bc4ec457e3e20"
+    },
+    "userId": "697b220f24a4971d3276a9a6",
+    "type": "bot-version-request-status",
+    "payload": {
+      "action": "created",
+      "request": {
+        "id": "697c43ebb30bc4ec457e3e1c",
+        "userId": "697b220f24a4971d3276a9a6",
+        "username": "Buncha4198",
+        "versionKey": "lot-partner",
+        "versionName": "LOT (Partner IB)",
+        "accountNumber": "183836933",
+        "platform": "exness",
+        "status": "pending",
+        "adminNote": "",
+        "processedBy": null,
+        "processedAt": null,
+        "createdAt": {
+          "$date": "2026-01-30T05:38:51.817Z"
+        },
+        "updatedAt": {
+          "$date": "2026-01-30T05:38:51.817Z"
+        }
+      },
+      "timestamp": "2026-01-30T05:38:52.646Z",
+      "_broadcast": true,
+      "_ts": 1769751532646
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-01-30T05:38:52.651Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T05:38:52.651Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697c43ecb30bc4ec457e3e23"
+    },
+    "userId": "697b220f24a4971d3276a9a6",
+    "type": "client-notification",
+    "payload": {
+      "message": {
+        "key": "request_submitted_waiting_approval",
+        "params": {
+          "name": "LOT (Partner IB)"
+        }
+      },
+      "type": "info",
+      "timestamp": "2026-01-30T05:38:52.657Z",
+      "_broadcast": true,
+      "_ts": 1769751532657
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-01-30T05:38:52.661Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T05:38:52.661Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697c5976b30bc4ec457e3f0d"
+    },
+    "userId": "697b220f24a4971d3276a9a6",
+    "type": "customer-account-updated",
+    "payload": {
+      "action": "created",
+      "account": {
+        "license": "LOT-GEW2-UBVG-DYJX",
+        "botVersionKey": "lot",
+        "expireDate": "30/01/2669 23:59",
+        "status": "valid"
+      },
+      "_broadcast": true,
+      "_ts": 1769757046737
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-01-30T07:10:46.748Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T07:10:46.748Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697c5978b30bc4ec457e3f15"
+    },
+    "userId": "697b220f24a4971d3276a9a6",
+    "type": "bot-version-request-status",
+    "payload": {
+      "action": "status-changed",
+      "request": {
+        "id": "697c43ebb30bc4ec457e3e1c",
+        "userId": "697b220f24a4971d3276a9a6",
+        "username": "Buncha4198",
+        "versionKey": "lot-partner",
+        "versionName": "LOT (Partner IB)",
+        "accountNumber": "183836933",
+        "platform": "exness",
+        "status": "approved",
+        "adminNote": "",
+        "processedBy": "master",
+        "processedAt": {
+          "$date": "2026-01-30T07:10:46.706Z"
+        },
+        "createdAt": {
+          "$date": "2026-01-30T05:38:51.817Z"
+        },
+        "updatedAt": {
+          "$date": "2026-01-30T07:10:46.706Z"
+        }
+      },
+      "timestamp": "2026-01-30T07:10:48.008Z",
+      "_broadcast": true,
+      "_ts": 1769757048008
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-01-30T07:10:48.013Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T07:10:48.013Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697c5978b30bc4ec457e3f18"
+    },
+    "userId": "697b220f24a4971d3276a9a6",
+    "type": "client-notification",
+    "payload": {
+      "message": {
+        "key": "bot_version_request_approved",
+        "params": {
+          "versionName": "LOT (Partner IB)",
+          "reason": ""
+        }
+      },
+      "type": "success",
+      "timestamp": "2026-01-30T07:10:48.016Z",
+      "_broadcast": true,
+      "_ts": 1769757048016
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-01-30T07:10:48.020Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T07:10:48.020Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697d6d10dd39b57e56c53bf6"
+    },
+    "userId": "69732830a0e53a5e4a4aac6f",
+    "type": "customer-account-updated",
+    "payload": {
+      "action": "account_number_changed_by_admin",
+      "license": "QDRA-6NCU-ZMSH-81B9",
+      "oldAccountNumber": "425054611",
+      "newAccountNumber": "201693983",
+      "_broadcast": true,
+      "_ts": 1769827600798
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-01-31T02:46:40.818Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-31T02:46:40.818Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "698300e30cbb80145c07f4f0"
+    },
+    "userId": "6982fac20cbb80145c07f33b",
+    "type": "points-updated",
+    "payload": {
+      "newPoints": 1000,
+      "timestamp": "2026-02-04T08:18:43.165Z",
+      "_broadcast": true,
+      "_ts": 1770193123165
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-04T08:18:43.180Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T08:18:43.180Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6983146e7c481e9dc9d8b50b"
+    },
+    "userId": "6982fac20cbb80145c07f33b",
+    "type": "points-updated",
+    "payload": {
+      "newPoints": 1000,
+      "timestamp": "2026-02-04T09:42:06.939Z",
+      "_broadcast": true,
+      "_ts": 1770198126939
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-04T09:42:06.948Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T09:42:06.948Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69834113758a5616ddd69c9b"
+    },
+    "userId": "6967907ff0a90c7a638aa4ed",
+    "type": "customer-account-updated",
+    "payload": {
+      "action": "account_number_changed_by_admin",
+      "license": "LOTP-I1RO-BNEA-26Z7",
+      "oldAccountNumber": "22915472",
+      "newAccountNumber": "11815427",
+      "_broadcast": true,
+      "_ts": 1770209555348
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-04T12:52:35.356Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T12:52:35.356Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69834628758a5616ddd69d60"
+    },
+    "userId": "6982fac20cbb80145c07f33b",
+    "type": "customer-account-updated",
+    "payload": {
+      "type": "created",
+      "license": "QDRA-MNQY-ENKH-55TA",
+      "expireDate": "08/03/2569 20:14",
+      "plan": 32,
+      "botVersionKey": "qdragon",
+      "_broadcast": true,
+      "_ts": 1770210856398
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-04T13:14:16.403Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T13:14:16.403Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69834628758a5616ddd69d63"
+    },
+    "userId": "6982fac20cbb80145c07f33b",
+    "type": "codes-updated",
+    "payload": {
+      "action": "points-purchase",
+      "license": "QDRA-MNQY-ENKH-55TA",
+      "status": "activated",
+      "botVersionKey": "qdragon",
+      "_broadcast": true,
+      "_ts": 1770210856409
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-04T13:14:16.421Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T13:14:16.421Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69834725758a5616ddd69dc2"
+    },
+    "userId": "6982fac20cbb80145c07f33b",
+    "type": "customer-account-updated",
+    "payload": {
+      "action": "extended",
+      "license": "QDRA-MNQY-ENKH-55TA",
+      "newExpiry": "13/03/2569 20:14",
+      "daysChange": 5,
+      "_broadcast": true,
+      "_ts": 1770211109109
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-04T13:18:29.116Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T13:18:29.116Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69834725758a5616ddd69dc5"
+    },
+    "userId": "6982fac20cbb80145c07f33b",
+    "type": "codes-updated",
+    "payload": {
+      "action": "extended",
+      "license": "QDRA-MNQY-ENKH-55TA",
+      "newExpiry": "13/03/2569 20:14",
+      "daysChange": 5,
+      "_broadcast": true,
+      "_ts": 1770211109121
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-04T13:18:29.126Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T13:18:29.126Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69834725758a5616ddd69dc8"
+    },
+    "userId": "6982fac20cbb80145c07f33b",
+    "type": "client-notification",
+    "payload": {
+      "message": "✅ License QDRA-MNQY-ENKH-55TA extended by 5 days",
+      "type": "success",
+      "timestamp": "2026-02-04T13:18:29.128Z"
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-04T13:18:29.133Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T13:18:29.133Z"
+    },
+    "__v": 0
+  }
+]

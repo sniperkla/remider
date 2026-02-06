@@ -1,0 +1,427 @@
+[
+  {
+    "_id": {
+      "$oid": "697b404fb30bc4ec457e373d"
+    },
+    "userId": "697a3c4bb761a8ca5f3a45ba",
+    "username": "boss",
+    "versionKey": "LOT",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "8154639",
+    "platform": "eto_markets27_4",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-01-29T11:11:11.405Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T11:12:47.878Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-01-29T11:12:47.877Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "697b45f7223d4d4e86917d32"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "LOT",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "55555555555555",
+    "platform": "eto_markets27_4",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-01-29T11:35:19.603Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T11:35:31.868Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-01-29T11:35:31.868Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "697b46b5223d4d4e86917db1"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "LOT",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "123123123123",
+    "platform": "eto_markets27_4",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-01-29T11:38:29.784Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T11:38:35.060Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-01-29T11:38:35.060Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "697b4813223d4d4e86917e00"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "LOT",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "444444",
+    "platform": "exness",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-01-29T11:44:19.838Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T11:44:25.972Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-01-29T11:44:25.971Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "697b51e8223d4d4e86917fc1"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "55555555555",
+    "platform": "eto_markets27_4",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-01-29T12:26:16.736Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T12:26:37.758Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-01-29T12:26:37.757Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "697b5476223d4d4e86918050"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "123123123123",
+    "platform": "eto_markets27_4",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-01-29T12:37:10.021Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T12:37:16.239Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-01-29T12:37:16.238Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "697c43ebb30bc4ec457e3e1c"
+    },
+    "userId": "697b220f24a4971d3276a9a6",
+    "username": "Buncha4198",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "183836933",
+    "platform": "exness",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-01-30T05:38:51.817Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T07:10:46.706Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-01-30T07:10:46.706Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "697c6598b30bc4ec457e40ca"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "2123123213",
+    "platform": "exness",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-01-30T08:02:32.121Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T08:02:42.177Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-01-30T08:02:42.177Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "697c7284f1ef3ec87d948338"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "555555555555",
+    "platform": "eto_markets27_4",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-01-30T08:57:40.433Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T08:57:50.114Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-01-30T08:57:50.113Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "6982a367dd39b57e56c54297"
+    },
+    "userId": "697ae5bf24a4971d3276a5eb",
+    "username": "somphop",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "183853894",
+    "platform": "exness",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-02-04T01:39:51.204Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T03:26:27.042Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-02-04T03:26:27.041Z"
+    },
+    "processedBy": "น้องกล้า"
+  },
+  {
+    "_id": {
+      "$oid": "6982d214dd39b57e56c5441c"
+    },
+    "userId": "697ae5bf24a4971d3276a5eb",
+    "username": "somphop",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "415252650",
+    "platform": "exness",
+    "status": "rejected",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-02-04T04:59:00.509Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T05:09:58.862Z"
+    },
+    "__v": 0,
+    "adminNote": "415252650 ไม่เจอในการต่อ ib",
+    "processedAt": {
+      "$date": "2026-02-04T05:09:58.857Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "6982ddcadd39b57e56c5450a"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "123123",
+    "platform": "exness",
+    "status": "rejected",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-02-04T05:48:58.692Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T05:49:31.469Z"
+    },
+    "__v": 0,
+    "adminNote": "test",
+    "processedAt": {
+      "$date": "2026-02-04T05:49:31.468Z"
+    },
+    "processedBy": "น้องกล้า"
+  },
+  {
+    "_id": {
+      "$oid": "6982e294b7fe2368f2464759"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "444444",
+    "platform": "exness",
+    "status": "rejected",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-02-04T06:09:24.490Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T06:10:11.649Z"
+    },
+    "__v": 0,
+    "adminNote": "555test",
+    "processedAt": {
+      "$date": "2026-02-04T06:10:11.646Z"
+    },
+    "processedBy": "น้องกล้า"
+  },
+  {
+    "_id": {
+      "$oid": "6982e484b7fe2368f24647e9"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "5555",
+    "platform": "exness",
+    "status": "rejected",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-02-04T06:17:40.653Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T06:17:58.183Z"
+    },
+    "__v": 0,
+    "adminNote": "6666",
+    "processedAt": {
+      "$date": "2026-02-04T06:17:58.182Z"
+    },
+    "processedBy": "น้องกล้า"
+  },
+  {
+    "_id": {
+      "$oid": "6982e4afb7fe2368f2464825"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "555544",
+    "platform": "eto_markets27_4",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-02-04T06:18:23.681Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T06:18:28.263Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-02-04T06:18:28.258Z"
+    },
+    "processedBy": "น้องกล้า"
+  },
+  {
+    "_id": {
+      "$oid": "698307834f087b89deed6755"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "1231323",
+    "platform": "exness",
+    "status": "rejected",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-02-04T08:46:59.018Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T08:47:37.054Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-02-04T08:47:37.053Z"
+    },
+    "processedBy": "master"
+  },
+  {
+    "_id": {
+      "$oid": "698315357c481e9dc9d8b5e3"
+    },
+    "userId": "692c195e905cc2599e73f048",
+    "username": "sniperkla",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "4555555",
+    "platform": "exness",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-02-04T09:45:25.862Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T09:45:35.415Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-02-04T09:45:35.414Z"
+    },
+    "processedBy": "น้องกล้า"
+  }
+]

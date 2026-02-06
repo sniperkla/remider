@@ -1,0 +1,290 @@
+[
+  {
+    "_id": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "email": "sniperkla@gmail.com",
+    "password": "$2b$12$lbstKA7McaYTDfomuSS14ePm4rBkt7xsTqSkQC1o84Y0EFSRwnVtS",
+    "preferredLanguage": "th",
+    "points": 100028666077,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2025-11-30T10:15:58.755Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T10:50:26.142Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69548cc46deedc15932e7015"
+    },
+    "username": "iautba",
+    "email": "pikopikopiko1995ss@gmail.com",
+    "password": "$2b$12$y8QNCq8nk3hfJDLkwWGAZuq8n0.yAJOCv6/B8Y4eTuDU6en8jHH4S",
+    "preferredLanguage": "th",
+    "points": 29999850950,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2025-12-31T02:39:00.611Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T08:48:51.473Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69548d616deedc15932e7021"
+    },
+    "username": "aaaaaaaaaaaaaaa",
+    "email": "iautba1@gmail.com",
+    "password": "$2b$12$CYD2C8gEEHAWzZFZ.jZtdu9GaqBcGttUSiI1Dr41RPa3bH84AjNbS",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2025-12-31T02:41:37.522Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-31T02:42:03.065Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6967907ff0a90c7a638aa4ed"
+    },
+    "username": "mthestar99",
+    "email": "bynamic55@gmail.com",
+    "password": "$2b$12$oqgDV4VkqUFC5ibptN4fIOjE/GRqg4qqJGg/R7KUWAXdR1Hv71P/K",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-14T12:47:59.571Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T12:04:39.563Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69732830a0e53a5e4a4aac6f"
+    },
+    "username": "Aem",
+    "email": "surachaimylove@gmail.com",
+    "password": "$2b$12$uEOWGET1qfZt4GpjTUANPuv5Dze0gLIpuNNwpJl0muTwnnjAJvgD2",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-23T07:50:08.247Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T00:22:31.174Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697a3c4bb761a8ca5f3a45ba"
+    },
+    "username": "boss",
+    "email": "fxssitrade@gmail.com",
+    "password": "$2b$12$M.PL45L1fx.FJ5b8CRY/eu0DR6O5B9am0gO97F929gqqibs/tjZ2y",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-28T16:41:47.234Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-28T16:49:17.131Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697ab6c124a4971d3276a085"
+    },
+    "username": "chatcharit",
+    "email": "chatcharit.pat@gmail.com",
+    "password": "$2b$12$0fdSBfQgmXgcaCO7tfSiO.BIsoHvD66j3YRPPnNb8vhOr74DMt9CG",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-29T01:24:17.381Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T01:24:47.584Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697ae5bf24a4971d3276a5eb"
+    },
+    "username": "somphop",
+    "email": "tonza.k5@gmail.com",
+    "password": "$2b$12$BUZYTo16JIuXVjC7Ec/yyeX2m2BxSDoKTMqYVlwwWP8jwjaE9HNgC",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-29T04:44:47.255Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T04:45:19.044Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697af48f24a4971d3276a71c"
+    },
+    "username": "Adunsak",
+    "email": "adunsak@gmail.com",
+    "password": "$2b$12$iTu6SD1S6XeKo0OFRCiSL.x4nEM/Nbry7XXuy6eSwUKnCNHkTQk7W",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-29T05:47:59.064Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T05:48:19.493Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697af8ed24a4971d3276a79b"
+    },
+    "username": "Sukgasameau",
+    "email": "sukgasameau@hotmail.com",
+    "password": "$2b$12$kThUOAt802WKDLZD8SGgp.xYns3IX1tjJTqcn89K797KE4NhZCV.2",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-29T06:06:37.746Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T06:09:54.988Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697b220f24a4971d3276a9a6"
+    },
+    "username": "Buncha4198",
+    "email": "chacha4198@hotmail.com",
+    "password": "$2b$12$yjufVqQ4b4tta1FrXhJfGuOpU3Wm//J9BGRljUhEKaV3uQutt.dnC",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-29T09:02:07.918Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T09:04:43.672Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697b6522b30bc4ec457e3ad3"
+    },
+    "username": "koko25i",
+    "email": "pk0970279441@gmail.com",
+    "password": "$2b$12$/qm5XiwR4BqNyJguXIonuOBgRB6FnmQKXCqMJevFDe6Eqvrfo/PFi",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-29T13:48:18.600Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T13:48:36.205Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697caf6bdd39b57e56c538ca"
+    },
+    "username": "touch.k3@gmail.com",
+    "email": "touch.k3@gmail.com",
+    "password": "$2b$12$SGyLB8WE/qBx5MCXS3dd4em6onK1vdngBG6pCYfVhHmXoXaP7n5uy",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-30T13:17:31.416Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T13:29:07.305Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697d6f54dd39b57e56c53c08"
+    },
+    "username": "JJTest",
+    "email": "siwakornaufty@gmail.com",
+    "password": "$2b$12$Xw5OoyfSorU9rAsesVzkheRbKB.Gf7Pbd3pT/vmfZNNo1GuPMd/BO",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-01-31T02:56:20.463Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-31T02:56:44.808Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6982fac20cbb80145c07f33b"
+    },
+    "username": "Onuma2537",
+    "email": "onumaza.2537@gmail.com",
+    "password": "$2b$12$rB5269TpG0rqJWQni1E.m.arFT9cqzgvQmDfCCPnwAujn5b2r3MDy",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-02-04T07:52:34.567Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T13:14:16.383Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69844c1e758a5616ddd69efb"
+    },
+    "username": "Worrawat",
+    "email": "tintaweeworrawat@gmail.com",
+    "password": "$2b$12$hsiW1aqd091twPAjSUzsYuOQ1qGreIPFZ6M.L6mv0f5N2WCUjz9ge",
+    "preferredLanguage": "th",
+    "points": 0,
+    "isEmailVerified": true,
+    "createdAt": {
+      "$date": "2026-02-05T07:51:58.282Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-05T07:52:19.264Z"
+    },
+    "__v": 0
+  }
+]

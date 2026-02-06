@@ -1,0 +1,743 @@
+[
+  {
+    "_id": {
+      "$oid": "68dd3382141b9cbd6ffa31bc"
+    },
+    "key": "account_number_change_cost",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-01T13:58:26.207Z"
+    },
+    "description": "Cost in credits to change account number",
+    "updatedAt": {
+      "$date": "2025-12-31T13:41:02.154Z"
+    },
+    "updatedBy": "admin",
+    "value": 50,
+    "isEncrypted": false
+  },
+  {
+    "_id": {
+      "$oid": "68dd3382141b9cbd6ffa31be"
+    },
+    "key": "account_number_change_enabled",
+    "__v": 0,
+    "category": "features",
+    "createdAt": {
+      "$date": "2025-10-01T13:58:26.257Z"
+    },
+    "description": "Enable/disable account number change feature",
+    "updatedAt": {
+      "$date": "2025-11-19T08:16:25.365Z"
+    },
+    "updatedBy": "admin",
+    "value": true
+  },
+  {
+    "_id": {
+      "$oid": "68e34a38141b9cbd6ffe0172"
+    },
+    "key": "license_extension_cost_per_day",
+    "__v": 0,
+    "category": "pricing",
+    "createdAt": {
+      "$date": "2025-10-06T04:48:56.412Z"
+    },
+    "description": "Cost in credits per day for license extension (1 credit = 1 day by default)",
+    "updatedAt": {
+      "$date": "2025-11-19T08:16:25.407Z"
+    },
+    "updatedBy": "admin",
+    "value": 1
+  },
+  {
+    "_id": {
+      "$oid": "68e34a38141b9cbd6ffe0174"
+    },
+    "key": "license_extension_enabled",
+    "__v": 0,
+    "category": "features",
+    "createdAt": {
+      "$date": "2025-10-06T04:48:56.414Z"
+    },
+    "description": "Enable/disable license extension feature",
+    "updatedAt": {
+      "$date": "2025-11-19T08:16:25.448Z"
+    },
+    "updatedBy": "admin",
+    "value": true
+  },
+  {
+    "_id": {
+      "$oid": "68e34a38141b9cbd6ffe0176"
+    },
+    "key": "license_extension_max_days",
+    "__v": 0,
+    "category": "limits",
+    "createdAt": {
+      "$date": "2025-10-06T04:48:56.417Z"
+    },
+    "description": "Maximum days allowed per extension request",
+    "updatedAt": {
+      "$date": "2025-11-19T08:16:25.490Z"
+    },
+    "updatedBy": "admin",
+    "value": 365
+  },
+  {
+    "_id": {
+      "$oid": "68e50802141b9cbd6fff1689"
+    },
+    "key": "backup_cron_schedule",
+    "__v": 0,
+    "category": "backup",
+    "createdAt": {
+      "$date": "2025-10-07T12:30:58.249Z"
+    },
+    "description": "Cron schedule for automated backups",
+    "updatedAt": {
+      "$date": "2026-02-05T14:44:31.807Z"
+    },
+    "updatedBy": "admin",
+    "value": "*/15 * * * *"
+  },
+  {
+    "_id": {
+      "$oid": "68e508f8141b9cbd6fff17a7"
+    },
+    "key": "backup_service_url",
+    "__v": 0,
+    "category": "backup",
+    "createdAt": {
+      "$date": "2025-10-07T12:35:04.218Z"
+    },
+    "description": "External backup service base URL",
+    "updatedAt": {
+      "$date": "2025-12-29T13:19:13.834Z"
+    },
+    "updatedBy": "admin",
+    "value": "https://backup.eaqdragon.com",
+    "isEncrypted": false
+  },
+  {
+    "_id": {
+      "$oid": "68e50dd8141b9cbd6fff1cd0"
+    },
+    "key": "backup_shared_secret",
+    "__v": 0,
+    "category": "backup",
+    "createdAt": {
+      "$date": "2025-10-07T12:55:52.809Z"
+    },
+    "description": "Shared secret header for external backup service",
+    "updatedAt": {
+      "$date": "2025-12-29T13:19:13.962Z"
+    },
+    "updatedBy": "admin",
+    "value": "aabb1234",
+    "isEncrypted": false
+  },
+  {
+    "_id": {
+      "$oid": "68e81196141b9cbd6f01f580"
+    },
+    "key": "backup_selected_collections",
+    "__v": 0,
+    "category": "backup",
+    "createdAt": {
+      "$date": "2025-10-09T19:48:38.412Z"
+    },
+    "description": "Selected collections for backup",
+    "updatedAt": {
+      "$date": "2026-02-05T14:45:13.843Z"
+    },
+    "updatedBy": "admin",
+    "value": [
+      "botversions",
+      "emaillogs",
+      "adminusers",
+      "userquotas",
+      "linemessages",
+      "extensionrequests",
+      "coderequests",
+      "pendingnotifications",
+      "plansettings",
+      "systemsettings",
+      "topups",
+      "botversionrequests",
+      "users",
+      "lineusers",
+      "customeraccounts",
+      "platformsettings",
+      "pointtransactions",
+      "useractivities",
+      "transactions",
+      "userprofiles"
+    ],
+    "isEncrypted": false
+  },
+  {
+    "_id": {
+      "$oid": "68fb78ed141b9cbd6f15a834"
+    },
+    "key": "telegram.bot_token",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-24T13:02:37.386Z"
+    },
+    "description": "",
+    "updatedAt": {
+      "$date": "2025-12-24T07:51:43.497Z"
+    },
+    "updatedBy": "admin",
+    "value": "enc:v1:nv8Cedm4MNKEYCUjHRhdnHNGw3mEV+3/SU+JkV1ht+2OlY2aHdf1A/bDS0HN96VpToqpHB9LHMR2kqrc2K9a2nVlhMv8JrFuAap9Pf5JJMshflDYcmkBh77F",
+    "isEncrypted": true
+  },
+  {
+    "_id": {
+      "$oid": "68fb78f7141b9cbd6f15a844"
+    },
+    "key": "telegram.admin_chat_id",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-24T13:02:47.304Z"
+    },
+    "description": "",
+    "updatedAt": {
+      "$date": "2026-01-29T06:23:36.992Z"
+    },
+    "updatedBy": "admin",
+    "value": "5436398702,1981574908,5464468320",
+    "isEncrypted": false
+  },
+  {
+    "_id": {
+      "$oid": "68ff486d141b9cbd6f19302d"
+    },
+    "key": "bank.scb",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-27T10:24:45.799Z"
+    },
+    "description": "SCB consolidated settings",
+    "updatedAt": {
+      "$date": "2026-01-31T06:16:49.911Z"
+    },
+    "updatedBy": "admin",
+    "value": {
+      "accountName": "lkk",
+      "accountNumber": "1234",
+      "active": false,
+      "phoneNumber": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "68ff486d141b9cbd6f19302f"
+    },
+    "key": "bank.ktb",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-27T10:24:45.859Z"
+    },
+    "description": "KTB consolidated settings",
+    "updatedAt": {
+      "$date": "2026-01-31T06:16:49.916Z"
+    },
+    "updatedBy": "admin",
+    "value": {
+      "accountName": "test",
+      "accountNumber": "12345",
+      "active": false,
+      "phoneNumber": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "68ff486d141b9cbd6f193031"
+    },
+    "key": "bank.bbl",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-27T10:24:45.902Z"
+    },
+    "description": "BBL consolidated settings",
+    "updatedAt": {
+      "$date": "2026-01-31T06:16:49.919Z"
+    },
+    "updatedBy": "admin",
+    "value": {
+      "accountName": "",
+      "accountNumber": "",
+      "active": false,
+      "phoneNumber": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "68ff486d141b9cbd6f193033"
+    },
+    "key": "bank.kbank",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-27T10:24:45.945Z"
+    },
+    "description": "KBANK consolidated settings",
+    "updatedAt": {
+      "$date": "2026-01-31T06:16:49.921Z"
+    },
+    "updatedBy": "admin",
+    "value": {
+      "accountName": "อรรถพล ขาวพุ่ม",
+      "accountNumber": "1841552381",
+      "active": true,
+      "phoneNumber": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "68ff486d141b9cbd6f193035"
+    },
+    "key": "bank.tmb",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-27T10:24:45.989Z"
+    },
+    "description": "TMB consolidated settings",
+    "updatedAt": {
+      "$date": "2026-01-31T06:16:49.924Z"
+    },
+    "updatedBy": "admin",
+    "value": {
+      "accountName": "",
+      "accountNumber": "",
+      "active": false,
+      "phoneNumber": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "68ff486d141b9cbd6f193037"
+    },
+    "key": "bank.bay",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-27T10:24:46.034Z"
+    },
+    "description": "BAY consolidated settings",
+    "updatedAt": {
+      "$date": "2026-01-31T06:16:49.926Z"
+    },
+    "updatedBy": "admin",
+    "value": {
+      "accountName": "",
+      "accountNumber": "",
+      "active": false,
+      "phoneNumber": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "68ff486d141b9cbd6f193039"
+    },
+    "key": "bank.gsb",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-27T10:24:46.079Z"
+    },
+    "description": "GSB consolidated settings",
+    "updatedAt": {
+      "$date": "2026-01-31T06:16:49.928Z"
+    },
+    "updatedBy": "admin",
+    "value": {
+      "accountName": "",
+      "accountNumber": "",
+      "active": false,
+      "phoneNumber": ""
+    }
+  },
+  {
+    "_id": {
+      "$oid": "68ff486d141b9cbd6f19303b"
+    },
+    "key": "bank.qrpromptpay",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2025-10-27T10:24:46.123Z"
+    },
+    "description": "QRPROMPTPAY consolidated settings",
+    "updatedAt": {
+      "$date": "2026-01-31T06:16:49.930Z"
+    },
+    "updatedBy": "admin",
+    "value": {
+      "accountName": "อรรถพล ขาวพุ่ม",
+      "accountNumber": "0955438891",
+      "active": true,
+      "phoneNumber": "0955438891"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "691716397fec912e5d17af2a"
+    },
+    "key": "backup_selected_collections_count",
+    "__v": 0,
+    "category": "backup",
+    "createdAt": {
+      "$date": "2025-11-14T11:44:57.249Z"
+    },
+    "description": "Count of selected collections for backup",
+    "updatedAt": {
+      "$date": "2026-02-05T14:45:13.859Z"
+    },
+    "updatedBy": "admin",
+    "value": 20,
+    "isEncrypted": false
+  },
+  {
+    "_id": {
+      "$oid": "691d7e737fec912e5d20ab61"
+    },
+    "key": "cloudinary_cloud_name",
+    "__v": 0,
+    "category": "cloudinary",
+    "createdAt": {
+      "$date": "2025-11-19T08:23:15.231Z"
+    },
+    "description": "Cloudinary cloud name for image storage",
+    "updatedAt": {
+      "$date": "2025-11-19T08:59:36.072Z"
+    },
+    "updatedBy": "admin",
+    "value": "duccez2xz"
+  },
+  {
+    "_id": {
+      "$oid": "691d7e987fec912e5d20ab99"
+    },
+    "key": "cloudinary_enabled",
+    "__v": 0,
+    "category": "cloudinary",
+    "createdAt": {
+      "$date": "2025-11-19T08:23:51.713Z"
+    },
+    "description": "Enable/disable Cloudinary image storage",
+    "updatedAt": {
+      "$date": "2025-11-19T08:59:37.323Z"
+    },
+    "updatedBy": "admin",
+    "value": true
+  },
+  {
+    "_id": {
+      "$oid": "691d80a17fec912e5d20af2f"
+    },
+    "key": "cloudinary_api_key",
+    "__v": 0,
+    "category": "cloudinary",
+    "createdAt": {
+      "$date": "2025-11-19T08:32:33.052Z"
+    },
+    "description": "Cloudinary API key",
+    "updatedAt": {
+      "$date": "2025-12-24T07:51:43.610Z"
+    },
+    "updatedBy": "admin",
+    "value": "enc:v1:k+mZzrOqBxEzRmXvrS5ym2yBFCCprRJnluyyBoPl35wOaxqjoQoJup8/HOKi5pZWu3CsCXj+BEW/S70=",
+    "isEncrypted": true
+  },
+  {
+    "_id": {
+      "$oid": "691d80a27fec912e5d20af35"
+    },
+    "key": "cloudinary_api_secret",
+    "__v": 0,
+    "category": "cloudinary",
+    "createdAt": {
+      "$date": "2025-11-19T08:32:33.735Z"
+    },
+    "description": "Cloudinary API secret",
+    "updatedAt": {
+      "$date": "2025-12-24T07:51:43.720Z"
+    },
+    "updatedBy": "admin",
+    "value": "enc:v1:TI4zf8JL5BfraIwVFjUIatpwgnAANDGx7KGaG3H1Dj4ixRvyPEGjiehc7VnNt1brZSZ9YPuLn1n8n5LrmjEdKAugDPM7ecg=",
+    "isEncrypted": true
+  },
+  {
+    "_id": {
+      "$oid": "692efd1f94fcb5f475d2b1a1"
+    },
+    "key": "backup_google_oauth_client_id",
+    "__v": 0,
+    "category": "backup",
+    "createdAt": {
+      "$date": "2025-12-02T14:52:15.535Z"
+    },
+    "description": "Google OAuth Client ID",
+    "updatedAt": {
+      "$date": "2025-12-29T12:21:55.087Z"
+    },
+    "updatedBy": "admin",
+    "value": "1099079968623-soil7tcfm8eclghcsieet1etb06fflqd.apps.googleusercontent.com",
+    "isEncrypted": false
+  },
+  {
+    "_id": {
+      "$oid": "692efd1f94fcb5f475d2b1a3"
+    },
+    "key": "backup_google_oauth_client_secret",
+    "__v": 0,
+    "category": "backup",
+    "createdAt": {
+      "$date": "2025-12-02T14:52:15.600Z"
+    },
+    "description": "Google OAuth Client Secret",
+    "updatedAt": {
+      "$date": "2025-12-29T12:50:20.471Z"
+    },
+    "updatedBy": "admin",
+    "value": "enc:v1:dUyena7eiPRC6kSUlu8yOknHdS12bTnAghAmRQ6C3dy9pgqw2IhViBE8xDgfKVc0KlVuawgKMFqSLojcqOxtHXh5+paIifnOw4Mr0mU3Ug==",
+    "isEncrypted": true
+  },
+  {
+    "_id": {
+      "$oid": "692efd1f94fcb5f475d2b1a5"
+    },
+    "key": "backup_google_drive_folder_id",
+    "__v": 0,
+    "category": "backup",
+    "createdAt": {
+      "$date": "2025-12-02T14:52:15.648Z"
+    },
+    "description": "Google Drive parent folder for backups",
+    "updatedAt": {
+      "$date": "2025-12-29T12:21:55.184Z"
+    },
+    "updatedBy": "admin",
+    "value": "15mupnFXxuOWAERg3a4qe7Fvccnuo2KYO",
+    "isEncrypted": false
+  },
+  {
+    "_id": {
+      "$oid": "692f218e94fcb5f475d2cb5c"
+    },
+    "key": "backup_google_oauth_refresh_token",
+    "__v": 0,
+    "category": "backup",
+    "createdAt": {
+      "$date": "2025-12-02T17:27:41.998Z"
+    },
+    "description": "Google OAuth Refresh Token",
+    "updatedAt": {
+      "$date": "2025-12-29T12:50:20.597Z"
+    },
+    "updatedBy": "admin",
+    "value": "enc:v1:LfVXjBiRJiaihOkEobljaFyPgUNP2AYEo5jV6F0EvmIWFsccPUX6wnrq6DH6MVXNp5g4gW3WCM18k2x5xQvFc35vYPKvL88rIV4Y+iupHQE+awaAbTva7Ux4k8BDEACq/LpUrG7rSRk4NMUGob/xylc08jdjjQspbMqmWfGK28mXw9OQiFP5ohfajyVJAUp+p7Bn",
+    "isEncrypted": true
+  },
+  {
+    "_id": {
+      "$oid": "6971f79594fcb5f475162dad"
+    },
+    "key": "admin.sub_admin_hidden_tabs",
+    "__v": 0,
+    "category": "security",
+    "createdAt": {
+      "$date": "2026-01-22T10:10:29.436Z"
+    },
+    "description": "Tabs hidden from sub-admins",
+    "isEncrypted": false,
+    "updatedAt": {
+      "$date": "2026-01-22T10:27:01.448Z"
+    },
+    "updatedBy": "admin",
+    "value": [
+      "customers",
+      "bot-version-requests",
+      "platform-settings",
+      "system-settings",
+      "create-account",
+      "topup-requests",
+      "plan-settings",
+      "add-credits",
+      "bank-settings",
+      "bot-versions"
+    ]
+  },
+  {
+    "_id": {
+      "$oid": "6978604794fcb5f4751d534d"
+    },
+    "key": "r2_account_id",
+    "__v": 0,
+    "category": "integrations",
+    "createdAt": {
+      "$date": "2026-01-27T06:50:47.758Z"
+    },
+    "description": "R2 account id",
+    "isEncrypted": false,
+    "updatedAt": {
+      "$date": "2026-01-27T06:50:47.758Z"
+    },
+    "updatedBy": "admin",
+    "value": "a96415b2797eaed28611c6bee380ea8c"
+  },
+  {
+    "_id": {
+      "$oid": "6978604894fcb5f4751d5350"
+    },
+    "key": "r2_bucket",
+    "__v": 0,
+    "category": "integrations",
+    "createdAt": {
+      "$date": "2026-01-27T06:50:48.104Z"
+    },
+    "description": "R2 bucket name",
+    "isEncrypted": false,
+    "updatedAt": {
+      "$date": "2026-01-27T06:50:48.104Z"
+    },
+    "updatedBy": "admin",
+    "value": "qdragon"
+  },
+  {
+    "_id": {
+      "$oid": "6978604894fcb5f4751d5353"
+    },
+    "key": "r2_access_key_id",
+    "__v": 0,
+    "category": "integrations",
+    "createdAt": {
+      "$date": "2026-01-27T06:50:48.685Z"
+    },
+    "description": "R2 access key id",
+    "isEncrypted": true,
+    "updatedAt": {
+      "$date": "2026-01-27T08:30:36.342Z"
+    },
+    "updatedBy": "admin",
+    "value": "enc:v1:sauSgWE9Rabj5mQDflvn8vQFEKyAltk+OX2t0kZSlJvG0NfjBML8vYvhj3E7ZLVdw1FDwbl94TjnC9iMK4haajKPwtV8F1GnFJNLAA=="
+  },
+  {
+    "_id": {
+      "$oid": "6978604994fcb5f4751d5356"
+    },
+    "key": "r2_secret_access_key",
+    "__v": 0,
+    "category": "integrations",
+    "createdAt": {
+      "$date": "2026-01-27T06:50:49.156Z"
+    },
+    "description": "R2 secret access key",
+    "isEncrypted": true,
+    "updatedAt": {
+      "$date": "2026-01-27T08:30:36.763Z"
+    },
+    "updatedBy": "admin",
+    "value": "enc:v1:2LWb5T7snge+0UnuEDu4naqZKAoWUmSZ1bQ7ZL7b9iXWLetJXCewanT2WgNIZa7RiMa13JF7g9a+206EcJ+RTL81OcuLLxWFOvD/y+nrwqSccCx6t0F9uA+AGoUC6rI81bHRnZDvACswOJen"
+  },
+  {
+    "_id": {
+      "$oid": "6978604994fcb5f4751d5359"
+    },
+    "key": "r2_public_hostname",
+    "__v": 0,
+    "category": "integrations",
+    "createdAt": {
+      "$date": "2026-01-27T06:50:49.578Z"
+    },
+    "description": "R2 public hostname",
+    "isEncrypted": false,
+    "updatedAt": {
+      "$date": "2026-01-27T08:30:37.175Z"
+    },
+    "updatedBy": "admin",
+    "value": "cdn.eaqdragon.com"
+  },
+  {
+    "_id": {
+      "$oid": "6979c1dbcf8be89b207fe720"
+    },
+    "key": "quota_activation_plans",
+    "__v": 0,
+    "category": "general",
+    "createdAt": {
+      "$date": "2026-01-28T07:56:53.469Z"
+    },
+    "description": "Available plan days for quota activation (comma-separated, e.g. 30,90,365,lifetime)",
+    "isEncrypted": false,
+    "updatedAt": {
+      "$date": "2026-01-28T07:59:55.215Z"
+    },
+    "updatedBy": "admin",
+    "value": "7,30,90,365,lifetime"
+  },
+  {
+    "_id": {
+      "$oid": "6979c1ef94fcb5f4751f09e7"
+    },
+    "key": "quota_revoke_enabled",
+    "__v": 0,
+    "category": "features",
+    "createdAt": {
+      "$date": "2026-01-28T07:59:43.503Z"
+    },
+    "description": "Enable/disable quota license revoke/delete feature",
+    "isEncrypted": false,
+    "updatedAt": {
+      "$date": "2026-01-28T07:59:43.503Z"
+    },
+    "updatedBy": "admin",
+    "value": true
+  },
+  {
+    "_id": {
+      "$oid": "6979c1f094fcb5f4751f09ef"
+    },
+    "key": "quota_revoke_cost",
+    "__v": 0,
+    "category": "pricing",
+    "createdAt": {
+      "$date": "2026-01-28T07:59:44.480Z"
+    },
+    "description": "Cost in credits to revoke/delete a quota license",
+    "isEncrypted": false,
+    "updatedAt": {
+      "$date": "2026-01-28T07:59:44.480Z"
+    },
+    "updatedBy": "admin",
+    "value": 50
+  },
+  {
+    "_id": {
+      "$oid": "697a3c7a94fcb5f4751fa71a"
+    },
+    "key": "r2_max_upload_bytes",
+    "__v": 0,
+    "category": "limits",
+    "createdAt": {
+      "$date": "2026-01-28T16:42:34.857Z"
+    },
+    "description": "R2 max upload bytes",
+    "isEncrypted": false,
+    "updatedAt": {
+      "$date": "2026-01-28T16:42:34.857Z"
+    },
+    "updatedBy": "admin",
+    "value": 1009715200
+  }
+]

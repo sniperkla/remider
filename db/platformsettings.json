@@ -1,0 +1,356 @@
+[
+  {
+    "_id": {
+      "$oid": "6914377ef8f245a3158becc5"
+    },
+    "name": "Exness (Spread 16/ Rebate 0)",
+    "key": "exness",
+    "description": "Global forex and CFD broker\n(Spread 16/ Rebate 0)",
+    "isActive": true,
+    "sortOrder": 0,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2025-11-12T07:30:06.515Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T11:59:50.950Z"
+    },
+    "__v": 6,
+    "affiliateLink": "https://one.exnessonelink.com/a/qqz1e6vdra",
+    "visibleForBotVersions": [
+      "qdragon",
+      "lot-purchase",
+      "lot-partner"
+    ],
+    "allowPartnerChange": true,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "images",
+    "partnerChangeText": "",
+    "sortOrderByBot": {
+      "qdragon": 20
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6914377ef8f245a3158becc8"
+    },
+    "name": "XM",
+    "key": "xm",
+    "description": "Premium forex and CFD broker",
+    "isActive": true,
+    "sortOrder": 6,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2025-11-12T07:30:06.601Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-26T10:00:45.153Z"
+    },
+    "__v": 3,
+    "affiliateLink": "https://google.com",
+    "visibleForBotVersions": [
+      "qdragon",
+      "lot-purchase"
+    ],
+    "allowPartnerChange": false,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "images",
+    "partnerChangeText": ""
+  },
+  {
+    "_id": {
+      "$oid": "6914377ef8f245a3158beccb"
+    },
+    "name": "IC Markets",
+    "key": "ic-markets",
+    "description": "Low-cost forex broker",
+    "isActive": true,
+    "sortOrder": 7,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2025-11-12T07:30:06.688Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-26T10:00:50.243Z"
+    },
+    "__v": 2,
+    "affiliateLink": "https://google.com",
+    "visibleForBotVersions": [
+      "qdragon",
+      "lot-purchase"
+    ],
+    "allowPartnerChange": true,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "images",
+    "partnerChangeText": ""
+  },
+  {
+    "_id": {
+      "$oid": "691457ce0fd7eee15dd570f5"
+    },
+    "name": "Olymptrade",
+    "key": "olymptrade",
+    "description": "Other trading platforms",
+    "isActive": true,
+    "sortOrder": 10,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2025-11-12T07:30:06.955Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-26T10:00:54.171Z"
+    },
+    "__v": 3,
+    "affiliateLink": "https://google.com",
+    "visibleForBotVersions": [
+      "qdragon",
+      "lot-purchase"
+    ],
+    "allowPartnerChange": false,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "images",
+    "partnerChangeText": ""
+  },
+  {
+    "_id": {
+      "$oid": "691458270fd7eee15dd570f7"
+    },
+    "name": "Vantage",
+    "key": "vantage",
+    "description": "Other trading platforms",
+    "isActive": true,
+    "sortOrder": 10,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2025-11-12T07:30:06.955Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-26T10:01:00.133Z"
+    },
+    "__v": 7,
+    "affiliateLink": "https://google.com",
+    "visibleForBotVersions": [
+      "qdragon",
+      "lot-purchase"
+    ],
+    "allowPartnerChange": false,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "images",
+    "partnerChangeText": ""
+  },
+  {
+    "_id": {
+      "$oid": "69549b146deedc15932e7179"
+    },
+    "name": "VT-market",
+    "key": "vtmarket",
+    "description": "",
+    "affiliateLink": "",
+    "isActive": true,
+    "sortOrder": 0,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2025-12-31T03:40:04.807Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-04T09:24:17.135Z"
+    },
+    "__v": 4,
+    "visibleForBotVersions": [
+      "qdragon",
+      "lot-purchase",
+      "test"
+    ],
+    "allowPartnerChange": false,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "images",
+    "partnerChangeText": "",
+    "sortOrderByBot": {}
+  },
+  {
+    "_id": {
+      "$oid": "6975b676ab1dc908af716312"
+    },
+    "name": "ETO Markets(STD Spread27/Rebate4)",
+    "key": "eto_markets27_4",
+    "description": "ETO Markets(STD Spread 27/ Rebate 4)",
+    "affiliateLink": "https://portal.eto.group/create-live-account?t=GXuCm09S4gSqqv5k0MXQG",
+    "visibleForBotVersions": [
+      "lot-partner"
+    ],
+    "allowPartnerChange": true,
+    "partnerChangeImages": [
+      "ส่งเมลเพื่อขอย้าย IB",
+      "Dear, info",
+      "Account Name: ชื่อบัญชีลูกค้า",
+      "E-mail:อีเมลลูกค้า",
+      "Account IB/MT: เลขบัญชี IB/เลขบัญชีเทรดของลูกค้า",
+      "*please move under IB: กรอกเลขบัญชี IB ที่ต้องการย้าย",
+      "E-mail:อีเมล IB",
+      "Thanks"
+    ],
+    "isActive": true,
+    "sortOrder": 1,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-25T06:21:42.402Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T12:00:03.514Z"
+    },
+    "__v": 6,
+    "partnerChangeMode": "text",
+    "partnerChangeText": "<p class=\"ql-align-center\"><strong>ติดต่อแอดมินเพื่อให้ทำเรื่องย้าย&nbsp;IB</strong></p>",
+    "sortOrderByBot": {
+      "qdragon": 0,
+      "lot": 1
+    }
+  },
+  {
+    "_id": {
+      "$oid": "69777e5cfbcaa963e8197180"
+    },
+    "name": "ETO Markets(STD5 Spread32/Rebate9)",
+    "key": "eto_markets32_9",
+    "description": "ETO Markets(STD5 Spread 32/ Rebate 9)",
+    "affiliateLink": "https://portal.eto.group/create-live-account?t=WHP3JosP1NtAHdmQT7OjZ",
+    "visibleForBotVersions": [
+      "lot-partner"
+    ],
+    "allowPartnerChange": true,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "text",
+    "partnerChangeText": "<p class=\"ql-align-center\"><strong>ติดต่อแอดมินเพื่อให้ทำเรื่องย้าย&nbsp;IB</strong></p>",
+    "isActive": true,
+    "sortOrder": 2,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-26T14:46:52.906Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T12:00:11.467Z"
+    },
+    "__v": 1,
+    "sortOrderByBot": {}
+  },
+  {
+    "_id": {
+      "$oid": "69777ea4fbcaa963e8197184"
+    },
+    "name": "ETO Markets(STD10 Spread37/Rebate14)",
+    "key": "eto_markets37_14",
+    "description": "ETO Markets(STD10 Spread37/Rebate14)",
+    "affiliateLink": "https://portal.eto.group/create-live-account?t=87vmMsFZDmmMv7MRVKULR",
+    "visibleForBotVersions": [
+      "lot-partner"
+    ],
+    "allowPartnerChange": true,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "text",
+    "partnerChangeText": "<p class=\"ql-align-center\"><strong>ติดต่อแอดมินเพื่อให้ทำเรื่องย้าย&nbsp;IB</strong></p>",
+    "isActive": true,
+    "sortOrder": 3,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-26T14:48:04.492Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T12:00:18.397Z"
+    },
+    "__v": 1,
+    "sortOrderByBot": {}
+  },
+  {
+    "_id": {
+      "$oid": "69777ef9fbcaa963e8197188"
+    },
+    "name": "ETO Markets(STD15 Spread42/Rebate19)",
+    "key": "eto_markets42_19",
+    "description": "ETO Markets(STD15 Spread42/Rebate19)",
+    "affiliateLink": "https://portal.eto.group/create-live-account?t=b1FTwnLRpfdjGoiDRVmxm",
+    "visibleForBotVersions": [
+      "lot-partner"
+    ],
+    "allowPartnerChange": true,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "text",
+    "partnerChangeText": "<p class=\"ql-align-center\"><strong>ติดต่อแอดมินเพื่อให้ทำเรื่องย้าย&nbsp;IB</strong></p>",
+    "isActive": true,
+    "sortOrder": 4,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-26T14:49:29.287Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T12:00:24.880Z"
+    },
+    "__v": 1,
+    "sortOrderByBot": {}
+  },
+  {
+    "_id": {
+      "$oid": "69777f41fbcaa963e819718c"
+    },
+    "name": "ETO Markets(STD20 Spread47/Rebate24)",
+    "key": "eto_markets47_24",
+    "description": "ETO Markets(STD20 Spread47/Rebate24)",
+    "affiliateLink": "https://portal.eto.group/create-live-account?t=8LjLxiHi2817lcT9o8OPe",
+    "visibleForBotVersions": [
+      "lot-partner"
+    ],
+    "allowPartnerChange": true,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "text",
+    "partnerChangeText": "<p class=\"ql-align-center\"><strong>ติดต่อแอดมินเพื่อให้ทำเรื่องย้าย&nbsp;IB</strong></p>",
+    "isActive": true,
+    "sortOrder": 5,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-26T14:50:41.636Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T12:00:30.746Z"
+    },
+    "__v": 1,
+    "sortOrderByBot": {}
+  },
+  {
+    "_id": {
+      "$oid": "69777f8cfbcaa963e8197190"
+    },
+    "name": "ETO Markets(STD25 Spread52/Rebate29)",
+    "key": "eto_markets52_29",
+    "description": "ETO Markets(STD Spread52/Rebate29)",
+    "affiliateLink": "https://portal.eto.group/create-live-account?t=Sex5krItf6mOpC4YPodtR",
+    "visibleForBotVersions": [
+      "lot-partner"
+    ],
+    "allowPartnerChange": true,
+    "partnerChangeImages": [],
+    "partnerChangeMode": "text",
+    "partnerChangeText": "<p class=\"ql-align-center\"><strong>ติดต่อแอดมินเพื่อให้ทำเรื่องย้าย&nbsp;IB</strong></p>",
+    "isActive": true,
+    "sortOrder": 6,
+    "createdBy": "admin",
+    "updatedBy": "admin",
+    "createdAt": {
+      "$date": "2026-01-26T14:51:56.365Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-29T12:00:42.455Z"
+    },
+    "__v": 1,
+    "sortOrderByBot": {}
+  }
+]

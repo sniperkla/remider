@@ -1,0 +1,288 @@
+[
+  {
+    "_id": {
+      "$oid": "693e43db728d058e61cc624a"
+    },
+    "userId": "U6f2e4fdc3b05c07ac3430646b7cbe084",
+    "displayName": "POPITON",
+    "pictureUrl": "https://sprofile.line-scdn.net/0hozPORnnQMFV9Ni42sqZOaw1mMz9eR2lHUwR3MkE0bTJEDyBTAVN6ZBhjbDYVAHdQBQIoN0kxZjFfQ3QDP1ccUxg_PiIGDhZ5CiwFVSlEbgYzUgdECQAlMDNLDD8YQiBqJC0nVwhfDgYYZTNVVRt_ZS02KzACYicBWGFcA3gEXtYSNEcAUFF2MEwzZ23G",
+    "statusMessage": "☎️ 0873792296",
+    "language": "th",
+    "friendedAt": {
+      "$date": "2025-12-14T04:58:02.075Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2025-12-14T04:58:03.056Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-14T04:58:03.076Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "694ad9a897ca90d1a85ee2a1"
+    },
+    "userId": "U174df40a435282eeffa06eeeff93a720",
+    "displayName": "Nn",
+    "pictureUrl": "https://sprofile.line-scdn.net/0hE5KJzfBTGhpmMwoVNV5kZRZjGXBFQkMIGAVUeFJnFigIBQ9PQlBWdFFhQyhTV1sYH1Jdegc0QHlqIG18eGXmLmEDRytaCl5IT1xd-g",
+    "statusMessage": null,
+    "language": "th",
+    "friendedAt": {
+      "$date": "2025-12-23T18:04:23.866Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2025-12-23T18:04:24.853Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-23T18:04:24.866Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "694c0aee97ca90d1a85ee7be"
+    },
+    "userId": "U09ccff6fcfd0115296fc67718e7e4a05",
+    "displayName": "T⭕N ♾",
+    "pictureUrl": "https://sprofile.line-scdn.net/0h1mgpUYvYbkJKCXEX08wQfDpZbShpeDdQMWZ0Jn8ONyF_OilAYj12d3xcZ3dwaXkVNDsgc3sAZXFoUmAROxVhOAZyTXUlX2tSLnN_dx9cVXYSbXdvHT9dYSNTOHd1bnJ9Iz9kby1PWwEfb2EUHW5qdxwJODUjQHBhb14CFE87AMElCxkXZ24oJ3sMOXrx",
+    "statusMessage": null,
+    "language": "th",
+    "friendedAt": {
+      "$date": "2025-12-24T15:46:53.373Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2025-12-24T15:46:54.334Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-24T15:46:54.349Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "694ce33c97ca90d1a85eeb5e"
+    },
+    "userId": "U7384f22a436101de7e2220a50f1eda8a",
+    "displayName": "EM ",
+    "pictureUrl": "https://sprofile.line-scdn.net/0hjQaC2MU_NX5MOipTOppLATxqNhRvS2xsZlp4HHk9a0glA3MqZ1x5HnFobU9yDXV7aVp6SyoyYx5AKUIYUmzJSksKaE9wA3EsZVVyng",
+    "statusMessage": null,
+    "language": "en",
+    "friendedAt": {
+      "$date": "2025-12-25T07:09:47.892Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2025-12-25T07:09:48.920Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-25T07:09:48.929Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "694d481a97ca90d1a85eed15"
+    },
+    "userId": "U0df95f3a3763c9731c06ca351a514388",
+    "displayName": "TUI💯👍",
+    "pictureUrl": "https://sprofile.line-scdn.net/0huguGLA9XKkhYPjSzPuJUdihuKSJ7T3NaJlgxLzg8JnA3XWobJFltJjo-c3BmXjkbdgo1LWluISp6Tgx7Ej4ubD9maDEzCixldAYuSx9VCjMfbDd2dzEYQGVFHQAgUR14D1ERdRpbMToRZj0cDQQXRw1KASU9bGxJFGlGHl0MRMs3PF0ddVlsLWk7fXDj",
+    "statusMessage": "Fight for all",
+    "language": "en",
+    "friendedAt": {
+      "$date": "2025-12-25T14:20:09.616Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2025-12-25T14:20:10.313Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-25T14:20:10.318Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "694e260397ca90d1a85ef0ce"
+    },
+    "userId": "U32e0b2844f7c514bb779c19b0ca45c18",
+    "displayName": "Hong",
+    "pictureUrl": "https://sprofile.line-scdn.net/0hDAFAKNeCG25rOAqrhrllERtoGARISUJ8QAlQW1oxRVdVCAs6T1kAXAsxRQlfCVw5EFdRXVxoTVpnK2wIdW7nWmwIRl9XAV88Qldcjg",
+    "statusMessage": null,
+    "language": "th",
+    "friendedAt": {
+      "$date": "2025-12-26T06:06:58.869Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2025-12-26T06:06:59.878Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-26T06:06:59.885Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69534f9597ca90d1a85f06e4"
+    },
+    "userId": "U89e338459836fd3057c47895bd10e84e",
+    "displayName": "juisak",
+    "pictureUrl": "https://sprofile.line-scdn.net/0hoqKrDXIVMF5mCyHQVXhOYBZbMzRFemlMTmx8OFcKamgPPCQKTG0qPVMLaG1fOXcBHT8qbFRZOzlEXX90DDMoflNfZxQtYSJePDEEJDFbMTkCQQ91GDp2PT1cNgo9cA5vQ2R7WgxeDzkQXzdXPh0bRDFeCD0JRiJKGlxcCGM5Xt0JCUcLS2x2O1cOZ2bd",
+    "statusMessage": null,
+    "language": "th",
+    "friendedAt": {
+      "$date": "2025-12-30T04:05:40.830Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2025-12-30T04:05:41.496Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-30T04:05:41.507Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6955249e97ca90d1a85f0ebd"
+    },
+    "userId": "U9e4c5bd6c65fa191139e1667ae4bba7e",
+    "displayName": "SoDA",
+    "pictureUrl": "https://sprofile.line-scdn.net/0h6xn0AvFGaVdDSXh0Q44XKDMZaj1gODBFbSt2M3caYmR4eCoDaihzOCRKZzJ6ficJPXx0M3ROYmNPWh4xXR-VY0R5NGZ_cC0FaiYutw",
+    "statusMessage": "BE A BETTER LEADER",
+    "language": "en",
+    "friendedAt": {
+      "$date": "2025-12-31T13:26:53.788Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2025-12-31T13:26:54.413Z"
+    },
+    "updatedAt": {
+      "$date": "2025-12-31T13:26:54.421Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69567d2e97ca90d1a85f1483"
+    },
+    "userId": "U08ba87e3435382b97600f05c2d39a5c1",
+    "displayName": "Dew  🐺",
+    "pictureUrl": "https://sprofile.line-scdn.net/0h6N_8HGKqaWFyQXmiGJcXHgIRagtRMDBzXHdzAhBBZQFPJSY_CXAiBU4WMANKdX5lX3cuAxJHPgR-Uh4HbBeVVXVxNFBOeC0zWy4ugQ",
+    "statusMessage": null,
+    "language": "th",
+    "friendedAt": {
+      "$date": "2026-01-01T13:57:01.873Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2026-01-01T13:57:02.579Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-01T13:57:02.587Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "695ba70297ca90d1a85f2aa4"
+    },
+    "userId": "U78a561b258377b810077b44c46371dc0",
+    "displayName": "Ala 🦭 阿拉",
+    "pictureUrl": "https://sprofile.line-scdn.net/0hKmHJJTo_FEJlMwr2mFxqfBVjFyhGQk1QTQZTIFY7HiVQVlVHHV0LdgcxHSIMVFETSQYJIFYyHSZHYAcSSFMyIyI7NjMjY1t6FRMHWzV6NxEeZDRRQSUheQsxCyxcXilUMgIGQQdDLQoMZQgVLAAkYzdtTgcGSAl8M2R4FGABesEKMWMXSFRSJ1Q2Q3re",
+    "statusMessage": "✨️ ความรักที่มั่นคง ไม่ได้อยู่ในนิยาย แต่อยู่ในครอบครัว ✨️♥️",
+    "language": "th",
+    "friendedAt": {
+      "$date": "2026-01-05T11:56:49.099Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2026-01-05T11:56:50.091Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-05T11:56:50.111Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "697c3d3997ca90d1a85fb5e3"
+    },
+    "userId": "Uf6c7a7a62f80aafe6096f79da1b2b46f",
+    "displayName": "น.ท.บัญชา นาคะศิริ",
+    "pictureUrl": "https://sprofile.line-scdn.net/0hS5TRHIHEDBp5KxKA9AdyZQl7D3BaWlUIUUQQeE8uUHgRH0seXB9BLkoqVSlBHEweVEtGKBh8USx1OHt8Z33wLn4bUStFEkhIUERL-g",
+    "statusMessage": "รอง หก.คป.ทรภ.1",
+    "language": "th",
+    "friendedAt": {
+      "$date": "2026-01-30T05:10:17.365Z"
+    },
+    "isFriend": true,
+    "unfollowedAt": null,
+    "lastMessageAt": null,
+    "messageCount": 0,
+    "tags": [],
+    "notes": null,
+    "createdAt": {
+      "$date": "2026-01-30T05:10:17.905Z"
+    },
+    "updatedAt": {
+      "$date": "2026-01-30T05:10:17.917Z"
+    },
+    "__v": 0
+  }
+]

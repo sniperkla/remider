@@ -23,7 +23,7 @@ export default function useTransactions() {
   useEffect(() => { accountsRef.current = accounts; }, [accounts]);
   useEffect(() => { balanceRef.current = balance; }, [balance]);
 
-  const addTransaction = async (amount, type, description, category = "อื่นๆ", wallet = "bank", bank = null, icon = null, isScanned = false, imageUrl = null, isTutorial = false, forcedAccountId = null) => {
+  const addTransaction = async (amount, type, description, category = "อื่นๆ", wallet = "bank", bank = null, icon = null, isScanned = false, imageUrl = null, isTutorial = false, forcedAccountId = null, debtId = null) => {
     const data = {
       amount,
       type,
@@ -38,6 +38,7 @@ export default function useTransactions() {
       imageUrl,
       date: new Date().toISOString(),
       isTutorial, // Mark as tutorial transaction
+      debtId,
     };
 
     // Update UI Optimistically using Refs to avoid stale closure
@@ -98,10 +99,12 @@ export default function useTransactions() {
         const saved = await res.json();
         // Replace tempId with real MongoDB _id
         setTransactions(prev => prev.map(t => t.id === tempId ? saved : t));
+        return saved;
       }
     } catch (error) {
       console.warn("Failed to save to MongoDB, kept in local session");
     }
+    return { ...data, id: tempId, _id: tempId };
   };
 
   const updateTransaction = async (id, updatedData) => {
