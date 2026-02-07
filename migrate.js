@@ -2,7 +2,8 @@ const { MongoClient, ObjectId } = require('mongodb');
 const fs = require('fs');
 const path = require('path');
 
-const uri = "mongodb://admin:AaBb1234!@13.228.23.104:27017,52.221.231.217:27017,18.143.170.9:27017/?replicaSet=rs0&authSource=admin";
+const uri = "mongodb://admin:AaBb1234!@mongo1.eaqdragon.com:27017,mongo2.eaqdragon.com:27017,mongo3.eaqdragon.com:27017/qdragon?replicaSet=rs0&authSource=admin"
+
 const dbName = "qdragon";
 const jsonDir = path.join(__dirname, 'db');
 

@@ -1,6 +1,6 @@
 {
-  "backupDate": "2026-02-05T14:45:42.454Z",
-  "folderId": "1zyDHrEWM30DdirfmQyrhnw3r8_ALMA29",
+  "backupDate": "2026-02-07T17:15:40.061Z",
+  "folderId": "1wD4-aJ6hmnlvCrSTLYh52RAdro2npDU0",
   "collections": [
     {
       "collection": "botversions",
@@ -10,7 +10,7 @@
     {
       "collection": "emaillogs",
       "success": true,
-      "documentCount": 136
+      "documentCount": 141
     },
     {
       "collection": "adminusers",
@@ -30,7 +30,7 @@
     {
       "collection": "extensionrequests",
       "success": true,
-      "documentCount": 4
+      "documentCount": 5
     },
     {
       "collection": "coderequests",
@@ -40,7 +40,7 @@
     {
       "collection": "pendingnotifications",
       "success": true,
-      "documentCount": 14
+      "documentCount": 18
     },
     {
       "collection": "plansettings",
@@ -60,12 +60,12 @@
     {
       "collection": "botversionrequests",
       "success": true,
-      "documentCount": 17
+      "documentCount": 18
     },
     {
       "collection": "users",
       "success": true,
-      "documentCount": 16
+      "documentCount": 17
     },
     {
       "collection": "lineusers",
@@ -75,7 +75,7 @@
     {
       "collection": "customeraccounts",
       "success": true,
-      "documentCount": 67
+      "documentCount": 69
     },
     {
       "collection": "platformsettings",
@@ -90,7 +90,7 @@
     {
       "collection": "useractivities",
       "success": true,
-      "documentCount": 490
+      "documentCount": 528
     },
     {
       "collection": "transactions",

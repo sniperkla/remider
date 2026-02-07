@@ -10331,5 +10331,796 @@
       "$date": "2026-02-05T12:25:38.890Z"
     },
     "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6984e944758a5616ddd6a0a7"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8871:3032:e99d:bca2:9bcc:5bac",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-05T19:02:28.838Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-05T19:02:28.838Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6984e944758a5616ddd6a0ab"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8871:3032:e99d:bca2:9bcc:5bac",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-05T19:02:28.989Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-05T19:02:28.989Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6984ea10758a5616ddd6a0ca"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8871:3032:e99d:bca2:9bcc:5bac",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-05T19:05:52.170Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-05T19:05:52.170Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6984ea10758a5616ddd6a0ce"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8871:3032:e99d:bca2:9bcc:5bac",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-05T19:05:52.311Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-05T19:05:52.311Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6984ea1d758a5616ddd6a0f2"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "purchase_license_points",
+    "details": "Purchased license QDRA-Y3G6-ERYX-6D5K for account 4444 (vtmarket) using 1000 points",
+    "metadata": {
+      "licenseCode": "QDRA-Y3G6-ERYX-6D5K",
+      "accountNumber": "4444",
+      "platform": "vtmarket",
+      "planDays": 32,
+      "pointsUsed": 1000,
+      "botVersionKey": "qdragon"
+    },
+    "ip": "2403:6200:8871:3032:e99d:bca2:9bcc:5bac",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-05T19:06:05.444Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-05T19:06:05.444Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6984ea95758a5616ddd6a116"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8871:3032:e99d:bca2:9bcc:5bac",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-05T19:08:05.931Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-05T19:08:05.931Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "698534e0758a5616ddd6a13e"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "login",
+    "details": "User logged in successfully",
+    "ip": "171.6.244.49",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T00:25:04.200Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T00:25:04.200Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "698534e0758a5616ddd6a141"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "171.6.244.49",
+    "userAgent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Mobile Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T00:25:04.948Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T00:25:04.948Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6985552b758a5616ddd6a164"
+    },
+    "userId": {
+      "$oid": "697caf6bdd39b57e56c538ca"
+    },
+    "username": "touch.k3@gmail.com",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "49.237.16.219",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T02:42:51.688Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T02:42:51.688Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69857b80758a5616ddd6a189"
+    },
+    "userId": {
+      "$oid": "69732830a0e53a5e4a4aac6f"
+    },
+    "username": "Aem",
+    "action": "login",
+    "details": "User logged in successfully",
+    "ip": "134.236.37.178",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T05:26:24.159Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T05:26:24.159Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69857b80758a5616ddd6a18e"
+    },
+    "userId": {
+      "$oid": "69732830a0e53a5e4a4aac6f"
+    },
+    "username": "Aem",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "134.236.37.178",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T05:26:24.522Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T05:26:24.522Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "698588c1758a5616ddd6a1bc"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:742e:6b71:290:c914",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T06:22:57.843Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T06:22:57.843Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "698588c1758a5616ddd6a1c0"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:742e:6b71:290:c914",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T06:22:57.996Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T06:22:57.996Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6985dea3758a5616ddd6a217"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:742e:6b71:290:c914",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T12:29:23.279Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T12:29:23.279Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6985dea3758a5616ddd6a21b"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:742e:6b71:290:c914",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T12:29:23.425Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T12:29:23.425Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6985dead758a5616ddd6a241"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "purchase_license_points",
+    "details": "Purchased license QDRA-JDVY-Y8IJ-A62R for account 123123123123 (vtmarket) using 1000 points",
+    "metadata": {
+      "licenseCode": "QDRA-JDVY-Y8IJ-A62R",
+      "accountNumber": "123123123123",
+      "platform": "vtmarket",
+      "planDays": 32,
+      "pointsUsed": 1000,
+      "botVersionKey": "qdragon"
+    },
+    "ip": "2403:6200:8876:b5f:742e:6b71:290:c914",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T12:29:33.444Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T12:29:33.444Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6985e093758a5616ddd6a25d"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:742e:6b71:290:c914",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T12:37:39.432Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T12:37:39.432Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6985e094758a5616ddd6a27c"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:742e:6b71:290:c914",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T12:37:40.309Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T12:37:40.309Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6985f69f06f052e3e41fc064"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "::1",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-06T14:11:43.902Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T14:11:43.902Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986baba758a5616ddd6a306"
+    },
+    "userId": {
+      "$oid": "6986baba758a5616ddd6a304"
+    },
+    "username": "luoxiaohong",
+    "action": "register",
+    "details": "User registered a new account",
+    "metadata": {
+      "email": "luoxiaohong888@gmail.com",
+      "language": "th"
+    },
+    "ip": "171.6.167.167",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T04:08:26.598Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:08:26.598Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986bad9758a5616ddd6a30c"
+    },
+    "userId": {
+      "$oid": "6986baba758a5616ddd6a304"
+    },
+    "username": "luoxiaohong",
+    "action": "verify_email",
+    "details": "User successfully verified their email",
+    "metadata": {
+      "email": "luoxiaohong888@gmail.com"
+    },
+    "ip": "171.6.167.167",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T04:08:57.091Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:08:57.091Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986badd758a5616ddd6a30f"
+    },
+    "userId": {
+      "$oid": "6986baba758a5616ddd6a304"
+    },
+    "username": "luoxiaohong",
+    "action": "login",
+    "details": "User logged in successfully",
+    "ip": "171.6.167.167",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T04:09:01.341Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:09:01.341Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986badd758a5616ddd6a315"
+    },
+    "userId": {
+      "$oid": "6986baba758a5616ddd6a304"
+    },
+    "username": "luoxiaohong",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "171.6.167.167",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T04:09:01.923Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:09:01.923Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986bba6758a5616ddd6a350"
+    },
+    "userId": {
+      "$oid": "6986baba758a5616ddd6a304"
+    },
+    "username": "luoxiaohong",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "171.6.167.167",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T04:12:22.152Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:12:22.152Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986bba6758a5616ddd6a354"
+    },
+    "userId": {
+      "$oid": "6986baba758a5616ddd6a304"
+    },
+    "username": "luoxiaohong",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "171.6.167.167",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T04:12:22.549Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:12:22.549Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986bbae758a5616ddd6a36d"
+    },
+    "userId": {
+      "$oid": "6986baba758a5616ddd6a304"
+    },
+    "username": "luoxiaohong",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "171.6.167.167",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T04:12:30.258Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:12:30.258Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986bbae758a5616ddd6a370"
+    },
+    "userId": {
+      "$oid": "6986baba758a5616ddd6a304"
+    },
+    "username": "luoxiaohong",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "171.6.167.167",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T04:12:30.510Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:12:30.510Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986f195758a5616ddd6a41d"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T08:02:29.799Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T08:02:29.799Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986f196758a5616ddd6a42b"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T08:02:30.277Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T08:02:30.277Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986f1a3758a5616ddd6a462"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T08:02:43.656Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T08:02:43.656Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986f1a3758a5616ddd6a466"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T08:02:43.968Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T08:02:43.968Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69870db66afc47718c72b6ac"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T10:02:30.825Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T10:02:30.825Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69870db66afc47718c72b6af"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T10:02:30.978Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T10:02:30.978Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69870dc36afc47718c72b6f3"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "purchase_license_points",
+    "details": "Purchased license QDRA-CYVE-Z83B-SWVV for account 33333 (xm) using 2700 points",
+    "metadata": {
+      "licenseCode": "QDRA-CYVE-Z83B-SWVV",
+      "accountNumber": "33333",
+      "platform": "xm",
+      "planDays": 96,
+      "pointsUsed": 2700,
+      "botVersionKey": "qdragon"
+    },
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T10:02:43.794Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T10:02:43.794Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69870dce6afc47718c72b721"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T10:02:54.651Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T10:02:54.651Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69870dcf6afc47718c72b72f"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T10:02:55.461Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T10:02:55.461Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6987289b6afc47718c72b822"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T11:57:15.990Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T11:57:15.990Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6987289c6afc47718c72b827"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "username": "sniperkla",
+    "action": "peek_profile",
+    "details": "User checked their profile data",
+    "ip": "2403:6200:8876:b5f:dc12:ab75:b6c4:b2b5",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+    "createdAt": {
+      "$date": "2026-02-07T11:57:16.138Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T11:57:16.138Z"
+    },
+    "__v": 0
   }
 ]

@@ -1826,5 +1826,61 @@
       "$date": "2026-02-04T13:18:29.097Z"
     },
     "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986d1b4758a5616ddd6a3c3"
+    },
+    "user": "luoxiaohong",
+    "license": "LOT-9QA6-N649-BWB6",
+    "expireDate": "07/02/2669 23:59",
+    "status": "valid",
+    "platform": "exness",
+    "accountNumber": "275788356",
+    "plan": 999999,
+    "isDemo": false,
+    "createdBy": "admin",
+    "adminGenerated": true,
+    "botVersionKey": "lot-partner",
+    "backendKey": "lot",
+    "note": "",
+    "activatedAt": {
+      "$date": "2026-02-07T05:46:28.517Z"
+    },
+    "createdAt": {
+      "$date": "2026-02-07T05:46:28.518Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T05:46:28.518Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69870dc36afc47718c72b6f1"
+    },
+    "user": "sniperkla",
+    "license": "QDRA-CYVE-Z83B-SWVV",
+    "expireDate": "02/06/2570 17:02",
+    "status": "valid",
+    "platform": "xm",
+    "accountNumber": "33333",
+    "plan": 96,
+    "isDemo": false,
+    "activatedAt": {
+      "$date": "2026-02-07T10:02:43.771Z"
+    },
+    "createdBy": "user",
+    "adminGenerated": false,
+    "botVersionKey": "qdragon",
+    "backendKey": "qdragon",
+    "note": "",
+    "createdAt": {
+      "$date": "2026-02-07T10:02:43.787Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T10:02:54.509Z"
+    },
+    "__v": 0
   }
 ]

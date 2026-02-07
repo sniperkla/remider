@@ -766,6 +766,7 @@ function HomeContent() {
   // Tag Presets State
   const [presetTags, setPresetTags] = useState([]);
   const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [showTagsModal, setShowTagsModal] = useState(false);
   const [newTagName, setNewTagName] = useState("");
   const [newTagColor, setNewTagColor] = useState("#8b5cf6");
   const [newTagIcon, setNewTagIcon] = useState("Tag");
@@ -2439,6 +2440,7 @@ function HomeContent() {
     }
     setNewTagName("");
     setIsCreatingTag(false);
+    setShowTagsModal(false);
     
     try {
         console.log("Saving preset tags to DB:", updatedTags);
@@ -2639,13 +2641,13 @@ function HomeContent() {
           </motion.button>
 
           <button onClick={() => setShowSettings(!showSettings)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
-            <Settings size={22} />
+            <Settings size={22} strokeWidth={1.5} />
           </button>
           <button onClick={() => setShowHelp(!showHelp)} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
-            <HelpCircle size={22} />
+            <HelpCircle size={22} strokeWidth={1.5} />
           </button>
           <button onClick={() => signOut()} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer" }}>
-            <LogOut size={22} />
+            <LogOut size={22} strokeWidth={1.5} />
           </button>
         </div>
       </header>
@@ -3421,7 +3423,7 @@ function HomeContent() {
             </motion.button>
           </div>
           <div className="balance-amount" style={{ fontSize: '2.5rem', fontWeight: 900, marginBottom: '1rem' }}>
-            ฿{(balance.bank + balance.cash).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            ฿{(accounts.filter(a => a.type === 'bank').reduce((sum, a) => sum + (a.balance || 0), 0) + balance.cash).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </div>
 
           {/* Today's Summary Cards */}
@@ -3442,7 +3444,11 @@ function HomeContent() {
                 ฿{(() => {
                   const todayExpense = transactions.filter(t => t.type === 'expense' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((sum, t) => sum + t.amount, 0);
                   const todayIncome = transactions.filter(t => t.type === 'income' && new Date(t.date).toDateString() === new Date().toDateString()).reduce((sum, t) => sum + t.amount, 0);
-                  const startingBalance = (balance.bank + balance.cash) + todayExpense - todayIncome;
+                  // Calculate total bank balance from actual accounts (more reliable than balance.bank)
+                  const totalBankFromAccounts = accounts.filter(a => a.type === 'bank').reduce((sum, a) => sum + (a.balance || 0), 0);
+                  const currentTotal = totalBankFromAccounts + balance.cash;
+                  // Starting balance = current balance + what we spent - what we earned today
+                  const startingBalance = currentTotal + todayExpense - todayIncome;
                   return startingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 });
                 })()}
               </div>
@@ -3957,7 +3963,7 @@ function HomeContent() {
             gap: '8px'
           }}
         >
-          <History size={16} /> {lang === 'th' ? "รายการ" : "Transactions"}
+          <History size={16} strokeWidth={1.5} /> {lang === 'th' ? "รายการ" : "Transactions"}
         </button>
         <button 
           onClick={() => setActiveTab('debts')}
@@ -3976,7 +3982,7 @@ function HomeContent() {
             gap: '8px'
           }}
         >
-          <ArrowRightLeft size={16} /> {t.debts}
+          <ArrowRightLeft size={16} strokeWidth={1.5} /> {t.debts}
         </button>
         <button 
           onClick={() => setActiveTab('reminders')}
@@ -3995,7 +4001,7 @@ function HomeContent() {
             gap: '8px'
           }}
         >
-          <Bell size={16} /> {t.reminders}
+          <Bell size={16} strokeWidth={1.5} /> {t.reminders}
           {reminders.filter(r => new Date(r.date).toDateString() === new Date().toDateString()).length > 0 && (
              <span style={{ 
                width: '8px', 
@@ -4572,7 +4578,7 @@ function HomeContent() {
                 gap: '8px'
               }}
             >
-              <PlusCircle size={18} color="var(--primary)" />
+              <PlusCircle size={18} color="var(--primary)" strokeWidth={1.5} />
               {lang === 'th' ? 'เพิ่มรายการยืม/คืน' : 'Add Borrow/Lend'}
             </button>
 
@@ -4580,7 +4586,7 @@ function HomeContent() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.05)' }}>
                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                     <Filter size={12} /> {lang === 'th' ? 'ตัวกรอง' : 'Filters'}
+                     <Filter size={12} strokeWidth={1.5} /> {lang === 'th' ? 'ตัวกรอง' : 'Filters'}
                    </div>
                    {(debtFilterTag || debtFilterTimeRange !== 'all') && (
                      <button 
@@ -4614,7 +4620,7 @@ function HomeContent() {
                            gap: '4px'
                          }}
                        >
-                         {range === 'custom' && <Calendar size={12} />}
+                         {range === 'custom' && <Calendar size={12} strokeWidth={1.5} />}
                          {range === 'all' ? (lang === 'th' ? 'ทั้งหมด' : 'All') :
                           range === 'today' ? (lang === 'th' ? 'วันนี้' : 'Today') :
                           range === '7d' ? (lang === 'th' ? '7 วัน' : '7 Days') :
@@ -4684,8 +4690,8 @@ function HomeContent() {
                    )}
 
                    {/* Tag Filter */}
-                   {presetTags.length > 0 && (
-                     <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
+                   {/* Tag Filter */}
+                   <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px' }} className="no-scrollbar">
                        {presetTags.map(tag => (
                          <button
                            key={tag.name}
@@ -4709,15 +4715,34 @@ function HomeContent() {
                            {tag.name}
                          </button>
                        ))}
-                     </div>
-                   )}
+                       
+                       <button
+                         onClick={() => { setNewTagName(""); setShowTagsModal(true); }}
+                         style={{
+                             flexShrink: 0,
+                             padding: '6px 12px',
+                             borderRadius: '20px',
+                             fontSize: '11px',
+                             fontWeight: 600,
+                             border: '1px dashed rgba(255,255,255,0.2)',
+                             background: 'rgba(255,255,255,0.05)',
+                             color: 'rgba(255,255,255,0.6)',
+                             display: 'flex',
+                             alignItems: 'center',
+                             gap: '4px',
+                             cursor: 'pointer'
+                         }}
+                       >
+                         <Plus size={12} strokeWidth={1.5} /> {lang === 'th' ? 'เพิ่ม' : 'Add'}
+                       </button>
+                   </div>
                  </div>
               </div>
             )}
 
             {debts.length === 0 ? (
               <div style={{ textAlign: "center", padding: "3rem 1rem", color: "var(--text-muted)", background: 'rgba(255,255,255,0.02)', borderRadius: '24px' }}>
-                <ArrowRightLeft size={40} style={{ opacity: 0.2, marginBottom: '1rem' }} />
+                <ArrowRightLeft size={40} strokeWidth={1.5} style={{ opacity: 0.2, marginBottom: '1rem' }} />
                 <p>{t.no_debts}</p>
               </div>
             ) : (
@@ -5365,18 +5390,18 @@ function HomeContent() {
             <AnimatePresence>
             {showScanOptions && (
                 <motion.div 
-                    initial={{ opacity: 0, y: 10, scale: 0.8 }}
-                    animate={{ opacity: 1, y: -20, scale: 1 }}
-                    exit={{ opacity: 0, y: 10, scale: 0.8 }}
+                    initial={{ opacity: 0, y: 10, scale: 0.8, x: '-50%' }}
+                    animate={{ opacity: 1, y: 0, scale: 1, x: '-50%' }}
+                    exit={{ opacity: 0, y: 10, scale: 0.8, x: '-50%' }}
                     style={{
-                        position: 'absolute',
-                        bottom: '100%', 
+                        position: 'fixed',
+                        bottom: '170px', 
                         left: '50%',
-                        transform: 'translateX(-50%)',
+                        // transform: 'translateX(-50%)', // Handled by motion x
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '12px',
-                        zIndex: 100,
+                        zIndex: 10005,
                         padding: '16px',
                         borderRadius: '24px',
                         background: 'rgba(15, 23, 42, 0.95)',
@@ -5573,7 +5598,7 @@ function HomeContent() {
                                     transition: 'transform 0.2s'
                                 }}
                             >
-                                <Camera size={22} />
+                                <Camera size={22} strokeWidth={1.5} />
                             </label>
                             <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{lang === 'th' ? 'กล้อง' : 'Camera'}</span>
                         </div>
@@ -5591,7 +5616,7 @@ function HomeContent() {
                                     transition: 'transform 0.2s'
                                 }}
                             >
-                                <Image size={22} />
+                                <Image size={22} strokeWidth={1.5} />
                             </label>
                             <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{lang === 'th' ? 'อัลบั้ม' : 'Gallery'}</span>
                         </div>
@@ -5657,7 +5682,7 @@ function HomeContent() {
                   boxShadow: tutorialStep === 'voice' ? '0 0 30px rgba(168, 85, 247, 0.6)' : undefined
                 }}
               >
-                  {isListening ? <Mic size={32} /> : <Mic size={32} style={{ opacity: 0.5 }} />}
+                  {isListening ? <Mic size={32} strokeWidth={1.5} /> : <Mic size={32} strokeWidth={1.5} style={{ opacity: 0.5 }} />}
               </button>
               
               {/* Continuous mode indicator */}
@@ -5966,7 +5991,7 @@ function HomeContent() {
               style={{ textAlign: 'center' }}
             >
               <div style={{ color: 'var(--danger)', marginBottom: '1.5rem' }}>
-                <Trash2 size={48} style={{ margin: '0 auto' }} />
+                <Trash2 size={48} strokeWidth={1.2} style={{ margin: '0 auto' }} />
               </div>
               <h3 style={{ marginBottom: '1rem' }}>{confirmModal.title}</h3>
               <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem' }}>
@@ -6573,7 +6598,7 @@ function HomeContent() {
                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
                         }}
                       >
-                         <Trash2 size={16} />
+                         <Trash2 size={16} strokeWidth={1.5} />
                          {lang === 'th' ? 'ลบบัญชีนี้' : 'Delete Account'}
                       </button>
                    </div>
@@ -6748,6 +6773,126 @@ function HomeContent() {
           </motion.div>
         )}
       </AnimatePresence>
+      <AnimatePresence>
+        {showTagsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 10000,
+              background: 'rgba(0,0,0,0.85)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1.5rem',
+              backdropFilter: 'blur(8px)'
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              style={{
+                width: '100%',
+                maxWidth: '360px',
+                background: '#1e293b',
+                borderRadius: '24px',
+                border: '1px solid rgba(255,255,255,0.1)',
+                padding: '24px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'white' }}>
+                  {lang === 'th' ? 'สร้างแท็กใหม่' : 'Create New Tag'}
+                </h3>
+                <button onClick={() => setShowTagsModal(false)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}><X size={20} /></button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {/* Name Input */}
+                <div>
+                   <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', display: 'block' }}>{lang === 'th' ? "ชื่อแท็ก" : "Tag Name"}</label>
+                   <input
+                     autoFocus
+                     value={newTagName}
+                     onChange={(e) => setNewTagName(e.target.value)}
+                     placeholder={lang === 'th' ? "เช่น ที่ทำงาน" : "e.g. Work"}
+                     style={{
+                       width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                       borderRadius: '12px', padding: '12px', color: 'white', fontSize: '15px'
+                     }}
+                   />
+                </div>
+
+                {/* Color Picker */}
+                <div>
+                  <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', display: 'block' }}>{lang === 'th' ? "สี" : "Color"}</label>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'space-between' }}>
+                    {['#ef4444', '#f97316', '#84cc16', '#06b6d4', '#8b5cf6', '#ec4899', '#f43f5e'].map(c => (
+                      <div
+                        key={c}
+                        onClick={() => setNewTagColor(c)}
+                        style={{
+                          width: '32px', height: '32px', borderRadius: '50%', background: c,
+                          border: newTagColor === c ? '3px solid white' : 'none', cursor: 'pointer',
+                          boxShadow: newTagColor === c ? `0 0 15px ${c}80` : 'none',
+                          transition: 'all 0.2s'
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Icon Picker */}
+                <div>
+                  <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginBottom: '8px', display: 'block' }}>{lang === 'th' ? "ไอคอน" : "Icon"}</label>
+                  <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }} className="no-scrollbar">
+                    {['Tag', 'Briefcase', 'Home', 'Users', 'Heart', 'Star', 'Coffee', 'Car', 'ShoppingBag', 'Smile'].map(icon => (
+                      <div
+                        key={icon}
+                        onClick={() => setNewTagIcon(icon)}
+                        style={{
+                          padding: '10px', borderRadius: '12px',
+                          background: newTagIcon === icon ? `${newTagColor}40` : 'rgba(255,255,255,0.05)',
+                          border: newTagIcon === icon ? `1px solid ${newTagColor}` : '1px solid rgba(255,255,255,0.05)',
+                          cursor: 'pointer', flexShrink: 0
+                        }}
+                      >
+                        {getIconComponent(icon, 20, newTagIcon === icon ? 'white' : 'rgba(255,255,255,0.5)')}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSavePresetTag}
+                  disabled={!newTagName}
+                  style={{
+                    width: '100%',
+                    padding: '14px',
+                    borderRadius: '16px',
+                    background: newTagName ? newTagColor : 'rgba(255,255,255,0.1)',
+                    color: newTagName ? 'white' : 'rgba(255,255,255,0.3)',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '15px',
+                    cursor: newTagName ? 'pointer' : 'not-allowed',
+                    marginTop: '8px',
+                    boxShadow: newTagName ? `0 8px 20px ${newTagColor}40` : 'none',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {lang === 'th' ? 'บันทึกแท็กใหม่' : 'Save New Tag'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       {showWebcam && (
         <WebcamModal 

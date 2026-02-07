@@ -134,5 +134,31 @@
       "$date": "2026-01-29T09:57:02.761Z"
     },
     "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69870dce6afc47718c72b71d"
+    },
+    "userId": {
+      "$oid": "692c195e905cc2599e73f048"
+    },
+    "customerAccountId": {
+      "$oid": "69870dc36afc47718c72b6f1"
+    },
+    "licenseSource": "customerAccount",
+    "username": "sniperkla",
+    "licenseCode": "QDRA-CYVE-Z83B-SWVV",
+    "currentExpiry": "14/05/2569 17:02",
+    "requestedPlan": "384",
+    "requestedDays": 384,
+    "status": "approved",
+    "requestedAt": {
+      "$date": "2026-02-07T10:02:54.521Z"
+    },
+    "processedAt": {
+      "$date": "2026-02-07T10:02:54.521Z"
+    },
+    "processedBy": "system",
+    "__v": 0
   }
 ]

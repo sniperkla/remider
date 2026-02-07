@@ -3726,5 +3726,142 @@
       "$date": "2026-02-05T07:51:58.668Z"
     },
     "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6984ea1d758a5616ddd6a108"
+    },
+    "recipient": "sniperkla@gmail.com",
+    "subject": "เลขอ้างอิง : DFIV1O72 สั่งซื้อสำเร็จ ใบอนุญาตของคุณคือ: QDRA-Y3G6-ERYX-6D5K",
+    "refNo": "DFIV1O72",
+    "type": "purchase_confirmation",
+    "status": "sent",
+    "metadata": {
+      "username": "sniperkla",
+      "licenseCode": "QDRA-Y3G6-ERYX-6D5K",
+      "planDays": 32,
+      "price": 1000,
+      "status": "activated"
+    },
+    "messageId": "b64fc6e4-cd02-44d6-b873-a75fe123ad60",
+    "sentAt": {
+      "$date": "2026-02-05T19:06:05.891Z"
+    },
+    "createdAt": {
+      "$date": "2026-02-05T19:06:05.893Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-05T19:06:05.893Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6985dead758a5616ddd6a24d"
+    },
+    "recipient": "sniperkla@gmail.com",
+    "subject": "เลขอ้างอิง : ZFN28J7Z สั่งซื้อสำเร็จ ใบอนุญาตของคุณคือ: QDRA-JDVY-Y8IJ-A62R",
+    "refNo": "ZFN28J7Z",
+    "type": "purchase_confirmation",
+    "status": "sent",
+    "metadata": {
+      "username": "sniperkla",
+      "licenseCode": "QDRA-JDVY-Y8IJ-A62R",
+      "planDays": 32,
+      "price": 1000,
+      "status": "activated"
+    },
+    "messageId": "8448ddd8-2f55-47e4-9054-65bd97d6b5a9",
+    "sentAt": {
+      "$date": "2026-02-06T12:29:33.929Z"
+    },
+    "createdAt": {
+      "$date": "2026-02-06T12:29:33.931Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-06T12:29:33.931Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986babb758a5616ddd6a308"
+    },
+    "recipient": "luoxiaohong888@gmail.com",
+    "subject": "เลขอ้างอิง : KUFJPRJS ยืนยันบัญชีเทรด Q-DRAGON ของคุณ",
+    "refNo": "KUFJPRJS",
+    "type": "verification",
+    "status": "sent",
+    "metadata": {
+      "username": "luoxiaohong",
+      "verificationToken": "949930"
+    },
+    "messageId": "09252d86-703e-4ed1-92fa-1f18c4951b26",
+    "sentAt": {
+      "$date": "2026-02-07T04:08:27.196Z"
+    },
+    "createdAt": {
+      "$date": "2026-02-07T04:08:27.197Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:08:27.197Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986d1b5758a5616ddd6a3c9"
+    },
+    "recipient": "luoxiaohong888@gmail.com",
+    "subject": "เลขอ้างอิง : XYCE3DDI อนุมัติเวอร์ชันบอท: LOT (Partner IB)",
+    "refNo": "XYCE3DDI",
+    "type": "bot_version_approval",
+    "status": "sent",
+    "metadata": {
+      "username": "luoxiaohong",
+      "versionName": "LOT (Partner IB)",
+      "license": "LOT-9QA6-N649-BWB6",
+      "accountNumber": "275788356",
+      "platform": "exness"
+    },
+    "messageId": "4e7df4dc-afb5-4461-8b73-1dbeaa12767a",
+    "sentAt": {
+      "$date": "2026-02-07T05:46:29.127Z"
+    },
+    "createdAt": {
+      "$date": "2026-02-07T05:46:29.135Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T05:46:29.135Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "69870dc46afc47718c72b6ff"
+    },
+    "recipient": "sniperkla@gmail.com",
+    "subject": "เลขอ้างอิง : QJMFDPCG สั่งซื้อสำเร็จ ใบอนุญาตของคุณคือ: QDRA-CYVE-Z83B-SWVV",
+    "refNo": "QJMFDPCG",
+    "type": "purchase_confirmation",
+    "status": "sent",
+    "metadata": {
+      "username": "sniperkla",
+      "licenseCode": "QDRA-CYVE-Z83B-SWVV",
+      "planDays": 96,
+      "price": 2700,
+      "status": "activated"
+    },
+    "messageId": "dcb97f01-533a-4d8b-a76c-e45df299894e",
+    "sentAt": {
+      "$date": "2026-02-07T10:02:44.399Z"
+    },
+    "createdAt": {
+      "$date": "2026-02-07T10:02:44.404Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T10:02:44.404Z"
+    },
+    "__v": 0
   }
 ]

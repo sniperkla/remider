@@ -80,7 +80,7 @@
     },
     "botVersionKey": "qdragon",
     "totalKeys": 50,
-    "remainingKeys": 71,
+    "remainingKeys": 73,
     "planDays": 999999,
     "isLifetime": true,
     "expireDate": {
@@ -91,7 +91,7 @@
       "$date": "2026-01-28T08:01:00.969Z"
     },
     "updatedAt": {
-      "$date": "2026-02-04T13:19:06.534Z"
+      "$date": "2026-02-07T05:47:32.326Z"
     },
     "__v": 0
   }

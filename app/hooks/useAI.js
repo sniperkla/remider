@@ -341,23 +341,45 @@ export default function useAI({
       }
       else if (data.action === "SET_BALANCE") {
          const { wallet, bank, bankAccountId, amount } = data;
-         const updates = {};
-         if (wallet === 'cash') updates.cash = amount;
-         if (wallet === 'bank') updates.bank = amount;
-         const newBal = { ...balance, ...updates };
-         setBalance(newBal);
-         if (balanceRef) balanceRef.current = newBal;
-         let updatedAccounts = accounts;
-         if (wallet === 'bank') {
+         let updatedAccounts = [...accounts];
+         let newBal = { ...balance };
+         
+         if (wallet === 'cash') {
+           // Simple cash update
+           newBal.cash = amount;
+         } else if (wallet === 'bank') {
+            // For bank, find specific account and update it
             const healedId = findAccountId(bank, bankAccountId);
             if (healedId) {
+              // Update specific bank account balance
               updatedAccounts = accounts.map(acc => acc.id === healedId ? { ...acc, balance: amount } : acc);
               setAccounts(updatedAccounts);
               accountsRef.current = updatedAccounts;
+              
+              // Recalculate total bank balance from all bank accounts
+              const totalBankBalance = updatedAccounts
+                .filter(a => a.type === 'bank')
+                .reduce((sum, a) => sum + (a.balance || 0), 0);
+              newBal.bank = totalBankBalance;
+              
+              // Show specific account name in message
+              const accountName = updatedAccounts.find(a => a.id === healedId)?.name || 'ธนาคาร';
+              setAiMessage(data.message || (lang === 'th' ? `ปรับยอด ${accountName} เป็น ฿${amount.toLocaleString()} แล้วค่ะ` : `Updated ${accountName} balance to ฿${amount.toLocaleString()}`));
+            } else {
+              // No specific bank, update total bank balance
+              newBal.bank = amount;
+              setAiMessage(data.message || (lang === 'th' ? `ปรับยอดธนาคารเป็น ฿${amount.toLocaleString()} แล้วค่ะ` : `Updated bank balance to ฿${amount.toLocaleString()}`));
             }
          }
+         
+         setBalance(newBal);
+         if (balanceRef) balanceRef.current = newBal;
          fetch('/api/data', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ balance: newBal, accounts: updatedAccounts }) });
-         setAiMessage(data.message || (lang === 'th' ? `ปรับยอดเงิน${wallet}เป็น ฿${amount.toLocaleString()}` : `Updated ${wallet} balance to ฿${amount.toLocaleString()}`));
+         
+         // Only set generic message for cash (bank-specific is handled above)
+         if (wallet === 'cash') {
+           setAiMessage(data.message || (lang === 'th' ? `ปรับยอดเงินสดเป็น ฿${amount.toLocaleString()} แล้วค่ะ` : `Updated cash balance to ฿${amount.toLocaleString()}`));
+         }
       }
       else if (data.action === "BORROW" || data.action === "LEND") {
         const { amount, person, type, wallet, note, category, bank, bankAccountId } = data;

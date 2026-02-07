@@ -169,30 +169,6 @@
   },
   {
     "_id": {
-      "$oid": "697d6d10dd39b57e56c53bf6"
-    },
-    "userId": "69732830a0e53a5e4a4aac6f",
-    "type": "customer-account-updated",
-    "payload": {
-      "action": "account_number_changed_by_admin",
-      "license": "QDRA-6NCU-ZMSH-81B9",
-      "oldAccountNumber": "425054611",
-      "newAccountNumber": "201693983",
-      "_broadcast": true,
-      "_ts": 1769827600798
-    },
-    "delivered": false,
-    "attempts": 0,
-    "createdAt": {
-      "$date": "2026-01-31T02:46:40.818Z"
-    },
-    "updatedAt": {
-      "$date": "2026-01-31T02:46:40.818Z"
-    },
-    "__v": 0
-  },
-  {
-    "_id": {
       "$oid": "698300e30cbb80145c07f4f0"
     },
     "userId": "6982fac20cbb80145c07f33b",
@@ -374,6 +350,174 @@
     },
     "updatedAt": {
       "$date": "2026-02-04T13:18:29.133Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986bb5d758a5616ddd6a344"
+    },
+    "userId": "6986baba758a5616ddd6a304",
+    "type": "bot-version-request-status",
+    "payload": {
+      "action": "created",
+      "request": {
+        "id": "6986bb5c758a5616ddd6a340",
+        "userId": "6986baba758a5616ddd6a304",
+        "username": "luoxiaohong",
+        "versionKey": "lot-partner",
+        "versionName": "LOT (Partner IB)",
+        "accountNumber": "275788356",
+        "platform": "exness",
+        "status": "pending",
+        "adminNote": "",
+        "processedBy": null,
+        "processedAt": null,
+        "createdAt": {
+          "$date": "2026-02-07T04:11:08.478Z"
+        },
+        "updatedAt": {
+          "$date": "2026-02-07T04:11:08.478Z"
+        }
+      },
+      "timestamp": "2026-02-07T04:11:09.491Z",
+      "_broadcast": true,
+      "_ts": 1770437469491
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-07T04:11:09.500Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:11:09.500Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986bb5d758a5616ddd6a347"
+    },
+    "userId": "6986baba758a5616ddd6a304",
+    "type": "client-notification",
+    "payload": {
+      "message": {
+        "key": "request_submitted_waiting_approval",
+        "params": {
+          "name": "LOT (Partner IB)"
+        }
+      },
+      "type": "info",
+      "timestamp": "2026-02-07T04:11:09.510Z",
+      "_broadcast": true,
+      "_ts": 1770437469510
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-07T04:11:09.515Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T04:11:09.515Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986d1b4758a5616ddd6a3c6"
+    },
+    "userId": "6986baba758a5616ddd6a304",
+    "type": "customer-account-updated",
+    "payload": {
+      "action": "created",
+      "account": {
+        "license": "LOT-9QA6-N649-BWB6",
+        "botVersionKey": "lot-partner",
+        "expireDate": "07/02/2669 23:59",
+        "status": "valid"
+      },
+      "_broadcast": true,
+      "_ts": 1770443188555
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-07T05:46:28.587Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T05:46:28.587Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986d1b6758a5616ddd6a3ce"
+    },
+    "userId": "6986baba758a5616ddd6a304",
+    "type": "bot-version-request-status",
+    "payload": {
+      "action": "status-changed",
+      "request": {
+        "id": "6986bb5c758a5616ddd6a340",
+        "userId": "6986baba758a5616ddd6a304",
+        "username": "luoxiaohong",
+        "versionKey": "lot-partner",
+        "versionName": "LOT (Partner IB)",
+        "accountNumber": "275788356",
+        "platform": "exness",
+        "status": "approved",
+        "adminNote": "",
+        "processedBy": "น้องกล้า",
+        "processedAt": {
+          "$date": "2026-02-07T05:46:28.481Z"
+        },
+        "createdAt": {
+          "$date": "2026-02-07T04:11:08.478Z"
+        },
+        "updatedAt": {
+          "$date": "2026-02-07T05:46:28.482Z"
+        }
+      },
+      "timestamp": "2026-02-07T05:46:30.096Z",
+      "_broadcast": true,
+      "_ts": 1770443190096
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-07T05:46:30.126Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T05:46:30.126Z"
+    },
+    "__v": 0
+  },
+  {
+    "_id": {
+      "$oid": "6986d1b6758a5616ddd6a3d1"
+    },
+    "userId": "6986baba758a5616ddd6a304",
+    "type": "client-notification",
+    "payload": {
+      "message": {
+        "key": "bot_version_request_approved",
+        "params": {
+          "versionName": "LOT (Partner IB)",
+          "reason": ""
+        }
+      },
+      "type": "success",
+      "timestamp": "2026-02-07T05:46:30.143Z",
+      "_broadcast": true,
+      "_ts": 1770443190145
+    },
+    "delivered": false,
+    "attempts": 0,
+    "createdAt": {
+      "$date": "2026-02-07T05:46:30.202Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T05:46:30.202Z"
     },
     "__v": 0
   }

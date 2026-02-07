@@ -153,8 +153,10 @@ Triggers: "เปลี่ยน", "ใช้", "switch to"
 4. SET_BUDGET
 {"action":"SET_BUDGET","amount":500,"period":"daily"|"monthly","thought":"...","message":"..."}
 
-5. SET_BALANCE
-{"action":"SET_BALANCE","wallet":"bank"|"cash","amount":2000,"thought":"...","message":"..."}
+5. SET_BALANCE - Set/adjust wallet or specific bank balance
+{"action":"SET_BALANCE","wallet":"bank"|"cash","bankAccountId":"<ID>","bank":"SCB","amount":2000,"thought":"...","message":"..."}
+Triggers: "ปรับยอด", "ตั้งยอด", "set balance"
+IMPORTANT: For specific banks like "ปรับยอด TrueMoney", MUST include bankAccountId and bank name to update that specific account
 
 6. BORROW/LEND - Debt direction:
 - LEND (they owe you): "[Name] ยืมเงิน", "ให้ [Name] ยืม", "[Name] ติดเงินเรา", "คนอื่นติดเงินเรา", "เราให้ [Name] ยืม"

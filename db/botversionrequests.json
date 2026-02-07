@@ -423,5 +423,30 @@
       "$date": "2026-02-04T09:45:35.414Z"
     },
     "processedBy": "น้องกล้า"
+  },
+  {
+    "_id": {
+      "$oid": "6986bb5c758a5616ddd6a340"
+    },
+    "userId": "6986baba758a5616ddd6a304",
+    "username": "luoxiaohong",
+    "versionKey": "lot-partner",
+    "versionName": "LOT (Partner IB)",
+    "accountNumber": "275788356",
+    "platform": "exness",
+    "status": "approved",
+    "notified": false,
+    "createdAt": {
+      "$date": "2026-02-07T04:11:08.478Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-07T05:46:28.482Z"
+    },
+    "__v": 0,
+    "adminNote": "",
+    "processedAt": {
+      "$date": "2026-02-07T05:46:28.481Z"
+    },
+    "processedBy": "น้องกล้า"
   }
 ]
